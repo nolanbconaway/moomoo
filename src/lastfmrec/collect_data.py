@@ -1,10 +1,11 @@
+import argparse
 import json
 import os
+import time
 from itertools import product
 
-import requests
-import time
 import psycopg2
+import requests
 from tqdm import tqdm
 
 POSTGRES_DSN = os.environ["POSTGRES_DSN"]
@@ -82,12 +83,18 @@ def insert(conn, **data):
         conn.commit()
 
 
-def main():
+def main(progressbar: bool = False):
+
+    f = tqdm if progressbar else lambda x: x
+
     with psycopg2.connect(POSTGRES_DSN) as conn:
-        for query in tqdm(QUERIES):
+        for query in f(QUERIES):
             res = get_top(**query)
             insert(conn, **query, json_data=json.dumps(res))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no-progress", action="store_true")
+    args = parser.parse_args()
+    main(progressbar=not args.no_progress)
