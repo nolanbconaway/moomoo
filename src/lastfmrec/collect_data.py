@@ -6,16 +6,12 @@ from itertools import product
 
 import psycopg2
 import requests
-from tqdm import tqdm
 
 POSTGRES_DSN = os.environ["POSTGRES_DSN"]
 USERNAME = os.environ["LASTFM_USERNAME"]
 API_KEY = os.environ["LASTFM_API_KEY"]
-
-
-KINDS = ["artists", "tracks", "albums"]
-PERIODS = ["overall", "7day", "1month", "3month", "6month", "12month"]
-QUERIES = [dict(kind=i, period=j) for i, j in product(KINDS, PERIODS)]
+KINDS = ("artists", "tracks", "albums")
+PERIODS = ("overall", "7day", "1month", "3month", "6month", "12month")
 
 
 def get_with_retries(
@@ -83,12 +79,12 @@ def insert(conn, **data):
         conn.commit()
 
 
-def main(progressbar: bool = False):
-
-    f = tqdm if progressbar else lambda x: x
+def main(queries: list, progress: bool = False):
 
     with psycopg2.connect(POSTGRES_DSN) as conn:
-        for query in f(QUERIES):
+        for query in queries:
+            if progress:
+                print("Querying {}".format(query))
             res = get_top(**query)
             insert(conn, **query, json_data=json.dumps(res))
 
@@ -96,5 +92,16 @@ def main(progressbar: bool = False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-progress", action="store_true")
+    parser.add_argument("--period", choices=PERIODS, default=None)
+    parser.add_argument("--kind", choices=KINDS, default=None)
     args = parser.parse_args()
-    main(progressbar=not args.no_progress)
+
+    queries = [
+        dict(kind=i, period=j)
+        for i, j in product(
+            [args.kind] if args.kind is not None else KINDS,
+            [args.period] if args.period is not None else PERIODS,
+        )
+    ]
+
+    main(queries=queries, progress=not args.no_progress)
