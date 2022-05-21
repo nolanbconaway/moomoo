@@ -2,3 +2,8 @@ __pycache__
 *.egg-info
 .env
 .python-version
+
+dbt/target/**/*
+dbt/dbt_packages/**/*
+dbt/logs/**/*
+dbt/.dotdbt
