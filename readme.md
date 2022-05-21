@@ -5,9 +5,10 @@ I'll never do it so long as I cannot get that service elsewhere, so let's see if
 
 ## Status
 
-- [x] LastFM integrated with my music players
-- [x] Data being collected to my postgres db
-- [ ] Tools to build playlists/recs on the basis of said data.
+This is ongoing! 
+
+Current status: I wrote the dbt models for providing easy access to my data, and next i need to toy with 
+models for recommendation. 
 
 ## Setup 
 
@@ -28,7 +29,7 @@ These scripts assume those variables are exported.
 
 ### Database
 
-This table stores the raw data obtained from the Last FM API. My goal is to run a script daily to append values here.
+This postgres table stores the raw data obtained from the Last FM API. My goal is to run a script daily to append values here.
 
 ```sql
 create table lastfm (
@@ -42,3 +43,8 @@ create index on lastfm (ts_utc, kind, period);
 ```
 
 I just built it once manually because I don't care about Future Nolan.
+
+
+### DBT
+
+If you have data being populated into the above model; you can use the models in [dbt](dbt/) to expose those json payloads into useful/structured data.
