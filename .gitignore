@@ -2,6 +2,7 @@ __pycache__
 *.egg-info
 .env
 .python-version
+.vscode
 
 dbt/target/**/*
 dbt/dbt_packages/**/*

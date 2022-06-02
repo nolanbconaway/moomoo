@@ -208,6 +208,15 @@ models:
         tests:
          - not_null
          - unique
+
+  - name: artists_monthly_top5
+    description: Pivoted top artists from each month.
+    columns:
+      - name: month_
+        tests:
+         - not_null
+         - unique
+
   - name: tracks_7day
     description: Quick view tracking total track plays in the last 7 days.
     columns:
