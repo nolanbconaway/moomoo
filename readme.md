@@ -13,14 +13,13 @@ models for recommendation.
 ## Setup 
 
 - install: `pip install -e .`
-- data collection script: `python -m lastfmrec.collect_data`
+- data collection script: `python -m lastfmrec.collect_recent_tracks`
 
 ### Env Requires
 
 I have a .env like:
 
 ```
-LASTFM_USERNAME="username"
 LASTFM_API_KEY="xxxxxxxx"
 POSTGRES_DSN="dbname=my_db ..."
 ```
@@ -32,18 +31,18 @@ These scripts assume those variables are exported.
 This postgres table stores the raw data obtained from the Last FM API. My goal is to run a script daily to append values here.
 
 ```sql
-create table lastfm (
-    "ts_utc" timestamp with time zone default CURRENT_TIMESTAMP not null
-    , "kind" varchar not null
-    , "period" varchar not null
-    , "json_data" jsonb not null
+create table {schema}.{table} (
+    listen_md5 varchar(32) not null primary key
+    , username text not null
+    , json_data jsonb not null
+    , listen_at_ts_utc timestamp with time zone not null
+    , insert_ts_utc timestamp with time zone default current_timestamp not null
 );
-
-create index on lastfm (ts_utc, kind, period);
+create index {schema}_{table}_username_idx on {schema}.{table} (username);
+create index {schema}_{table}_listen_at_idx on {schema}.{table} (listen_at_ts_utc);
 ```
 
-I just built it once manually because I don't care about Future Nolan.
-
+You can create it via `python -m lastfmrec.collect_recent_tracks --create`.
 
 ### DBT
 
