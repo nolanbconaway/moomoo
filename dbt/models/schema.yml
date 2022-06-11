@@ -5,222 +5,172 @@ sources:
   - name: pyingest
     schema: public
     tables:
-      - name: lastfm
+      - name: lastfm_recent_tracks_json
         description: Raw data ingested via python script.
-        tests:
-          - dbt_utils.unique_combination_of_columns:
-              combination_of_columns:
-                - ts_utc
-                - kind
-                - period
-
+        columns:
+          - name: listen_md5
+            tests:
+              - not_null
+              - unique
 
 models:
-  - name: lastfm_payloads_flat
-    description: |
-      Base moel which extracts JSON from the source lastfm table, then explodes to
-      one row per entity and one column per key. Most models are built from here.
+  - name: lastfm_listens_flat
+    description: Base model which extracts JSON from the source lastfm table.
     tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - pyingest_id
-            - lastfm_entity_id
-    columns:
-      - name: lastfm_entity_id
-        description: |
-          An attempt at identifying unique musical entities via the data from lastfm.
-          These can be artists, albums, and tracks. Lastfm does not provide any key,
-          instead I md5 it via (kind, name, url, mbid), so this is somewhat imperfect.
-        tests:
-         - not_null
-      - name: pyingest_id
-        description: Md5 of the period, kind, and ts of the API call generating the data.
-        tests:
-         - not_null
-      - name: ts_utc
-        description: ts of data insert.
-        tests:
-         - not_null
-      - name: kind
-        description: kind api option. Can be artists, albums, tracks.
-        tests:
-         - not_null
-         - accepted_values:
-            values: ['artists', 'albums', 'tracks']
-      - name: period
-        description: period api option. Can be overall, 7day, 1month, 3month, 6month, 12month.
-        tests:
-         - not_null
-         - accepted_values:
-            values: ['overall', '7day', '1month', '3month', '6month', '12month']
-      - name: url
-        description: url field of the api payload.
-        tests:
-         - not_null
-      - name: mbid
-        description: mbid field of the api payload. applies to kind=artists.
-      - name: name
-        description: name field of the api payload.
-        tests:
-         - not_null
-      - name: playcount
-        description: playcount field of the api payload.
-        tests:
-         - not_null
-      - name: duration
-        description: duration field of the api payload.
-      - name: artist__url
-        description: artist.url field of the api payload, in the artists subkey.
-      - name: artist__mbid
-        description: artist.mbid field of the api payload, in the artists subkey.
-      - name: artist__name
-        description: artist.name field of the api payload, in the artists subkey.
-
-  - name: ingests
-    description: Dimensional model for ingest actions. There will be one row per saved API call.
-    columns:
-      - name: pyingest_id
-        description: Md5 of the period, kind, and ts of the API call generating the data.
-        tests:
-         - not_null
-         - unique
-      - name: ts_utc
-      - name: ts_utc
-        description: ts of data insert.
-        tests:
-         - not_null
-      - name: ts_nyc
-        tests:
-         - not_null
-      - name: kind
-        description: kind api option. Can be artists, albums, tracks.
-        tests:
-         - not_null
-         - accepted_values:
-            values: ['artists', 'albums', 'tracks']
-      - name: period
-        description: period api option. Can be overall, 7day, 1month, 3month, 6month, 12month.
-        tests:
-         - not_null
-         - accepted_values:
-            values: ['overall', '7day', '1month', '3month', '6month', '12month']
-      - name: date_nyc_ingest_index
-        description: |
-          Index of the ingest within those of the same date, nyc time. Useful when you 
-          don't want to consider ingests which took place within a short time period.
-        tests:
-         - not_null
-
-  - name: lastfm_entities
-    description: |
-      Dimensional model for lastfm 'entities'. These can be artists, albums, and tracks.
-      Lastfm does not provide the entity key, instead I md5 it via (kind, name, url, 
-      mbid), so this is somewhat imperfect.
-    columns:
-      - name: lastfm_entity_id
-        description: |
-          An attempt at identifying unique musical entities via the data from lastfm.
-          These can be artists, albums, and tracks. Lastfm does not provide any key,
-          instead I md5 it via (kind, name, url, mbid), so this is somewhat imperfect.
-        tests:
-         - not_null
-         - unique
-      - name: kind
-        description: kind api option. Can be artists, albums, tracks.
-        tests:
-         - not_null
-         - accepted_values:
-            values: ['artists', 'albums', 'tracks']
-      - name: url
-        description: url field of the api payload.
-        tests:
-         - not_null
-      - name: mbid
-        description: mbid field of the api payload. applies to kind=artists.
-      - name: name
-        description: name field of the api payload.
-        tests:
-         - not_null
-      - name: artist__name
-        description: artist.name field of the api payload, in the artists subkey.      
-      - name: first_ts_utc
-        description: Timestamp of the first ingest in which this entity was seen.
-        tests:
-         - not_null
-
-  - name: lastfm_listens_incremental
-    description: |
-      Derived model counting incremental plays for each entity that was played between 
-      each ingest.
-      
-      Ingests taking place on the same day not counted, so this model ensure that the
-      periods will always be on different days, but has no guarantee that they will be
-      on consecutive days or 24h apart.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - to_pyingest_id
-            - lastfm_entity_id
       - dbt_utils.expression_is_true:
-          expression: "from_ts_nyc::date < to_ts_nyc::date"
+          expression: "_insert_ts_utc > listen_at_ts_utc"
     columns:
-      - name: lastfm_entity_id
-        description: The entity id listened to in the period.
+      - name: listen_md5
+        description: The unique md5 of the listen event, generated by the ingestion script.
         tests:
-         - not_null
-      - name: from_pyingest_id
-        description: The ingest id which is the reference for the period.
+          - not_null
+          - unique
+      - name: username
         tests:
-         - not_null
-      - name: to_pyingest_id
-        description: The ingest id which is the target for the period.
+          - not_null
+      - name: listen_at_ts_utc
         tests:
-         - not_null
-      - name: from_ts_nyc
-        description: The nyc timestamp for the from-ingest id.
+          - not_null
+      - name: track_md5
+        description: The md5 of the track name, album name, and artist name.
+      - name: track_name
         tests:
-         - not_null
-      - name: to_ts_nyc
-        description: The nyc timestamp for the to-ingest id.
+          - not_null
+      - name: track_url
         tests:
-         - not_null
-      - name: period_length
-        description: The timedelta for the period.
+          - not_null
+      - name: track_mbid
+      - name: track_loved
+        description: Boolean for whether the user loved the track.
         tests:
-         - not_null
-      - name: from_playcount
-        description: The playcount as of the reference time.
+          - not_null
+          - accepted_values:
+              values: [true, false]
+      - name: album_md5
+        description: The md5 of the album name and artist name.
+      - name: album_name
+      - name: album_mbid
+      - name: artist_md5
+        description: The md5 of the artist name.
+      - name: artist_name
+      - name: artist_url
+      - name: _insert_ts_utc
+        description: The timestamp when the data were ingested.
         tests:
-         - not_null
-      - name: to_playcount
-        description: The playcount as of the target time.
+          - not_null
+
+  - name: lastfm_tracks
+    description: Dimensional model for tracks.
+    columns:
+      - name: track_md5
         tests:
-         - not_null
-      - name: incremental_playcount
-        description: The plays within the period.
+          - not_null
+          - unique
+      - name: album_md5
         tests:
-         - not_null
+          - not_null
+          - relationships:
+              to: ref('lastfm_albums')
+              field: album_md5
+      - name: artist_md5
+        tests:
+          - not_null
+          - relationships:
+              to: ref('lastfm_artists')
+              field: artist_md5
+      - name: track_name
+        tests:
+          - not_null
+      - name: track_url
+        tests:
+          - not_null
+      - name: track_mbid
+
+  - name: lastfm_albums
+    description: Dimensional model for albums.
+    columns:
+      - name: album_md5
+        tests:
+          - not_null
+          - unique
+      - name: artist_md5
+        tests:
+          - not_null
+          - relationships:
+              to: ref('lastfm_artists')
+              field: artist_md5
+      - name: album_name
+        tests:
+          - not_null
+      - name: album_mbid
+
+  - name: lastfm_artists
+    description: Dimensional model for artists.
+    columns:
+      - name: artist_md5
+        tests:
+          - not_null
+          - unique
+      - name: artist_name
+        tests:
+          - not_null
+      - name: artist_url
+      - name: artist_mbid
+    
+  - name: lastfm_users
+    description: Dimensional model for users
+    columns:
+      - name: username
+        tests:
+          - not_null
+          - unique
+      - name: loved_count
+        tests:
+          - not_null
+      - name: play_count
+        tests:
+          - not_null
+      - name: play_count_7day
+        tests:
+          - not_null
+      - name: play_count_30day
+        tests:
+          - not_null
+      - name: first_play_at_ts_nyc
+        tests:
+          - not_null
+      - name: last_play_at_ts_nyc
+        tests:
+          - not_null
 
   - name: artists_30day
     description: Quick view tracking total artist plays in the last 30 days.
-    columns:
-      - name: lastfm_entity_id  # just make sure this is sane.
-        tests:
-         - not_null
-         - unique
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - artist_md5
+            - username
 
   - name: artists_monthly_top5
-    description: Pivoted top artists from each month.
-    columns:
-      - name: month_
-        tests:
-         - not_null
-         - unique
+    description: Pivoted top artists from each month for each user.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - month_start
+            - username
 
   - name: tracks_7day
     description: Quick view tracking total track plays in the last 7 days.
-    columns:
-      - name: lastfm_entity_id  # just make sure this is sane.
-        tests:
-         - not_null
-         - unique
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - track_md5
+            - username
+
+  - name: loved_tracks
+    description: Aggregates on each user's loved tracks.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - track_md5
+            - username

@@ -1,17 +1,31 @@
 {{ config(materialized='view') }}
 
+with plays as (
+  select 
+    track_md5
+    , username
+    , count(1) as listen_count
+    , max(listen_at_ts_nyc) as last_listen_at_ts_nyc
+  from {{ ref('lastfm_listens_flat') }}
+  where listen_at_ts_nyc::date >= current_date - interval '7 day'
+  group by 1, 2
+)
+
 select
-    lastfm_entities.lastfm_entity_id
-    , max(lastfm_entities.name) as track_name
-    , max(lastfm_entities.artist__name) as artist_name
-    , sum(lastfm_listens_incremental.incremental_playcount) as playcount
+  plays.track_md5
+  , plays.username
+  , lastfm_tracks.track_name
+  , lastfm_artists.artist_name
+  , lastfm_albums.album_name
+  , plays.listen_count
+  , plays.last_listen_at_ts_nyc
 
-from {{ ref('lastfm_listens_incremental') }}
-join {{ ref('lastfm_entities') }}
-  on lastfm_entities.lastfm_entity_id = lastfm_listens_incremental.lastfm_entity_id
+from plays
+join {{ ref('lastfm_tracks') }}
+  on lastfm_tracks.track_md5 = plays.track_md5
+join {{ ref('lastfm_albums' )}}
+  on  lastfm_albums.album_md5 = lastfm_tracks.album_md5
+join {{ ref('lastfm_artists' )}}
+  on lastfm_artists.artist_md5 = lastfm_tracks.artist_md5
 
-
-where lastfm_listens_incremental.to_ts_nyc::date >= current_date - interval '7 day'
-  and lastfm_entities.kind = 'tracks'
-    
-group by lastfm_entities.lastfm_entity_id
+order by username, listen_count desc

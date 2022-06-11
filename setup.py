@@ -11,7 +11,7 @@ setup(
         "requests==2.27.1",
         "psycopg2-binary==2.9.3",
         "tqdm==4.63.0",
-        "dbt-postgres-1.1.0",
+        "dbt-postgres==1.1.0",
     ],
     extras_require=dict(test=["black==22.1.0"]),
 )
