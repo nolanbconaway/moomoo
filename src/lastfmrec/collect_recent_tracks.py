@@ -48,7 +48,6 @@ import sys
 import time
 
 import psycopg2
-import pytz
 import requests
 from tqdm import tqdm
 
@@ -184,6 +183,7 @@ def insert(conn, schema: str, table: str, username: str, listen_data: dict):
 
 
 def create_table(schema, table):
+    print('Creating table "{}" in schema "{}"...'.format(table, schema))
     with psycopg2.connect(POSTGRES_DSN) as conn:
         with conn.cursor() as cur:
             cur.execute(
