@@ -48,6 +48,7 @@ import sys
 import time
 
 import psycopg2
+import pytz
 import requests
 from tqdm import tqdm
 
@@ -110,7 +111,7 @@ def get_listens_in_period(
     pages = [get_page(1)]
 
     # exit early if there are no listens
-    if pages[0]["recenttracks"]["@attr"]["total"] == 1:
+    if int(pages[0]["recenttracks"]["@attr"]["total"]) == 0:
         print('User "{}" has no listens in period.'.format(username))
         return []
 
