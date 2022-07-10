@@ -1,6 +1,6 @@
 # Nolan's LastFM Music Recommendation System.
 
-![Unit Tests](https://github.com/nolanbconaway/lastfm-recommender/workflows/Unit%20Tests/badge.svg)
+[![Unit Tests](https://github.com/nolanbconaway/lastfm-recommender/actions/workflows/push.yml/badge.svg)](https://github.com/nolanbconaway/lastfm-recommender/actions/workflows/push.yml)
 
 I want to ditch Spotify and the other major streaming platforms, but I also love the recommendation/playlisting products they provide.
 I'll never do it so long as I cannot get that service elsewhere, so let's see if I can't use the LastFM API to get what I need.
