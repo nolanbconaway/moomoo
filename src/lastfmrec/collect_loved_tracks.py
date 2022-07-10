@@ -5,6 +5,11 @@ a md5 hash of the (user, artist name, track name, timestamp) to uniquely
 identify a love. event. A postgres on conflict clause is used to update the love
 if it already exists and ensure uniqueness.
 
+This is somewhat annoying as you cannot query based on a timestamp, so we have to
+roll back N pages unless we want to ingest it all. One COULD set up an endpoint to get 
+the last known love timestamp and roll pages until there is a love before then, but the
+numerosity of these data are not large enough to justify the extra effort.
+
 API Docs: https://www.last.fm/api/show/user.getLovedTracks
 
 Sample Payload:
