@@ -1,10 +1,12 @@
 import datetime
 import json
 from pathlib import Path
-from click.testing import CliRunner
 
 import pytest
-from lastfmrec import collect_recent_tracks
+from click.testing import CliRunner
+from lastfmrec import collect_recent_tracks, utils_
+
+from .conftest import MockResponse
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -13,19 +15,20 @@ def load_resource_json(name):
     return json.loads((RESOURCES / name).read_text())
 
 
-class MockResponse:
-    def __init__(self, json_data):
-        self.json_data = json_data
+@pytest.fixture(autouse=True)
+def mock_check_check_user_in_table(monkeypatch):
+    monkeypatch.setattr(
+        collect_recent_tracks, "check_user_in_table", lambda *args, **kwargs: True
+    )
 
-    def raise_for_status(self):
-        ...
 
-    def json(self):
-        return self.json_data
+@pytest.fixture(autouse=True)
+def mock_insert(monkeypatch):
+    monkeypatch.setattr(collect_recent_tracks, "insert", lambda *args, **kwargs: ...)
 
 
 def test_get_lastfm_user_registry_dt(monkeypatch):
-    expect = collect_recent_tracks.utcfromunixtime(1646784218)
+    expect = utils_.utcfromunixtime(1646784218)
     monkeypatch.setattr(
         "requests.get",
         lambda *a, **kw: MockResponse(load_resource_json("userinfo_api_data.json")),

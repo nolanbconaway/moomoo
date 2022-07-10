@@ -1,8 +1,19 @@
 import time
 
+import lastfmrec
 import psycopg2
 import pytest
-from lastfmrec import collect_recent_tracks
+
+
+class MockResponse:
+    def __init__(self, json_data):
+        self.json_data = json_data
+
+    def raise_for_status(self):
+        ...
+
+    def json(self):
+        return self.json_data
 
 
 class MockConnection:
@@ -33,27 +44,13 @@ def no_sleep(monkeypatch):
 @pytest.fixture(autouse=True)
 def mock_check_table_exists(monkeypatch):
     monkeypatch.setattr(
-        collect_recent_tracks, "check_table_exists", lambda *args, **kwargs: True
+        lastfmrec.utils_, "check_table_exists", lambda *args, **kwargs: True
     )
-
-
-@pytest.fixture(autouse=True)
-def mock_check_check_user_in_table(monkeypatch):
-    monkeypatch.setattr(
-        collect_recent_tracks, "check_user_in_table", lambda *args, **kwargs: True
-    )
-
-
-@pytest.fixture(autouse=True)
-def mock_insert(monkeypatch):
-    monkeypatch.setattr(collect_recent_tracks, "insert", lambda *args, **kwargs: ...)
 
 
 @pytest.fixture(autouse=True)
 def mock_create_table(monkeypatch):
-    monkeypatch.setattr(
-        collect_recent_tracks, "create_table", lambda *args, **kwargs: ...
-    )
+    monkeypatch.setattr(lastfmrec.utils_, "create_table", lambda *args, **kwargs: ...)
 
 
 @pytest.fixture(autouse=True)

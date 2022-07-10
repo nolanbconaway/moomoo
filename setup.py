@@ -15,9 +15,7 @@ setup(
     ],
     extras_require=dict(
         dbt=["dbt-postgres==1.1.0"],
-        test=[
-            "black==22.6.0",
-            "pytest==7.1.2",
-        ],
+        test=["black==22.6.0", "pytest==7.1.2"],
     ),
+    entry_points={"console_scripts": ["lastfmrec=lastfmrec.cli:cli"]},
 )
