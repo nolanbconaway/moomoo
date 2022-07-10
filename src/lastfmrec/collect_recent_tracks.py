@@ -239,7 +239,7 @@ def run_ingest(
 def main(username, table, schema, create, since, from_dt, to_dt):
     """Query the Last.FM recent tracks api and store it in the db.
 
-    This script is meant to be run periodically to update the db with recent tracks. It 
+    This script is meant to be run periodically to update the db with recent tracks. It
     uses an md5 hash of the (user, artist name, track name, timestamp) to uniquely
     identify a listen. event. A postgres on conflict clause is used to update the listen
     if it already exists and ensure uniqueness.

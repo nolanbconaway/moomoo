@@ -78,9 +78,6 @@ def check_table_exists(schema: str, table: str) -> bool:
     return any(res)
 
 
-
-
-
 def utcfromisodate(iso_date: str) -> datetime.datetime:
     """Convert YYYY_MM_DD date to UTC datetime."""
     return datetime.datetime.fromisoformat(iso_date).replace(
