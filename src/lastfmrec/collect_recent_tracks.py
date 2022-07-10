@@ -44,13 +44,11 @@ import hashlib
 import json
 import os
 import sys
-import time
 
 import click
-import psycopg2
-import requests
 from tqdm import tqdm
 
+from . import utils_
 
 DDL = [
     """
@@ -65,28 +63,6 @@ DDL = [
     """create index {schema}_{table}_username_idx on {schema}.{table} (username)""",
     """create index {schema}_{table}_listen_at_idx on {schema}.{table} (listen_at_ts_utc)""",
 ]
-
-
-def pg_connect(dsn: str = None) -> psycopg2.extensions.connection:
-    """Connect to the db."""
-    return psycopg2.connect(dsn or os.environ["POSTGRES_DSN"])
-
-
-def get_with_retries(
-    *args, retries: int = 3, delay: float = 3, timeout_: float = 2, **kwargs
-) -> requests.Response:
-    for i in range(retries):
-        try:
-            res = requests.get(*args, **kwargs)
-            time.sleep(timeout_)
-            res.raise_for_status()
-            return res
-        except requests.exceptions.HTTPError:
-            if i == retries - 1:
-                raise
-            else:
-                print("Connection error, retrying in {} seconds".format(delay))
-                time.sleep(delay)
 
 
 def get_listens_in_period(
@@ -108,7 +84,7 @@ def get_listens_in_period(
     }
 
     def get_page(page: int) -> dict:
-        return get_with_retries(
+        return utils_.get_with_retries(
             "https://ws.audioscrobbler.com/2.0/", params=dict(page=page, **params)
         ).json()
 
@@ -140,7 +116,7 @@ def get_lastfm_user_registry_dt(
     username: str, api_key: str = None
 ) -> datetime.datetime:
     """Get the date the user was registered on last.fm."""
-    r = get_with_retries(
+    r = utils_.get_with_retries(
         "https://ws.audioscrobbler.com/2.0/",
         params=dict(
             method="user.getInfo",
@@ -149,12 +125,12 @@ def get_lastfm_user_registry_dt(
             format="json",
         ),
     ).json()
-    return utcfromunixtime(r["user"]["registered"]["unixtime"])
+    return utils_.utcfromunixtime(r["user"]["registered"]["unixtime"])
 
 
 def get_db_last_listen(username: str, schema: str, table: str) -> datetime.datetime:
     """Get the last listen timestamp from the user in the db."""
-    with pg_connect() as conn:
+    with utils_.pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 f"""
@@ -172,6 +148,17 @@ def listen_hash(username: str, data: dict) -> str:
     return hashlib.md5(json.dumps(immutable).encode("utf-8")).hexdigest()
 
 
+def check_user_in_table(schema: str, table: str, username: str) -> bool:
+    with utils_.pg_connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"select 1 from {schema}.{table} where username = %(username)s limit 1",
+                dict(username=username),
+            )
+            res = cur.fetchall()
+    return any(res)
+
+
 def insert(conn, schema: str, table: str, username: str, listen_data: dict):
     with conn.cursor() as cur:
         cur.execute(
@@ -187,65 +174,9 @@ def insert(conn, schema: str, table: str, username: str, listen_data: dict):
                 listen_md5=listen_hash(username, listen_data),
                 username=username,
                 json_data=json.dumps(listen_data),
-                listen_at_ts_utc=utcfromunixtime(listen_data["date"]["uts"]),
+                listen_at_ts_utc=utils_.utcfromunixtime(listen_data["date"]["uts"]),
             ),
         )
-
-
-def create_table(schema, table):
-    print('Creating table "{}" in schema "{}"...'.format(table, schema))
-    with pg_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"drop table if exists {schema}.{table}".format(
-                    schema=schema, table=table
-                )
-            )
-            for sql in DDL:
-                cur.execute(sql.format(schema=schema, table=table))
-        conn.commit()
-
-
-def check_table_exists(schema: str, table: str) -> bool:
-    with pg_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                select 1
-                from information_schema.tables 
-                where table_schema = %(schema)s
-                and table_name = %(table)s
-                limit 1
-                """,
-                dict(schema=schema, table=table),
-            )
-            res = cur.fetchall()
-    return any(res)
-
-
-def check_user_in_table(schema: str, table: str, username: str) -> bool:
-    with pg_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"select 1 from {schema}.{table} where username = %(username)s limit 1",
-                dict(username=username),
-            )
-            res = cur.fetchall()
-    return any(res)
-
-
-def utcfromisodate(iso_date: str) -> datetime.datetime:
-    """Convert YYYY_MM_DD date to UTC datetime."""
-    return datetime.datetime.fromisoformat(iso_date).replace(
-        tzinfo=datetime.timezone.utc
-    )
-
-
-def utcfromunixtime(unixtime: int) -> datetime.datetime:
-    """Convert unix timestamp to UTC datetime."""
-    return datetime.datetime.utcfromtimestamp(int(unixtime)).replace(
-        tzinfo=datetime.timezone.utc
-    )
 
 
 def run_ingest(
@@ -266,7 +197,7 @@ def run_ingest(
         print("No listens found")
         return
 
-    with pg_connect() as conn:
+    with utils_.pg_connect() as conn:
         print(f"""Inserting {len(data)} listens into {schema}.{table}""")
         for row in tqdm(data):
             insert(conn, schema, table, username=username, listen_data=row)
@@ -292,13 +223,13 @@ def run_ingest(
 @click.option(
     "--from",
     "from_dt",
-    type=utcfromisodate,
+    type=utils_.utcfromisodate,
     help="Start date in iso-format. Irrelevant if --since-* is used.",
 )
 @click.option(
     "--to",
     "to_dt",
-    type=utcfromisodate,
+    type=utils_.utcfromisodate,
     default=datetime.datetime.utcnow().isoformat(),
     help="End date in iso-format. Defaults to now.",
 )
@@ -306,9 +237,16 @@ def run_ingest(
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
 def main(username, table, schema, create, since, from_dt, to_dt):
+    """Query the Last.FM recent tracks api and store it in the db.
+
+    This script is meant to be run periodically to update the db with recent tracks. It
+    uses an md5 hash of the (user, artist name, track name, timestamp) to uniquely
+    identify a listen. event. A postgres on conflict clause is used to update the listen
+    if it already exists and ensure uniqueness.
+    """
     if create:
-        create_table(schema, table)
-    elif not check_table_exists(schema=schema, table=table):
+        utils_.create_table(schema, table, DDL)
+    elif not utils_.check_table_exists(schema=schema, table=table):
         click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
         sys.exit(1)
 
