@@ -1,0 +1,124 @@
+{
+    "recenttracks": {
+        "track": [
+            {
+                "artist": {
+                    "url": "https://www.last.fm/music/DJ+Screw",
+                    "name": "DJ Screw",
+                    "image": [
+                        {
+                            "size": "small",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/34s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "medium",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/64s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "large",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/174s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "extralarge",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        }
+                    ],
+                    "mbid": ""
+                },
+                "mbid": "4ae6181f-1b3f-47f4-8c4b-d0820912bfcf",
+                "name": "Intro",
+                "image": [
+                    {
+                        "size": "small",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/34s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                    },
+                    {
+                        "size": "medium",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/64s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                    },
+                    {
+                        "size": "large",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/174s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                    },
+                    {
+                        "size": "extralarge",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
+                    }
+                ],
+                "streamable": "0",
+                "album": {
+                    "mbid": "",
+                    "#text": "Chapter 056. Blue Ova Grey"
+                },
+                "url": "https://www.last.fm/music/DJ+Screw/_/Intro",
+                "@attr": {
+                    "nowplaying": "true"
+                },
+                "loved": "0"
+            },
+            {
+                "artist": {
+                    "url": "https://www.last.fm/music/Four+Tet",
+                    "name": "Four Tet",
+                    "image": [
+                        {
+                            "size": "small",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/34s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "medium",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/64s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "large",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/174s/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        },
+                        {
+                            "size": "extralarge",
+                            "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/2a96cbd8b46e442fc41c2b86b821562f.png"
+                        }
+                    ],
+                    "mbid": ""
+                },
+                "date": {
+                    "uts": "1654913729",
+                    "#text": "11 Jun 2022, 02:15"
+                },
+                "mbid": "3f5af048-c570-3765-ac36-f7afe1ad3fa8",
+                "name": "You Were There With Me",
+                "image": [
+                    {
+                        "size": "small",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/34s/2338d11b0bfd44099cbe5bc43ed79de0.png"
+                    },
+                    {
+                        "size": "medium",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/64s/2338d11b0bfd44099cbe5bc43ed79de0.png"
+                    },
+                    {
+                        "size": "large",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/174s/2338d11b0bfd44099cbe5bc43ed79de0.png"
+                    },
+                    {
+                        "size": "extralarge",
+                        "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/2338d11b0bfd44099cbe5bc43ed79de0.png"
+                    }
+                ],
+                "url": "https://www.last.fm/music/Four+Tet/_/You+Were+There+With+Me",
+                "streamable": "0",
+                "album": {
+                    "mbid": "ccdecba9-1b74-4a17-95f3-c5debc52d9a8",
+                    "#text": "Everything Ecstatic"
+                },
+                "loved": "0"
+            }
+        ],
+        "@attr": {
+            "user": "boogerss",
+            "totalPages": "1",
+            "page": "1",
+            "perPage": "1",
+            "total": "1"
+        }
+    }
+}
