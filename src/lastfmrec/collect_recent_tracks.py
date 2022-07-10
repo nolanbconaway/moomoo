@@ -51,9 +51,6 @@ import psycopg2
 import requests
 from tqdm import tqdm
 
-POSTGRES_DSN = os.environ["POSTGRES_DSN"]
-API_KEY = os.environ["LASTFM_API_KEY"]
-
 
 DDL = [
     """
@@ -68,6 +65,11 @@ DDL = [
     """create index {schema}_{table}_username_idx on {schema}.{table} (username)""",
     """create index {schema}_{table}_listen_at_idx on {schema}.{table} (listen_at_ts_utc)""",
 ]
+
+
+def pg_connect(dsn: str = None) -> psycopg2.extensions.connection:
+    """Connect to the db."""
+    return psycopg2.connect(dsn or os.environ["POSTGRES_DSN"])
 
 
 def get_with_retries(
@@ -88,13 +90,16 @@ def get_with_retries(
 
 
 def get_listens_in_period(
-    username: str, from_dt: datetime.datetime, to_dt: datetime.datetime
+    username: str,
+    from_dt: datetime.datetime,
+    to_dt: datetime.datetime,
+    api_key: str = None,
 ) -> list:
     """Get recent tracks for a user in a given period."""
     params = {
         "method": "user.getRecentTracks",
         "user": username,
-        "api_key": API_KEY,
+        "api_key": api_key or os.environ["LASTFM_API_KEY"],
         "format": "json",
         "extended": "1",
         "from": int(from_dt.timestamp()),
@@ -131,12 +136,17 @@ def get_listens_in_period(
     return res
 
 
-def get_lastfm_user_registry_dt(username: str) -> datetime.datetime:
+def get_lastfm_user_registry_dt(
+    username: str, api_key: str = None
+) -> datetime.datetime:
     """Get the date the user was registered on last.fm."""
     r = get_with_retries(
         "https://ws.audioscrobbler.com/2.0/",
         params=dict(
-            method="user.getInfo", user=username, api_key=API_KEY, format="json"
+            method="user.getInfo",
+            user=username,
+            api_key=api_key or os.environ["LASTFM_API_KEY"],
+            format="json",
         ),
     ).json()
     return utcfromunixtime(r["user"]["registered"]["unixtime"])
@@ -144,7 +154,7 @@ def get_lastfm_user_registry_dt(username: str) -> datetime.datetime:
 
 def get_db_last_listen(username: str, schema: str, table: str) -> datetime.datetime:
     """Get the last listen timestamp from the user in the db."""
-    with psycopg2.connect(POSTGRES_DSN) as conn:
+    with pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 f"""
@@ -184,7 +194,7 @@ def insert(conn, schema: str, table: str, username: str, listen_data: dict):
 
 def create_table(schema, table):
     print('Creating table "{}" in schema "{}"...'.format(table, schema))
-    with psycopg2.connect(POSTGRES_DSN) as conn:
+    with pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 f"drop table if exists {schema}.{table}".format(
@@ -197,7 +207,7 @@ def create_table(schema, table):
 
 
 def check_table_exists(schema: str, table: str) -> bool:
-    with psycopg2.connect(POSTGRES_DSN) as conn:
+    with pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -214,7 +224,7 @@ def check_table_exists(schema: str, table: str) -> bool:
 
 
 def check_user_in_table(schema: str, table: str, username: str) -> bool:
-    with psycopg2.connect(POSTGRES_DSN) as conn:
+    with pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 f"select 1 from {schema}.{table} where username = %(username)s limit 1",
@@ -256,7 +266,7 @@ def run_ingest(
         print("No listens found")
         return
 
-    with psycopg2.connect(POSTGRES_DSN) as conn:
+    with pg_connect() as conn:
         print(f"""Inserting {len(data)} listens into {schema}.{table}""")
         for row in tqdm(data):
             insert(conn, schema, table, username=username, listen_data=row)
@@ -280,13 +290,17 @@ def run_ingest(
     help="Option to only copy data since the latest entry in the table",
 )
 @click.option(
-    "--from", "from_dt", type=utcfromisodate, help="Start date in YYYY-MM-DD format."
+    "--from",
+    "from_dt",
+    type=utcfromisodate,
+    help="Start date in iso-format. Irrelevant if --since-* is used.",
 )
 @click.option(
     "--to",
     "to_dt",
     type=utcfromisodate,
-    default=datetime.date.today().isoformat(),
+    default=datetime.datetime.utcnow().isoformat(),
+    help="End date in iso-format. Defaults to now.",
 )
 @click.option(
     "--create", is_flag=True, help="Option to teardown and recreate the table"

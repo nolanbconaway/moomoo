@@ -94,6 +94,30 @@ def test_cli_main__from_last(monkeypatch):
     assert "Inserting" in result.output
 
 
+def test_cli_main__from_last__today(monkeypatch):
+    """The usual case will be a since-last call where the last pulay is today."""
+    runner = CliRunner()
+    monkeypatch.setattr(
+        collect_recent_tracks,
+        "get_db_last_listen",
+        lambda *a, **kw: (
+            datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+            - datetime.timedelta(minutes=30)
+        ),
+    )
+    monkeypatch.setattr(
+        "requests.get",
+        lambda *a, **kw: MockResponse(load_resource_json("recenttracks_api_data.json")),
+    )
+
+    result = runner.invoke(
+        collect_recent_tracks.main,
+        ["FAKE_NAME", "--table=FAKE", "--schema=FAKE", "--since-last"],
+    )
+    assert result.exit_code == 0
+    assert "Inserting" in result.output
+
+
 def test_cli_main__from_dt(monkeypatch):
     dt = datetime.date.today() - datetime.timedelta(days=30)
     runner = CliRunner()
