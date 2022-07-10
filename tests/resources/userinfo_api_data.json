@@ -1,0 +1,37 @@
+{
+    "user": {
+        "country": "None",
+        "age": "0",
+        "playcount": "4287",
+        "subscriber": "0",
+        "realname": "",
+        "playlists": "0",
+        "bootstrap": "0",
+        "image": [
+            {
+                "size": "small",
+                "#text": "https://lastfm.freetls.fastly.net/i/u/34s/e388235af2a2899e682bb2a4cfda0841.png"
+            },
+            {
+                "size": "medium",
+                "#text": "https://lastfm.freetls.fastly.net/i/u/64s/e388235af2a2899e682bb2a4cfda0841.png"
+            },
+            {
+                "size": "large",
+                "#text": "https://lastfm.freetls.fastly.net/i/u/174s/e388235af2a2899e682bb2a4cfda0841.png"
+            },
+            {
+                "size": "extralarge",
+                "#text": "https://lastfm.freetls.fastly.net/i/u/300x300/e388235af2a2899e682bb2a4cfda0841.png"
+            }
+        ],
+        "registered": {
+            "unixtime": "1646784218",
+            "#text": 1646784218
+        },
+        "url": "https://www.last.fm/user/boogerss",
+        "gender": "n",
+        "name": "boogerss",
+        "type": "user"
+    }
+}

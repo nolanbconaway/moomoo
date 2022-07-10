@@ -39,7 +39,6 @@ Sample Payload:
         }
     }
 """
-import argparse
 import datetime
 import hashlib
 import json
@@ -47,6 +46,7 @@ import os
 import sys
 import time
 
+import click
 import psycopg2
 import requests
 from tqdm import tqdm
@@ -196,9 +196,37 @@ def create_table(schema, table):
         conn.commit()
 
 
+def check_table_exists(schema: str, table: str) -> bool:
+    with psycopg2.connect(POSTGRES_DSN) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                select 1
+                from information_schema.tables 
+                where table_schema = %(schema)s
+                and table_name = %(table)s
+                limit 1
+                """,
+                dict(schema=schema, table=table),
+            )
+            res = cur.fetchall()
+    return any(res)
+
+
+def check_user_in_table(schema: str, table: str, username: str) -> bool:
+    with psycopg2.connect(POSTGRES_DSN) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"select 1 from {schema}.{table} where username = %(username)s limit 1",
+                dict(username=username),
+            )
+            res = cur.fetchall()
+    return any(res)
+
+
 def utcfromisodate(iso_date: str) -> datetime.datetime:
     """Convert YYYY_MM_DD date to UTC datetime."""
-    return datetime.datetime.strptime(iso_date, "%Y-%m-%d").replace(
+    return datetime.datetime.fromisoformat(iso_date).replace(
         tzinfo=datetime.timezone.utc
     )
 
@@ -210,83 +238,88 @@ def utcfromunixtime(unixtime: int) -> datetime.datetime:
     )
 
 
-def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawTextHelpFormatter
-    )
-    parser.add_argument("username")
-    parser.add_argument("--schema", required=True)
-    parser.add_argument("--table", required=True)
-    parser.add_argument(
-        "--from",
-        dest="from_dt",
-        type=utcfromisodate,
-        default=None,
-        help=(
-            "Date from which to start copying data (YYYY-MM-DD). "
-            + "Defaults to the day the user was registered on last.fm."
-        ),
-    )
-    parser.add_argument(
-        "--to",
-        dest="to_dt",
-        type=utcfromisodate,
-        default=datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc),
-        help=(
-            "Date after which to stop copying data (YYYY-MM-DD). "
-            + "Defaults to utc now."
-        ),
-    )
-    parser.add_argument(
-        "--create",
-        action="store_true",
-        help="Option to teardown and recreate the table",
-    )
-    parser.add_argument(
-        "--since-last",
-        action="store_true",
-        help="Option to only copy data since the latest entry in the table",
-    )
-    return parser
+def run_ingest(
+    username: str,
+    table: str,
+    schema: str,
+    from_dt: datetime.datetime,
+    to_dt: datetime.datetime,
+):
+    """Ingest data from last.fm."""
+    if from_dt >= to_dt:
+        raise ValueError(f"from date ({from_dt}) is after to date ({to_dt})")
 
-
-if __name__ == "__main__":
-    args = make_parser().parse_args()
-
-    # defensive programming
-    if args.since_last and args.from_dt is not None:
-        raise ValueError("--since-last and --from are mutually exclusive")
-    if args.since_last and args.create:
-        raise ValueError("--since-last and --create are mutually exclusive")
-
-    if args.create:
-        create_table(args.schema, args.table)
-
-    # get the from stamp
-    if args.from_dt is not None:
-        from_dt = args.from_dt
-    elif args.since_last:
-        from_dt = get_db_last_listen(args.username, args.schema, args.table)
-        from_dt += datetime.timedelta(seconds=1)  # to make this left-exclusive
-        if from_dt is None:
-            raise RuntimeError("No listens found in database")
-    else:
-        from_dt = get_lastfm_user_registry_dt(args.username)
-
-    if from_dt >= args.to_dt:
-        raise ValueError(f"from date ({from_dt}) is after to date ({args.to_dt})")
-
-    print(f"Getting {args.username} listens from {from_dt} to {args.to_dt}")
-    data = get_listens_in_period(args.username, from_dt, args.to_dt)
+    print(f"Getting {username} listens from {from_dt} to {to_dt}")
+    data = get_listens_in_period(username, from_dt, to_dt)
 
     if not data:
         print("No listens found")
-        sys.exit(0)
+        return
 
     with psycopg2.connect(POSTGRES_DSN) as conn:
-        print(f"""Inserting {len(data)} listens into {args.schema}.{args.table}""")
+        print(f"""Inserting {len(data)} listens into {schema}.{table}""")
         for row in tqdm(data):
-            insert(
-                conn, args.schema, args.table, username=args.username, listen_data=row
-            )
+            insert(conn, schema, table, username=username, listen_data=row)
         conn.commit()
+
+
+@click.command()
+@click.argument("username")
+@click.option("--table", required=True)
+@click.option("--schema", required=True)
+@click.option(
+    "--since-register",
+    "since",
+    flag_value="register",
+    help="Option to copy all data since the user was registered.",
+)
+@click.option(
+    "--since-last",
+    "since",
+    flag_value="last",
+    help="Option to only copy data since the latest entry in the table",
+)
+@click.option(
+    "--from", "from_dt", type=utcfromisodate, help="Start date in YYYY-MM-DD format."
+)
+@click.option(
+    "--to",
+    "to_dt",
+    type=utcfromisodate,
+    default=datetime.date.today().isoformat(),
+)
+@click.option(
+    "--create", is_flag=True, help="Option to teardown and recreate the table"
+)
+def main(username, table, schema, create, since, from_dt, to_dt):
+    if create:
+        create_table(schema, table)
+    elif not check_table_exists(schema=schema, table=table):
+        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+        sys.exit(1)
+
+    if since and from_dt:
+        click.echo(
+            "--since-* and --from are mutually exclusive. Use --since-* instead."
+        )
+        sys.exit(1)
+
+    # get from date
+    if since == "last":
+        if not check_user_in_table(schema=schema, table=table, username=username):
+            click.echo(
+                f"No data found for {username} in {schema}.{table}. "
+                + "Cannot use --since-last"
+            )
+            sys.exit(1)
+        from_dt = get_db_last_listen(schema=schema, table=table, username=username)
+    elif since == "register":
+        from_dt = get_lastfm_user_registry_dt(username)
+
+    run_ingest(
+        username=username, table=table, schema=schema, from_dt=from_dt, to_dt=to_dt
+    )
+
+
+if __name__ == "__main__":
+    main()
