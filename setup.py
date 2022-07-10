@@ -16,7 +16,7 @@ setup(
     extras_require=dict(
         dbt=["dbt-postgres==1.1.0"],
         test=[
-            "black==22.1.0",
+            "black==22.6.0",
             "pytest==7.1.2",
         ],
     ),
