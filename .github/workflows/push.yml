@@ -15,9 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v1
         with:
-          {% raw -%}
           python-version: ${{ matrix.python-version }}
-          {%- endraw %}
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
