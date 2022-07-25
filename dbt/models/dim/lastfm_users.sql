@@ -6,7 +6,6 @@
 
 select
     username
-    , count(distinct case when track_loved then track_md5 end) as loved_count
     , count(1) as play_count
     , count(case when listen_at_ts_utc >= current_timestamp - interval '7 day' then 1 end) as play_count_7day
     , count(case when listen_at_ts_utc >= current_timestamp - interval '30 day' then 1 end) as play_count_30day
@@ -15,4 +14,5 @@ select
 
 
 from  {{ ref('lastfm_listens_flat') }}
+
 group by 1

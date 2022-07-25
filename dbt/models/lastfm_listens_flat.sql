@@ -12,22 +12,25 @@
 
 {# 
     Unpack JSON to rows. Most other models will be aggregates on this.
-    {
-        "artist": {
-            "url": "...",
-            "name": "Chuck Person",
+
+    Sample payload:
+
+        {
+            "artist": {
+                "url": "...",
+                "name": "Chuck Person",
+                "image": [{ "size": "small", "#text": "..." }, ... ],
+                "mbid": ""
+            },
+            "date": {"uts": "1654371703", "#text": "04 Jun 2022, 19:41"},
+            "mbid": "",
+            "name": "...",
             "image": [{ "size": "small", "#text": "..." }, ... ],
-            "mbid": ""
-        },
-        "date": {"uts": "1654371703", "#text": "04 Jun 2022, 19:41"},
-        "mbid": "",
-        "name": "...",
-        "image": [{ "size": "small", "#text": "..." }, ... ],
-        "url": "...",
-        "streamable": "0",
-        "album": { "mbid": "...", #text": "..." },
-        "loved": "0"
-    }
+            "url": "...",
+            "streamable": "0",
+            "album": { "mbid": "...", #text": "..." },
+            "loved": "0"
+        }
 #}
 
 with t as (
@@ -60,7 +63,7 @@ select
     
     , case 
         when track_name is not null and album_name is not null and artist_name is not null then
-        {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(album_name)', 'lower(artist_name)']) }} 
+        {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(artist_name)']) }} 
         end as track_md5
     , case 
         when album_name is not null and artist_name is not null then 
@@ -74,7 +77,7 @@ select
     , track_name
     , track_url
     , track_mbid
-    , case when track_loved = 1 then true when track_loved = 0 then false end as track_loved
+    , case when track_loved = 1 then true when track_loved = 0 then false end as track_loved_as_of_insert
     , album_name
     , album_mbid
     , artist_name
