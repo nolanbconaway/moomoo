@@ -12,11 +12,7 @@ with plays as (
     , count(1) as listen_count
     , count(distinct lastfm_listens_flat.track_md5) as track_count
 
-  from {{ ref('lastfm_listens_flat') }}
-  left join {{ ref('loved_tracks') }}
-    on loved_tracks.track_md5 = lastfm_listens_flat.track_md5
-      and loved_tracks.username = lastfm_listens_flat.username
-  
+  from {{ ref('lastfm_listens_flat') }} 
   where lastfm_listens_flat.album_md5 is not null
   group by 1, 2
 )
