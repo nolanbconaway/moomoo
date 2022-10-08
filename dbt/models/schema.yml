@@ -223,3 +223,11 @@ models:
           combination_of_columns:
             - track_md5
             - username
+
+  - name: albums_alltime
+    description: Aggregates on album listening.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - album_md5
