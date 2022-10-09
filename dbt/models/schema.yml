@@ -231,3 +231,11 @@ models:
           combination_of_columns:
             - username
             - album_md5
+
+  - name: track_play_spikes
+    desciption: Records of play spikes (cases where one track was played >=5 times in 24h).
+    columns:
+      - name: start_listen_md5
+        tests:
+          - not_null
+          - unique
