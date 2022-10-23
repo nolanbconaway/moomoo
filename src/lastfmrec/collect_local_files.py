@@ -38,6 +38,8 @@ def list_audio_files(*dirs: Path) -> List[Path]:
 
 def parse_audio_file(path: Path) -> dict:
     """Parse the audio file and return the metadata."""
+    # NOTE: Platform dependent
+    # https://docs.python.org/3/library/os.html#os.stat_result.st_ctime
     file_created_at = utils_.utcfromunixtime(path.stat().st_ctime)
     file_modified_at = utils_.utcfromunixtime(path.stat().st_mtime)
     try:
