@@ -1,10 +1,9 @@
-import datetime
 import json
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from lastfmrec import collect_loved_tracks, utils_
+from lastfmrec import collect_loved_tracks
 
 from .conftest import MockResponse
 

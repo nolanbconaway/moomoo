@@ -1,28 +1,10 @@
 import datetime
-import hashlib
-import json
 import os
-from typing import List
-import sys
 import time
+from typing import List
 
 import psycopg2
 import requests
-
-
-DDL = [
-    """
-    create table {schema}.{table} (
-        listen_md5 varchar(32) not null primary key
-        , username text not null
-        , json_data jsonb not null
-        , listen_at_ts_utc timestamp with time zone not null
-        , insert_ts_utc timestamp with time zone default current_timestamp not null
-    )
-    """,
-    """create index {schema}_{table}_username_idx on {schema}.{table} (username)""",
-    """create index {schema}_{table}_listen_at_idx on {schema}.{table} (listen_at_ts_utc)""",
-]
 
 
 def pg_connect(dsn: str = None) -> psycopg2.extensions.connection:

@@ -1,0 +1,32 @@
+import json
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+from lastfmrec import collect_local_files
+
+RESOURCES = Path(__file__).parent / "resources"
+
+
+@pytest.fixture(autouse=True)
+def mock_insert(monkeypatch):
+    monkeypatch.setattr(collect_local_files, "insert", lambda *args, **kwargs: ...)
+
+
+def test_parse_audio_file():
+    path = RESOURCES / "test.mp3"
+    res = json.loads(collect_local_files.parse_audio_file(path)["json_data"])
+    assert res["title"] == "fake"
+    assert res["artist"] == "me"
+    assert res["album"] == "out"
+    assert res["album_artist"] == "please"
+
+
+def test_cli_main():
+    runner = CliRunner()
+
+    result = runner.invoke(
+        collect_local_files.main, [str(RESOURCES), "--table=FAKE", "--schema=FAKE"]
+    )
+    assert result.exit_code == 0
+    assert "Inserting" in result.output
