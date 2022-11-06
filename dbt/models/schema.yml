@@ -222,6 +222,10 @@ models:
         tests:
           - not_null
           - unique
+      - name: is_dbt_user
+        description: Boolean for wherther this user is the target in the dbt_project.yml.
+        tests:
+          - not_null
       - name: play_count
         tests:
           - not_null
@@ -282,6 +286,14 @@ models:
     desciption: Records of play spikes (cases where one track was played >=5 times in 24h).
     columns:
       - name: start_listen_md5
+        tests:
+          - not_null
+          - unique
+
+  - name: local_albums_with_no_listens
+    desciption: List of local album names that have no listens in lastfm (by the target user).
+    columns:
+      - name: album_md5
         tests:
           - not_null
           - unique

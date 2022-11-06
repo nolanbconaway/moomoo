@@ -1,8 +1,5 @@
 {{ config(materialized='view') }}
 
--- loved tracks have no ablum, but lets see if we have a track-artist match with an
--- album in listens
-
 with plays as (
   select 
     lastfm_listens_flat.album_md5
