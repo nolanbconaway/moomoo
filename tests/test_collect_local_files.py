@@ -22,11 +22,13 @@ def test_parse_audio_file():
     assert res["album_artist"] == "please"
 
 
-def test_cli_main():
+@pytest.mark.parametrize("procs", [1, 2])
+def test_cli_main(procs):
     runner = CliRunner()
 
     result = runner.invoke(
-        collect_local_files.main, [str(RESOURCES), "--table=FAKE", "--schema=FAKE"]
+        collect_local_files.main,
+        [str(RESOURCES), "--table=FAKE", "--schema=FAKE", f"--procs={procs}"],
     )
     assert result.exit_code == 0
     assert "Inserting" in result.output
