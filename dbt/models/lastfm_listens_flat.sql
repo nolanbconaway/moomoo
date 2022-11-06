@@ -10,7 +10,7 @@
     ]
 )}}
 
-{# 
+{#
     Unpack JSON to rows. Most other models will be aggregates on this.
 
     Sample payload:
@@ -36,20 +36,20 @@
 with t as (
     select
         "listen_md5"
-        , "username"
+        , "username"::varchar as "username"
         , "listen_at_ts_utc"
         , "insert_ts_utc"
-        , nullif(trim(json_data ->> 'name'), '') as "track_name"
-        , nullif(json_data ->> 'url', '') as "track_url"
-        , nullif(json_data ->> 'mbid', '') as "track_mbid"
+        , nullif(trim(json_data ->> 'name'), '')::varchar as "track_name"
+        , nullif(json_data ->> 'url', '')::varchar as "track_url"
+        , nullif(json_data ->> 'mbid', '')::varchar as "track_mbid"
         , nullif(json_data ->> 'loved', '')::int  as "track_loved"
 
-        , nullif(trim(json_data -> 'album' ->> '#text'), '') as "album_name"
-        , nullif(json_data -> 'album' ->> 'mbid', '') as "album_mbid"
+        , nullif(trim(json_data -> 'album' ->> '#text'), '')::varchar as "album_name"
+        , nullif(json_data -> 'album' ->> 'mbid', '')::varchar as "album_mbid"
 
-        , nullif(trim(json_data -> 'artist' ->> 'name'), '') as "artist_name"
-        , nullif(json_data -> 'artist' ->> 'url', '') as "artist_url"
-        , nullif(json_data -> 'artist' ->> 'mbid', '') as "artist_mbid"
+        , nullif(trim(json_data -> 'artist' ->> 'name'), '')::varchar as "artist_name"
+        , nullif(json_data -> 'artist' ->> 'url', '')::varchar as "artist_url"
+        , nullif(json_data -> 'artist' ->> 'mbid', '')::varchar as "artist_mbid"
 
     from {{ source('pyingest', 'lastfm_recent_tracks_json') }}
 )
@@ -60,18 +60,18 @@ select
     , username
     , listen_at_ts_utc
     , listen_at_ts_utc at time zone 'America/New_York' as listen_at_ts_nyc
-    
-    , case 
-        when track_name is not null and album_name is not null and artist_name is not null then
-        {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(artist_name)']) }} 
+
+    , case
+        when track_name is not null and artist_name is not null then
+        {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(artist_name)']) }}::varchar
         end as track_md5
-    , case 
-        when album_name is not null and artist_name is not null then 
-        {{ dbt_utils.surrogate_key(['lower(album_name)', 'lower(artist_name)']) }}
+    , case
+        when album_name is not null and artist_name is not null then
+        {{ dbt_utils.surrogate_key(['lower(album_name)', 'lower(artist_name)']) }}::varchar
         end as album_md5
-    , case 
+    , case
         when artist_name is not null then
-        {{ dbt_utils.surrogate_key(['lower(artist_name)']) }} 
+        {{ dbt_utils.surrogate_key(['lower(artist_name)']) }}::varchar
         end as artist_md5
 
     , track_name

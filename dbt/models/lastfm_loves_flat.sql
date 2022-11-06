@@ -9,7 +9,7 @@
     ]
 )}}
 
-{# 
+{#
     Unpack JSON to rows.
 
     Sample Payload:
@@ -37,17 +37,17 @@
 with extracted as (
     select
         "love_md5"
-        , "username"
+        , "username"::varchar as "username"
         , "loved_at_ts_utc"
         , "insert_ts_utc"
-        
-        , nullif(trim(json_data ->> 'name'), '') as "track_name"
-        , nullif(json_data ->> 'url', '') as "track_url"
-        , nullif(json_data ->> 'mbid', '') as "track_mbid"
 
-        , nullif(trim(json_data -> 'artist' ->> 'name'), '') as "artist_name"
-        , nullif(json_data -> 'artist' ->> 'url', '') as "artist_url"
-        , nullif(json_data -> 'artist' ->> 'mbid', '') as "artist_mbid"
+        , nullif(trim(json_data ->> 'name'), '')::varchar as "track_name"
+        , nullif(json_data ->> 'url', '')::varchar as "track_url"
+        , nullif(json_data ->> 'mbid', '')::varchar as "track_mbid"
+
+        , nullif(trim(json_data -> 'artist' ->> 'name'), '')::varchar as "artist_name"
+        , nullif(json_data -> 'artist' ->> 'url', '')::varchar as "artist_url"
+        , nullif(json_data -> 'artist' ->> 'mbid', '')::varchar as "artist_mbid"
 
     from {{ source('pyingest', 'lastfm_loved_tracks_json') }}
 )
@@ -58,13 +58,13 @@ with extracted as (
         , username
         , loved_at_ts_utc
 
-        , case 
+        , case
             when track_name is not null and artist_name is not null then
-            {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(artist_name)']) }} 
+            {{ dbt_utils.surrogate_key(['lower(track_name)', 'lower(artist_name)']) }}::varchar
             end as track_md5
-        , case 
+        , case
             when artist_name is not null then
-            {{ dbt_utils.surrogate_key(['lower(artist_name)']) }} 
+            {{ dbt_utils.surrogate_key(['lower(artist_name)']) }}::varchar
             end as artist_md5
 
         , track_name
@@ -78,13 +78,13 @@ with extracted as (
     from extracted
 )
 
-{# 
+{#
     Needed to add this step because somehow i was able to love the same track 2x?
  #}
 , rowed as (
     select *, row_number() over (partition by track_md5 order by insert_ts_utc) as _rn
     from keyed
-)  
+)
 
 select
     love_md5
