@@ -3,7 +3,7 @@ import json
 import multiprocessing
 import sys
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Dict
 
 import click
 import mutagen
@@ -25,6 +25,28 @@ DDL = [
 
 EXTENSIONS: Set[str] = set([".mp3", ".flac", ".ogg", ".opus", ".wav"])
 
+# I manually looked at all the tags in my library and grouped semantically similar tags
+# together here. Likely there are more tags that could be added.
+ATTRIBUTES: Dict[str, List[str]] = dict(
+    album=["album"],
+    title=["title"],
+    artist=["artist"],
+    tracknumber=["tracknumber"],
+    discnumber=["discnumber"],
+    genre=["genre"],
+    date=["date", "originalyear", "year", "origyear"],
+    album_artist=["albumartist", "album artist"],
+    musicbrainz_trackid=["musicbrainz_trackid"],
+    musicbrainz_artistid=["musicbrainz_artistid"],
+    musicbrainz_albumid=["musicbrainz_albumid"],
+    musicbrainz_albumartistid=["musicbrainz_albumartistid"],
+    musicbrainz_discid=["musicbrainz_discid"],
+    musicbrainz_albumstatus=["musicbrainz_albumstatus"],
+    musicbrainz_albumtype=["musicbrainz_albumtype"],
+    musicbrainz_releasetrackid=["musicbrainz_releasetrackid"],
+    musicbrainz_releasegroupid=["musicbrainz_releasegroupid"],
+)
+
 
 def list_audio_files(*dirs: Path) -> List[Path]:
     """List all audio files in the directories."""
@@ -44,20 +66,19 @@ def parse_audio_file(path: Path) -> dict:
     file_modified_at = utils_.utcfromunixtime(path.stat().st_mtime)
     try:
         audio = mutagen.File(path, easy=True)
-        data = dict(
-            artist=audio.get("artist", [""])[0] or None,
-            album_artist=next(
+        data = {
+            attr: next(
                 (
-                    audio.get(i, [""])[0]
-                    for i in ("album artist", "albumartist", "album_artist")
-                    if audio.get(i, [""])[0]
+                    audio.get(key, [""])[0]
+                    for key in keys
+                    # found a case where genre was set to []. so protect against that
+                    if len(audio.get(key, [""])) > 0 and audio.get(key, [""])[0]
                 ),
                 None,
-            ),
-            album=audio.get("album", [""])[0] or None,
-            title=audio.get("title", [""])[0] or None,
-            length=audio.info.length,
-        )
+            )
+            for attr, keys in ATTRIBUTES.items()
+        }
+        data["length"] = audio.info.length
     except mutagen.MutagenError:
         data = dict()
 
@@ -91,7 +112,7 @@ def insert(conn, schema: str, table: str, filepath: Path, data: dict):
 @click.argument("src_dir", type=click.Path(exists=True, file_okay=False), nargs=-1)
 @click.option("--table", required=True)
 @click.option("--schema", required=True)
-@click.option("--procs", help="Number of processes to use", default=2, type=int)
+@click.option("--procs", help="Number of processes to use", default=1, type=int)
 @click.option(
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
@@ -111,26 +132,28 @@ def main(src_dir: List[Path], table: str, schema: str, procs: int, create: bool)
         sys.exit(0)
 
     # parse the files
-    click.echo("Parsing audio files")
-    with multiprocessing.Pool(procs) as pool:
+    real_procs = max(min(procs, len(files)), 1)
+    if real_procs == 1:
+        # set disable=None for not sys.stdout.isatty(),
+        click.echo("Parsing audio files serially")
         parsed = list(
-            tqdm(
-                pool.imap(parse_audio_file, files, chunksize=5),
-                total=len(files),
-                disable=None,  # not sys.stdout.isatty(),
-                mininterval=0.5,
-            )
+            tqdm(map(parse_audio_file, files), total=len(files), disable=None)
         )
+    else:
+        click.echo(f"Parsing audio files in {real_procs} processes")
+        with multiprocessing.Pool(real_procs) as pool:
+            parsed = list(
+                tqdm(
+                    pool.imap(parse_audio_file, files, chunksize=5),
+                    total=len(files),
+                    disable=None,
+                )
+            )
 
     # insert the files
     with utils_.pg_connect() as conn:
         click.echo(f"""Inserting {len(files)} files into {schema}.{table}""")
-        for path, data in tqdm(
-            zip(files, parsed),
-            disable=None,  # not sys.stdout.isatty(),
-            mininterval=0.5,
-            total=len(files),
-        ):
+        for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
             insert(conn=conn, schema=schema, table=table, filepath=path, data=data)
 
         conn.commit()

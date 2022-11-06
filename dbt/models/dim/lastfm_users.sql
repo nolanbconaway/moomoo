@@ -6,6 +6,7 @@
 
 select
     username
+    , case when username = '{{ var("lastfm_username") }}' then 'true' else 'false' end as is_dbt_user
     , count(1) as play_count
     , count(case when listen_at_ts_utc >= current_timestamp - interval '7 day' then 1 end) as play_count_7day
     , count(case when listen_at_ts_utc >= current_timestamp - interval '30 day' then 1 end) as play_count_30day
