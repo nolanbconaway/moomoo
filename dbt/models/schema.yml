@@ -182,8 +182,6 @@ models:
         tests:
           - not_null
       - name: track_url
-        tests:
-          - not_null
       - name: track_mbid
 
   - name: lastfm_albums
