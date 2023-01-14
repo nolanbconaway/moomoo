@@ -1,7 +1,7 @@
-name: 'lastfm'
+name: 'moomoo'
 version: '1.0.0'
 config-version: 2
-profile: 'lastfm'
+profile: 'moomoo'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -17,6 +17,3 @@ clean-targets:
 
 models:
   +materialized: table
-
-vars:
-  lastfm_username: 'boogerss'

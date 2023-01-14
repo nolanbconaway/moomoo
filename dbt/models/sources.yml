@@ -1,0 +1,22 @@
+
+version: 2
+
+sources:
+  - name: pyingest
+    schema: public
+    tables:
+      - name: listenbrainz_listens
+        description: Raw data ingested via python script.
+        columns:
+          - name: listen_md5
+            tests:
+              - not_null
+              - unique
+
+      - name: local_music_files
+        description: Raw local files data ingested via python script.
+        columns:
+          - name: filepath
+            tests:
+              - not_null
+              - unique 

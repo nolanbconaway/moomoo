@@ -9,7 +9,7 @@ import click
 import mutagen
 from tqdm.auto import tqdm
 
-from . import utils_
+from .. import utils_
 
 DDL = [
     """
