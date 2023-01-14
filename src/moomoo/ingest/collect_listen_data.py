@@ -1,54 +1,24 @@
-"""Query the Last.FM recent tracks api and store it in the db.
+"""Query the ListenBrainz listens api and store it in the db.
 
 This script is meant to be run periodically to update the db with recent tracks. It uses
-a sha256 hash of the (listen user, artist name, track name, timestamp) to uniquely 
-identify a listen. event. A postgres on conflict clause is used to update the listen
-if it already exists and ensure uniqueness.
+an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a 
+listen event. A postgres on conflict clause is used to update the listen if it already
+exists and ensure uniqueness.
 
-API Docs: https://www.last.fm/api/show/user.getRecentTracks
-
-Sample Payload:
-
-    {
-        "recenttracks": {
-            "track": [
-                {
-                    "artist": {
-                        "url": "...",
-                        "name": "Chuck Person",
-                        "image": [{ "size": "small", "#text": "..." }, ... ],
-                        "mbid": ""
-                    },
-                    "date": {"uts": "1654371703", "#text": "04 Jun 2022, 19:41"},
-                    "mbid": "",
-                    "name": "...",
-                    "image": [{ "size": "small", "#text": "..." }, ... ],
-                    "url": "...",
-                    "streamable": "0",
-                    "album": { "mbid": "...", #text": "..." },
-                    "loved": "0"
-                }
-            ],
-            "@attr": {
-                "user": "...",
-                "totalPages": "5",
-                "page": "3",
-                "perPage": "1",
-                "total": "5"
-            }
-        }
-    }
+API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/core.html#get--1-user-(user_name)-listens
 """
 import datetime
 import hashlib
 import json
-import os
 import sys
-
+from typing import Optional
 import click
+from pylistenbrainz import ListenBrainz
+from pylistenbrainz.errors import ListenBrainzAPIException
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
-from . import utils_
+from .. import utils_
 
 DDL = [
     """
@@ -66,66 +36,38 @@ DDL = [
 
 
 def get_listens_in_period(
-    username: str,
-    from_dt: datetime.datetime,
-    to_dt: datetime.datetime,
-    api_key: str = None,
+    username: str, from_dt: datetime.datetime, to_dt: datetime.datetime
 ) -> list:
     """Get recent tracks for a user in a given period."""
-    params = {
-        "method": "user.getRecentTracks",
-        "user": username,
-        "api_key": api_key or os.environ["LASTFM_API_KEY"],
-        "format": "json",
-        "extended": "1",
-        "from": int(from_dt.timestamp()),
-        "to": int(to_dt.timestamp()),
-        "limit": 200,
-    }
+    client = ListenBrainz()
+    endpoint = "/1/user/{username}/listens".format(username=username)
+    from_ts = int(from_dt.timestamp())
+    to_ts = int(to_dt.timestamp())
 
-    def get_page(page: int) -> dict:
-        return utils_.get_with_retries(
-            "https://ws.audioscrobbler.com/2.0/", params=dict(page=page, **params)
-        ).json()
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(5),
+        retry=retry_if_exception_type(ListenBrainzAPIException),
+    )
+    def get(lb: int, ub: int) -> dict:
+        ub_dt = utils_.utcfromunixtime(ub).isoformat()
+        lb_dt = utils_.utcfromunixtime(lb).isoformat()
+        click.echo(f"Getting {username} page from {lb_dt} to {ub_dt}.")
+        params = {"min_ts": lb, "max_ts": ub, "count": 100}
+        return client._get(endpoint, params=params)["payload"]
 
-    pages = [get_page(1)]
+    # get the first page
+    payload = get(from_ts, to_ts)
+    listens = payload["listens"]
 
-    # exit early if there are no listens
-    if int(pages[0]["recenttracks"]["@attr"]["total"]) == 0:
-        print('User "{}" has no listens in period.'.format(username))
-        return []
+    # end whenever we get less than 100 listens. we set a max 100 per page, so any
+    # less than that means we are at the end.
+    while payload["count"] == 100 and from_ts < to_ts:
+        from_ts = max([i["listened_at"] + 1 for i in payload["listens"]])
+        payload = get(from_ts, to_ts)
+        listens += payload["listens"]
 
-    # get all pages if any more than one
-    total_pages = int(pages[0]["recenttracks"]["@attr"]["totalPages"])
-    if total_pages > 1:
-        for page in tqdm(range(2, total_pages + 1)):
-            pages.append(get_page(page))
-
-    # flatten the list of pages
-    res = [
-        item
-        for page in pages
-        for item in page["recenttracks"]["track"]
-        if "date" in item  # current play does not have a date
-    ]
-
-    return res
-
-
-def get_lastfm_user_registry_dt(
-    username: str, api_key: str = None
-) -> datetime.datetime:
-    """Get the date the user was registered on last.fm."""
-    r = utils_.get_with_retries(
-        "https://ws.audioscrobbler.com/2.0/",
-        params=dict(
-            method="user.getInfo",
-            user=username,
-            api_key=api_key or os.environ["LASTFM_API_KEY"],
-            format="json",
-        ),
-    ).json()
-    return utils_.utcfromunixtime(r["user"]["registered"]["unixtime"])
+    return listens
 
 
 def get_db_last_listen(username: str, schema: str, table: str) -> datetime.datetime:
@@ -144,7 +86,7 @@ def get_db_last_listen(username: str, schema: str, table: str) -> datetime.datet
 
 def listen_hash(username: str, data: dict) -> str:
     """Get the hash of a listen using only immutable fields."""
-    immutable = [username, data["artist"]["name"], data["date"]["uts"], data["name"]]
+    immutable = [username, data["recording_msid"], data["listened_at"]]
     return hashlib.md5(json.dumps(immutable).encode("utf-8")).hexdigest()
 
 
@@ -174,7 +116,7 @@ def insert(conn, schema: str, table: str, username: str, listen_data: dict):
                 listen_md5=listen_hash(username, listen_data),
                 username=username,
                 json_data=json.dumps(listen_data),
-                listen_at_ts_utc=utils_.utcfromunixtime(listen_data["date"]["uts"]),
+                listen_at_ts_utc=utils_.utcfromunixtime(listen_data["listened_at"]),
             ),
         )
 
@@ -186,7 +128,7 @@ def run_ingest(
     from_dt: datetime.datetime,
     to_dt: datetime.datetime,
 ):
-    """Ingest data from last.fm."""
+    """Ingest data from listenbrainz."""
     if from_dt >= to_dt:
         raise ValueError(f"from date ({from_dt}) is after to date ({to_dt})")
 
@@ -209,15 +151,8 @@ def run_ingest(
 @click.option("--table", required=True)
 @click.option("--schema", required=True)
 @click.option(
-    "--since-register",
-    "since",
-    flag_value="register",
-    help="Option to copy all data since the user was registered.",
-)
-@click.option(
     "--since-last",
-    "since",
-    flag_value="last",
+    is_flag=True,
     help="Option to only copy data since the latest entry in the table",
 )
 @click.option(
@@ -236,13 +171,31 @@ def run_ingest(
 @click.option(
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
-def main(username, table, schema, create, since, from_dt, to_dt):
-    """Query the Last.FM recent tracks api and store it in the db.
+@click.option(
+    "--buffer-days",
+    type=int,
+    default=0,
+    help=(
+        "Number of days to buffer from the last listen, to catch late arriving data."
+        + " Useed with --since-last. Default 0."
+    ),
+)
+def main(
+    username: str,
+    table: str,
+    schema: str,
+    create: bool,
+    since_last: bool,
+    from_dt: Optional[datetime.datetime],
+    to_dt: datetime.datetime,
+    buffer_days: int,
+):
+    """Query the ListenBrainz listens api and store it in the db.
 
-    This script is meant to be run periodically to update the db with recent tracks. It
-    uses an md5 hash of the (user, artist name, track name, timestamp) to uniquely
-    identify a listen. event. A postgres on conflict clause is used to update the listen
-    if it already exists and ensure uniqueness.
+    This script is meant to be run periodically to update the db with recent tracks. It uses
+    an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a
+    listen event. A postgres on conflict clause is used to update the listen if it already
+    exists and ensure uniqueness.
     """
     if create:
         utils_.create_table(schema, table, DDL)
@@ -250,14 +203,14 @@ def main(username, table, schema, create, since, from_dt, to_dt):
         click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
         sys.exit(1)
 
-    if since and from_dt:
+    if since_last and from_dt:
         click.echo(
-            "--since-* and --from are mutually exclusive. Use --since-* instead."
+            "--since-last and --from are mutually exclusive. Use --since-last instead."
         )
         sys.exit(1)
 
     # get from date
-    if since == "last":
+    if since_last:
         if not check_user_in_table(schema=schema, table=table, username=username):
             click.echo(
                 f"No data found for {username} in {schema}.{table}. "
@@ -265,8 +218,10 @@ def main(username, table, schema, create, since, from_dt, to_dt):
             )
             sys.exit(1)
         from_dt = get_db_last_listen(schema=schema, table=table, username=username)
-    elif since == "register":
-        from_dt = get_lastfm_user_registry_dt(username)
+        from_dt -= datetime.timedelta(days=buffer_days)
+    elif not from_dt:
+        click.echo("Must specify either --since-last or --from")
+        sys.exit(1)
 
     run_ingest(
         username=username, table=table, schema=schema, from_dt=from_dt, to_dt=to_dt

@@ -1,0 +1,39 @@
+{
+    "payload": {
+        "count": 1,
+        "latest_listen_ts": 1673064041,
+        "listens": [
+            {
+                "inserted_at": 1672243534,
+                "listened_at": 1672243428,
+                "recording_msid": "3ce7851c-8092-41e4-b322-d6bc5b422994",
+                "track_metadata": {
+                    "additional_info": {
+                        "duration_ms": 203667,
+                        "recording_msid": "3ce7851c-8092-41e4-b322-d6bc5b422994",
+                        "tracknumber": 1
+                    },
+                    "artist_name": "Modest Mouse",
+                    "mbid_mapping": {
+                        "artist_mbids": [
+                            "a96ac800-bfcb-412a-8a63-0a98df600700"
+                        ],
+                        "artists": [
+                            {
+                                "artist_credit_name": "Modest Mouse",
+                                "artist_mbid": "a96ac800-bfcb-412a-8a63-0a98df600700",
+                                "join_phrase": ""
+                            }
+                        ],
+                        "recording_mbid": "9d2df08a-bda9-4940-baa3-0782272f5129",
+                        "release_mbid": "0c131a4b-3cc0-449c-b39b-8093209c5db3"
+                    },
+                    "release_name": "Building Nothing Out of Something",
+                    "track_name": "Never Ending Math Equation"
+                },
+                "user_name": "..."
+            }
+        ],
+        "user_id": "..."
+    }
+}

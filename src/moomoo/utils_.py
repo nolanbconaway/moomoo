@@ -1,32 +1,13 @@
 import datetime
 import os
-import time
 from typing import List
 
 import psycopg2
-import requests
 
 
 def pg_connect(dsn: str = None) -> psycopg2.extensions.connection:
     """Connect to the db."""
     return psycopg2.connect(dsn or os.environ["POSTGRES_DSN"])
-
-
-def get_with_retries(
-    *args, retries: int = 3, delay: float = 3, timeout_: float = 2, **kwargs
-) -> requests.Response:
-    for i in range(retries):
-        try:
-            res = requests.get(*args, **kwargs)
-            time.sleep(timeout_)
-            res.raise_for_status()
-            return res
-        except requests.exceptions.HTTPError:
-            if i == retries - 1:
-                raise
-            else:
-                print("Connection error, retrying in {} seconds".format(delay))
-                time.sleep(delay)
 
 
 def create_table(schema: str, table: str, ddl: List[str]):

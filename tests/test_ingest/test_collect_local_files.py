@@ -3,9 +3,10 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from lastfmrec import collect_local_files
 
-RESOURCES = Path(__file__).parent / "resources"
+from moomoo.ingest import collect_local_files
+
+from ..conftest import RESOURCES
 
 
 @pytest.fixture(autouse=True)
