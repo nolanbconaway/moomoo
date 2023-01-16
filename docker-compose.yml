@@ -1,0 +1,15 @@
+version: '3'
+services:
+  moomoo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: 
+      - POSTGRES_DSN=${DOCKER_POSTGRES_DSN:-default}
+      - DBT_PG_USER=${DOCKER_DBT_PG_USER:-default}
+      - DBT_PG_DBNAME=${DOCKER_DBT_PG_DBNAME:-default}
+      - DBT_PG_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
+      - DBT_PG_PASSWORD=${DOCKER_DBT_PG_PASSWORD:-default}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

@@ -10,6 +10,11 @@ py-format:
 py-test:
 	pytest tests --verbose
 
+
+.PHONY:
+dbt-deps:
+	cd dbt && dbt deps
+
 .PHONY:
 dbt-run:
 	dbt run --project-dir dbt/
@@ -23,5 +28,6 @@ sql-lint:
 	cd dbt && sqlfluff lint models \
 		--config ../.sqlfluff \
 		--disable-progress-bar
+
 
 

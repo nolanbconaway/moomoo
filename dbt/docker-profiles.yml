@@ -1,0 +1,14 @@
+
+moomoo:
+  outputs:
+    prod:
+      type: postgres
+      threads: 5
+      host: host.docker.internal
+      port: 5432
+      user: "{{ env_var('DBT_PG_USER') }}"
+      pass: "{{ env_var('DBT_PG_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME') }}"
+      schema: "{{ env_var('DBT_PG_SCHEMA') }}"
+
+  target: prod
