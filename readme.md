@@ -31,10 +31,35 @@ models for recommendation.
 I have a .env like:
 
 ```
-POSTGRES_DSN="dbname=my_db ..."
+POSTGRES_DSN="dbname=my_db ..." 
+```
+### Docker Setup
+
+I run moomoo on my local desktop which also hosts the postgres db. I execute jobs on an airflow server hosted on the same machine, so I've dockerized an environment that works for me.
+
+I export the following env vars:
+
+```
+DOCKER_POSTGRES_DSN="dbname=my_db host=host.docker.internal ..."
+DOCKER_DBT_PG_USER="..."
+DOCKER_DBT_PG_PASSWORD="..."
+DOCKER_DBT_PG_HOST="host.docker.internal"
+DOCKER_DBT_PG_PORT="..."
+DOCKER_DBT_PG_DBNAME="..."
 ```
 
-These scripts assume those variables are exported.
+And
+
+```sh
+docker-compose up --build
+```
+
+Then run arbitrary whatever in that container via:
+
+```sh
+docker-compose run moomoo ...
+# like docker-compose run moomoo make dbt-run
+```
 
 ### Database
 
