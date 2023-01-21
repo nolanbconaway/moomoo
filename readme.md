@@ -41,11 +41,13 @@ I export the following env vars:
 
 ```
 DOCKER_POSTGRES_DSN="dbname=my_db host=host.docker.internal ..."
-DOCKER_DBT_PG_USER="..."
-DOCKER_DBT_PG_PASSWORD="..."
 DOCKER_DBT_PG_HOST="host.docker.internal"
-DOCKER_DBT_PG_PORT="..."
+DOCKER_DBT_PG_PORT=5432
+DOCKER_DBT_PG_USER="..."
 DOCKER_DBT_PG_DBNAME="..."
+DOCKER_DBT_PG_SCHEMA="..."
+DOCKER_DBT_PG_PASSWORD="..."
+DOCKER_MOUNT_LOCAL_MUSIC_DIR=/user/me/music  # mounted at /mnt/moomoo/music in docker
 ```
 
 And
