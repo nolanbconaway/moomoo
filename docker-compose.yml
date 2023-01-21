@@ -6,10 +6,15 @@ services:
       dockerfile: Dockerfile
     environment: 
       - POSTGRES_DSN=${DOCKER_POSTGRES_DSN:-default}
+      - DBT_PG_HOST=${DOCKER_DBT_PG_HOST:-default}
+      - DBT_PG_PORT=${DOCKER_DBT_PG_PORT:-default}
       - DBT_PG_USER=${DOCKER_DBT_PG_USER:-default}
       - DBT_PG_DBNAME=${DOCKER_DBT_PG_DBNAME:-default}
       - DBT_PG_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
       - DBT_PG_PASSWORD=${DOCKER_DBT_PG_PASSWORD:-default}
+
+    volumes:
+    - ${DOCKER_MOUNT_LOCAL_MUSIC_DIR:-default}:/mnt/moomoo/music
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
