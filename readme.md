@@ -31,7 +31,8 @@ models for recommendation.
 I have a .env like:
 
 ```
-POSTGRES_DSN="dbname=my_db ..." 
+POSTGRES_DSN="dbname=my_db ..."
+CONTACT_EMAIL="me@email.com"  # identify with musicbrainz
 ```
 ### Docker Setup
 

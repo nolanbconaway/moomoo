@@ -1,10 +1,16 @@
 """Setup."""
 
+from pathlib import Path
+
 from setuptools import find_packages, setup
+
+version = (
+    (Path(__file__).resolve().parent / "src" / "moomoo" / "version").read_text().strip()
+)
 
 setup(
     name="moomoo",
-    version="0.1.0",
+    version=version,
     packages=find_packages("src"),
     package_dir={"": "src"},
     install_requires=[
@@ -14,6 +20,7 @@ setup(
         "click==8.1.3",
         "mutagen==1.46.0",
         "pylistenbrainz==0.5.1",
+        "musicbrainzngs==0.7.1",
     ],
     extras_require=dict(
         dbt=["dbt-postgres==1.1.0"],
@@ -25,4 +32,5 @@ setup(
         ],
     ),
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},
+    package_data={"moomoo": ["version"]},
 )
