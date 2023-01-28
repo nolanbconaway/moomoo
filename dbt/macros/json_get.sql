@@ -1,10 +1,12 @@
 
-{%- macro json_get(column, path) -%}
-  nullif(trim({{ column -}}
-      {%- for item in path -%}
-        {%- if loop.last %} ->> '{{ item }}'
-        {%- else %} -> '{{ item }}'
-        {%- endif -%}
-      {%- endfor -%}
-    ), '')
+{%- macro json_get(column, path, as_json=false) -%}
+  {%- if as_json -%}
+    {{ _get(column, path) }}
+  {%- else -%}
+    nullif(trim({{ _get(column, path[:-1]) }} ->> '{{ path[-1] }}'), '')
+  {%- endif -%}
 {%- endmacro -%}
+
+{% macro _get(column, path) -%}
+  {{ column -}} {%- for item in path %} -> '{{ item }}' {%- endfor -%}
+{% endmacro -%}

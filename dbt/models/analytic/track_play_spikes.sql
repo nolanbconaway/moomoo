@@ -9,7 +9,7 @@ with spikes_unconstrained as (
     t0.listen_md5
     , min(t0.username) as username
     , min(t0.listen_at_ts_utc) as period_start_at_utc
-    , {{ dbt_utils.surrogate_key(['min(t0.username)', 'min(t0.recording_mbid)']) }} as user_recording_mbid
+    , {{ dbt_utils.surrogate_key(['min(t0.username)', 'min(t0.recording_mbid::varchar)']) }} as user_recording_mbid
     , count(*) as next_24h_listen_count
 
   from {{ ref('listens_flat') }} as t0

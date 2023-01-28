@@ -29,6 +29,7 @@ models:
       - name: release_name
       - name: release_mbid
       - name: recording_mbid
+      - name: artist_mbids
       - name: caa_release_mbid
       - name: duration_ms
       - name: tracknumber

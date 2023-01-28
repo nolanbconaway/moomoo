@@ -31,7 +31,10 @@ DDL = [
     )
     """,
     """create index {schema}_{table}_username_idx on {schema}.{table} (username)""",
-    """create index {schema}_{table}_listen_at_idx on {schema}.{table} (listen_at_ts_utc)""",
+    """
+    create index {schema}_{table}_listen_at_idx on {schema}.{table} (
+        listen_at_ts_utc
+    )""",
 ]
 
 

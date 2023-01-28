@@ -71,15 +71,23 @@ with t as (
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'release_mbid'])
-      }}::varchar as "release_mbid"
+      }}::uuid as "release_mbid"
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'recording_mbid'])
-      }}::varchar as "recording_mbid"
+      }}::uuid as "recording_mbid"
+
+    , {{
+        json_get(
+          'json_data'
+          , ['track_metadata', 'mbid_mapping', 'artist_mbids']
+          , as_json=True
+        )
+      }} as "artist_mbids"
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'caa_release_mbid'])
-      }}::varchar as "caa_release_mbid"
+      }}::uuid as "caa_release_mbid"
 
     , {{
         json_get('json_data', ['track_metadata', 'additional_info', 'duration_ms'])
@@ -106,6 +114,7 @@ select
   , release_name
   , release_mbid
   , recording_mbid
+  , artist_mbids
   , caa_release_mbid
   , duration_ms
   , tracknumber
