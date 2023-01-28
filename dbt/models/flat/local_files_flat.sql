@@ -66,8 +66,8 @@ select
   , track_date
   , track_year
   , track_length_seconds
-  , track_mbid
-  , artist_mbid
+  , {{ try_cast_uuid('track_mbid') }} as track_mbid
+  , {{ try_cast_uuid('artist_mbid') }} as artist_mbid
   , insert_ts_utc
 
 from processed
