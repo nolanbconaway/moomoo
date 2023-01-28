@@ -4,6 +4,8 @@ version: 2
 
 models:
   - name: track_play_spikes
+    config:
+      tags: ['ingest']
     desciption: Records of play spikes (cases where one track was played >=5 times in 24h).
     columns:
       - name: start_listen_md5
@@ -12,6 +14,8 @@ models:
           - unique
 
   - name: mbids
+    config:
+      tags: ['ingest']
     description: Long format list of every mbid in the system and the entity to which it applies.
     columns:
       - name: mbid

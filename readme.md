@@ -18,8 +18,7 @@ Specifically, I'll be:
 
 This is ongoing! 
 
-Current status: I wrote the dbt models for providing easy access to my data, and next i need to toy with 
-models for recommendation. 
+Current status: Writing ingestion pipeline and DBT models to curate a detailed dataset on my listening behavior.
 
 ## Setup 
 
@@ -34,6 +33,11 @@ I have a .env like:
 POSTGRES_DSN="dbname=my_db ..."
 CONTACT_EMAIL="me@email.com"  # identify with musicbrainz
 ```
+
+## Order of operations
+
+>> TODO. ingest >> dbt >> enrich >> dbt ...
+
 ### Docker Setup
 
 I run moomoo on my local desktop which also hosts the postgres db. I execute jobs on an airflow server hosted on the same machine, so I've dockerized an environment that works for me.
