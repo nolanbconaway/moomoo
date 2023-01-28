@@ -12,6 +12,7 @@ services:
       - DBT_PG_DBNAME=${DOCKER_DBT_PG_DBNAME:-default}
       - DBT_PG_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
       - DBT_PG_PASSWORD=${DOCKER_DBT_PG_PASSWORD:-default}
+      - CONTACT_EMAIL=${CONTACT_EMAIL:-default}
 
     volumes:
     - ${DOCKER_MOUNT_LOCAL_MUSIC_DIR:-default}:/mnt/moomoo/music
