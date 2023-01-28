@@ -45,6 +45,7 @@ I run moomoo on my local desktop which also hosts the postgres db. I execute job
 I export the following env vars:
 
 ```
+CONTACT_EMAIL=...
 DOCKER_POSTGRES_DSN="dbname=my_db host=host.docker.internal ..."
 DOCKER_DBT_PG_HOST="host.docker.internal"
 DOCKER_DBT_PG_PORT=5432
