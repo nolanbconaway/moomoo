@@ -165,7 +165,7 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
     """Enrich a MusicBrainz ID with data from MusicBrainz.
 
     This is the main entry point intended, as it comes with rate limiting, error
-    handling, etc.
+    handling, etc. I have found speed at the rate of 1 req/s in practice.
     """
     fn = {
         "recording": get_recording_data,
@@ -175,7 +175,7 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
 
     if fn is None:
         raise ValueError(
-            "Invalid entity type. Rqeuire: {'recording', 'release', 'artist'}"
+            "Invalid entity type. Require: {'recording', 'release', 'artist'}"
         )
 
     try:
