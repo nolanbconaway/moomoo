@@ -8,7 +8,7 @@ py-format:
 
 .PHONY: 
 py-test:
-	pytest tests --verbose
+	CONTACT_EMAIL=FAKE pytest tests --verbose
 
 
 .PHONY:
