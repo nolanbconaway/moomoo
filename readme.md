@@ -75,6 +75,13 @@ This postgres table stores the raw data obtained from the Last FM API. My goal i
 
 > TODO: db diagram
 
-#### DBT
+#### DBT Design
 
-If you have data being populated into the db; you can use the models in [dbt](dbt/) to expose those json payloads into useful/structured data.
+Database sources are iteratively processed, currently in this rough order:
+
+1. Source data collected from local files and listenbrainz. No dependencies outside the python jobs.
+2. *TODO: Resolution of the mbids for each local file that did not store its own mbids.*
+3. A list of mbid/entity combinations built via dbt, unioning the above sources.
+4. Enriched source data for each mbid from step 3, obtained in a python job by querying musicbrainz.
+5. Dimensional model making the enriched data per mbid available.
+

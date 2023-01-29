@@ -33,3 +33,5 @@ jobs:
 
       - name: Python Unit Tests
         run: make py-test
+        env:
+          CONTACT_EMAIL: fake

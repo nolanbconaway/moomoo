@@ -1,0 +1,92 @@
+
+version: 2
+
+models:
+  - name: dim_artist
+    config:
+      tags: ['dim']
+    description: Dimensional model containing information about artists.
+    columns:
+      - name: artist_mbid
+        tests:
+          - not_null
+          - unique
+      - name: artist_name
+        tests:
+          - not_null
+      - name: artist_type
+      - name: alias_list
+      - name: url_relation_list
+      - name: artist_relation_list
+      - name: _ingest_insert_ts_utc
+        tests:
+          - not_null
+
+  - name: dim_release
+    config:
+      tags: ['dim']
+    description: Dimensional model containing information about releases.
+    columns:
+      - name: release_mbid
+        tests:
+          - not_null
+          - unique
+      - name: release_title
+        tests:
+          - not_null
+      - name: artist_credit_phrase
+        tests:
+          - not_null
+      - name: release_year
+      - name: artist_mbid
+        description: mbid for the first artist credited in the artist_credit_list.
+        tests:
+          - not_null
+      - name: release_status
+      - name: release_barcode
+      - name: release_country
+      - name: release_asin
+      - name: release_date
+      - name: artist_credit_list
+      - name: label_info_list
+      - name: url_relation_list
+      - name: _ingest_insert_ts_utc
+        tests:
+          - not_null
+
+  - name: dim_recording
+    config:
+      tags: ['dim']
+    description: Dimensional model containing information about recordings.
+    columns:
+      - name: recording_mbid
+        tests:
+          - not_null
+          - unique
+      - name: recording_title
+        tests:
+          - not_null
+      - name: artist_credit_phrase
+        tests:
+          - not_null
+      - name: release_year
+        description: year for the first release listed in the release_list.
+      - name: release_mbid
+        description: mbid for the first release listed in the release_list.
+        tests:
+          - not_null
+      - name: release_artist_mbid
+        description: mbid for the first artist credited in the release_mbid.
+        tests:
+          - not_null
+      - name: artist_mbid
+        description: mbid for the first artist credited in the artist_credit_list.
+        tests:
+          - not_null
+      - name: recording_length
+      - name: tag_list
+      - name: release_list
+      - name: artist_credit_list
+      - name: _ingest_insert_ts_utc
+        tests:
+          - not_null
