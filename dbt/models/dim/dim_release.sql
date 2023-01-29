@@ -48,4 +48,3 @@ select
   , "_ingest_insert_ts_utc"
 
 from t
-

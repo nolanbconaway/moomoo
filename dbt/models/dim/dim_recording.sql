@@ -36,7 +36,9 @@ select
   , "artist_credit_phrase"
   , substring({{ json_get('release_list', [0, 'date']) }} from 1 for 4)::int as "release_year"
   , {{ json_get('release_list', [0, 'id']) }}::uuid as "release_mbid"
-  , {{ json_get('release_list', [0, "artist-credit", 0 , 'artist', 'id']) }}::uuid as "release_artist_mbid"
+  , {{
+      json_get('release_list', [0, "artist-credit", 0 , 'artist', 'id']) 
+    }}::uuid as "release_artist_mbid"
   , {{ json_get('artist_credit_list', [0, 'artist', 'id']) }}::uuid as "artist_mbid"
   , "recording_length"
   , "tag_list"
@@ -45,4 +47,3 @@ select
   , "_ingest_insert_ts_utc"
 
 from t
-

@@ -6,7 +6,7 @@ with by_year as (
   select
     listens.username
     , recording.release_year
-    , count(1) as listens
+    , count(*) as listens
 
   from {{ ref('listens_flat') }} as listens
   inner join {{ ref('dim_recording') }} as recording
@@ -30,7 +30,7 @@ select
   by_year.username
   , by_year.release_year
   , by_year.listens
-  , by_year.listens::real  / totals.total_listens as listens_pct
+  , by_year.listens::real / totals.total_listens as listens_pct
 
 from by_year
 inner join totals on by_year.username = totals.username

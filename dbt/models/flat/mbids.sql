@@ -19,9 +19,9 @@ with release_mbids as (
 )
 
 , artist_mbids as (
-  select distinct artist_mbid::uuid as mbid
-  from {{ ref('listens_flat') }}
-    , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
+  select distinct artist_mbid.value::uuid as mbid
+  from {{ ref('listens_flat') }} as listens_flat
+  , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
   where listens_flat.artist_mbids is not null
     and jsonb_array_length(listens_flat.artist_mbids) > 0
 
@@ -32,15 +32,21 @@ with release_mbids as (
   where artist_mbid is not null
 )
 
-select mbid, 'release'::varchar as entity
+select
+  mbid
+  , 'release'::varchar as entity
 from release_mbids
 
 union all
 
-select mbid, 'recording'::varchar as entity
+select
+  mbid
+  , 'recording'::varchar as entity
 from recording_mbids
 
 union all
 
-select mbid, 'artist'::varchar as entity
+select
+  mbid
+  , 'artist'::varchar as entity
 from artist_mbids
