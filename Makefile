@@ -17,13 +17,13 @@ dbt-deps:
 
 .PHONY:
 dbt-run:
-	# NOTE: set tag=tag_name in the make command.
-	if [ ! -z "$(tag)" ]; then dbt run --project-dir dbt/ --select tag:"$(tag)"; else exit 1; fi
+	# NOTE: set select=... in the make command.
+	if [ ! -z "$(select)" ]; then dbt run --project-dir dbt/ --select "$(select)"; else exit 1; fi
 
 .PHONY:
 dbt-test:
-	# NOTE: set tag=tag_name in the make command.
-	if [ ! -z "$(tag)" ]; then dbt test --project-dir dbt/ --select tag:"$(tag)"; else exit 1; fi
+	# NOTE: set select=... in the make command.
+	if [ ! -z "$(select)" ]; then dbt test --project-dir dbt/ --select "$(select)"; else exit 1; fi
 
 .PHONY:
 sql-lint:

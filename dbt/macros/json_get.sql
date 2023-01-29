@@ -8,5 +8,8 @@
 {%- endmacro -%}
 
 {% macro _get(column, path) -%}
-  {{ column -}} {%- for item in path %} -> '{{ item }}' {%- endfor -%}
+  {{ column -}}
+  {%- for item in path %} ->
+    {%- if item is number %} {{ item }} {%- else %} '{{ item }}' {%- endif -%}
+  {%- endfor -%}
 {% endmacro -%}
