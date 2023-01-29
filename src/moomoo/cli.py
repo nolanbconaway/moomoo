@@ -6,6 +6,7 @@ import click
 
 from .enrich import cli as enrich_cli
 from .ingest import cli as ingest_cli
+from .utils_ import moomoo_version
 
 
 @click.group()
@@ -17,7 +18,7 @@ def cli():
 @cli.command()
 def version():
     """Get the version of moomoo."""
-    click.echo((Path(__file__).resolve().parent / "version").read_text().strip())
+    click.echo(moomoo_version())
 
 
 cli.add_command(ingest_cli.cli, "ingest")

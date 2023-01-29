@@ -158,15 +158,18 @@ def main(
 
     # annotate and insert
     click.echo("annotating...")
+    annotated = utils_.annotate_mbid_batch(to_ingest)
     with utils_.pg_connect() as conn:
-        for i in tqdm(to_ingest, disable=None):
+        for args, res in tqdm(
+            zip(to_ingest, annotated), disable=None, total=len(to_ingest)
+        ):
             insert(
                 conn=conn,
                 schema=schema,
                 table=table,
-                mbid=i["mbid"],
-                entity=i["entity"],
-                payload=utils_.annotate_mbid(mbid=i["mbid"], entity=i["entity"]),
+                mbid=args["mbid"],
+                entity=args["entity"],
+                payload=res,
             )
     click.echo("Done.")
 

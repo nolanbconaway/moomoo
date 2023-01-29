@@ -1,24 +1,23 @@
 """Utility functions for the good of all."""
 import datetime
 import os
-import time
 from pathlib import Path
-from typing import List
+from typing import Iterable, Iterator, List
 
 import musicbrainzngs
 import psycopg2
 import psycopg2.extras
 
-# I think musicbrainzngs falls under the 50 requests per second allowed per:
-# https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting#User-Agent
-#
-# This is generous at 10/s.
-SLEEP_S = 0.1
-
 
 def moomoo_version() -> str:
     """Get the current moomoo version."""
     return (Path(__file__).resolve().parent / "version").read_text().strip()
+
+
+# set user agent for all musicbrainzngs requests
+musicbrainzngs.set_useragent(
+    app="moomoo", version=moomoo_version(), contact=os.environ["CONTACT_EMAIL"]
+)
 
 
 def pg_connect(
@@ -47,6 +46,8 @@ def create_table(schema: str, table: str, ddl: List[str]):
     """Create a table in the db with multiple DDL statements.
 
     Useful for creating tables with indexes. Drops the table if it already exists.
+
+    TODO: make dropping the table a kwarg. create if not exists.
     """
     print('Creating table "{}" in schema "{}"...'.format(table, schema))
     with pg_connect() as conn:
@@ -81,9 +82,10 @@ def check_table_exists(schema: str, table: str) -> bool:
 
 def utcfromisodate(iso_date: str) -> datetime.datetime:
     """Convert YYYY-MM-DD date string to UTC datetime."""
-    return datetime.datetime.fromisoformat(iso_date).replace(
-        tzinfo=datetime.timezone.utc
-    )
+    dt = datetime.datetime.fromisoformat(iso_date)
+    if dt.tzinfo is not None:
+        return dt.astimezone(datetime.timezone.utc)
+    return dt.replace(tzinfo=datetime.timezone.utc)
 
 
 def utcfromunixtime(unixtime: int) -> datetime.datetime:
@@ -93,16 +95,8 @@ def utcfromunixtime(unixtime: int) -> datetime.datetime:
     )
 
 
-def set_mbz_client():
-    """Set the musicbrainzngs client."""
-    musicbrainzngs.set_useragent(
-        app="moomoo", version=moomoo_version(), contact=os.environ["CONTACT_EMAIL"]
-    )
-
-
-def get_recording_data(recording_mbid: str) -> dict:
+def _get_recording_data(recording_mbid: str) -> dict:
     """Get release data from MusicBrainz."""
-    set_mbz_client()
     return musicbrainzngs.get_recording_by_id(
         recording_mbid,
         includes=[
@@ -121,9 +115,8 @@ def get_recording_data(recording_mbid: str) -> dict:
     )
 
 
-def get_release_data(release_mbid: str) -> dict:
+def _get_release_data(release_mbid: str) -> dict:
     """Get release data from MusicBrainz."""
-    set_mbz_client()
     return musicbrainzngs.get_release_by_id(
         release_mbid,
         includes=[
@@ -141,9 +134,8 @@ def get_release_data(release_mbid: str) -> dict:
     )
 
 
-def get_artist_data(artist_mbid: str) -> dict:
+def _get_artist_data(artist_mbid: str) -> dict:
     """Get artist data from MusicBrainz."""
-    set_mbz_client()
     return musicbrainzngs.get_artist_by_id(
         artist_mbid,
         includes=[
@@ -162,25 +154,52 @@ def get_artist_data(artist_mbid: str) -> dict:
 
 
 def annotate_mbid(mbid: str, entity: str) -> dict:
-    """Enrich a MusicBrainz ID with data from MusicBrainz.
+    """Enrich a MusicBrainz IDs with data from MusicBrainz.
 
-    This is the main entry point intended, as it comes with rate limiting, error
-    handling, etc. I have found speed at the rate of 1 req/s in practice.
+    Expected input:
+
+    - mbid: the MusicBrainz ID
+    - entity: the type of entity, e.g. 'recording', 'release', 'artist'
+
+    Returns a dicts with the following keys:
+
+    - _success: boolean indicating whether the request was successful
+    - _args: a dict containing the mbid and entity type of the request
+    - error: error message if the request was not successful
+    - data: the data returned from MusicBrainz if the request was successful
     """
+    args = dict(mbid=mbid, entity=entity)
     fn = {
-        "recording": get_recording_data,
-        "release": get_release_data,
-        "artist": get_artist_data,
+        "recording": _get_recording_data,
+        "release": _get_release_data,
+        "artist": _get_artist_data,
     }.get(entity)
 
     if fn is None:
-        raise ValueError(
-            "Invalid entity type. Require: {'recording', 'release', 'artist'}"
-        )
+        return dict(_success=False, _args=args, error=f"Unknown entity type: {entity}.")
 
     try:
-        return dict(_success=True, data=fn(mbid))
-    except musicbrainzngs.musicbrainz.MusicBrainzError as e:
-        return dict(_success=False, error=str(e))
-    finally:
-        time.sleep(SLEEP_S)
+        return dict(_success=True, _args=args, data=fn(mbid))
+    except Exception as e:
+        return dict(_success=False, _args=args, error=str(e))
+
+
+def annotate_mbid_batch(mbids_maps: Iterable[dict]) -> Iterator[dict]:
+    """Enrich MusicBrainz IDs with data from MusicBrainz.
+
+    Expected input is a list/iterable of dicts with the following keys:
+
+    - mbid: the MusicBrainz ID
+    - entity: the type of entity, e.g. 'recording', 'release', 'artist'
+
+    Yields a generator of dicts with the following keys:
+
+    - _success: boolean indicating whether the request was successful
+    - _args: a dict containing the mbid and entity type of the request
+    - error: error message if the request was not successful
+    - data: the data returned from MusicBrainz if the request was successful
+    """
+    for mbid_map in mbids_maps:
+        mbid = mbid_map["mbid"]
+        entity = mbid_map["entity"]
+        yield annotate_mbid(mbid, entity)
