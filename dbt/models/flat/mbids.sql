@@ -4,6 +4,12 @@ with release_mbids as (
   select distinct release_mbid as mbid
   from {{ ref('listens_flat') }}
   where release_mbid is not null
+
+  union distinct
+
+  select distinct release_mbid as mbid
+  from {{ ref('local_files_flat') }}
+  where release_mbid is not null
 )
 
 , recording_mbids as (
@@ -13,7 +19,7 @@ with release_mbids as (
 
   union distinct
 
-  select distinct track_mbid as mbid
+  select distinct recording_mbid as mbid
   from {{ ref('local_files_flat') }}
   where track_mbid is not null
 )
