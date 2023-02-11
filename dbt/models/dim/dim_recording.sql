@@ -2,7 +2,7 @@
 {{ config(
   indexes=[
     {'columns': ['recording_mbid'], 'unique': True},
-    {'columns': ['artist_mbid']},    
+    {'columns': ['artist_mbid']},
     {'columns': ['_ingest_insert_ts_utc']},
 
   ]
@@ -30,15 +30,14 @@ with t as (
 
 , first_year as (
   select
-    "recording_mbid"
+    t."recording_mbid"
     , min(
-      substring({{ json_get('release.value', ['date']) }} from 1 for 4)::int
+      substring({{ json_get('r."value"', ['date']) }} from 1 for 4)::int
     ) as "release_year"
-  
-  from t
-  , jsonb_array_elements(t.release_list) as release
 
-  where {{ json_get('release.value', ['date']) }} is not null
+  from t, jsonb_array_elements(t.release_list) as r
+
+  where {{ json_get('r."value"', ['date']) }} is not null
   group by 1
 )
 
@@ -55,4 +54,4 @@ select
   , t."_ingest_insert_ts_utc"
 
 from t
-inner join first_year on first_year.recording_mbid = t.recording_mbid
+left join first_year on first_year.recording_mbid = t.recording_mbid
