@@ -67,7 +67,8 @@ models:
       - name: track_year
         description: First 4 caracters of the date. Skipped if not integers.
       - name: track_length_seconds
-      - name: track_mbid
+      - name: recording_mbid
+      - name: release_mbid
       - name: artist_mbid
       - name: insert_ts_utc
         tests:

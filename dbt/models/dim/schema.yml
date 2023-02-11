@@ -70,15 +70,7 @@ models:
         tests:
           - not_null
       - name: release_year
-        description: year for the first release listed in the release_list.
-      - name: release_mbid
-        description: mbid for the first release listed in the release_list.
-        tests:
-          - not_null
-      - name: release_artist_mbid
-        description: mbid for the first artist credited in the release_mbid.
-        tests:
-          - not_null
+        description: Fiirst year listed in the release_list.
       - name: artist_mbid
         description: mbid for the first artist credited in the artist_credit_list.
         tests:
