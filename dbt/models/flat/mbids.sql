@@ -21,7 +21,7 @@ with release_mbids as (
 
   select distinct recording_mbid as mbid
   from {{ ref('local_files_flat') }}
-  where track_mbid is not null
+  where recording_mbid is not null
 )
 
 , artist_mbids as (
