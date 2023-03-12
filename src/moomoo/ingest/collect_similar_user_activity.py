@@ -8,6 +8,8 @@ import json
 import sys
 from itertools import product
 from typing import Dict, List, Union
+import hashlib
+
 
 import click
 from psycopg2.extras import execute_values
@@ -30,7 +32,7 @@ LB_RETRY = retry(
 DDL = [
     """
     create table {schema}.{table} (
-        "id" serial not null primary key
+        payload_id varchar(32) not null primary key
         , from_username text not null
         , to_username text not null
         , entity varchar not null
@@ -58,7 +60,7 @@ def get_similar_users(username: str) -> List[Dict[str, Union[str, float]]]:
     """
     client = ListenBrainz()
     click.echo(f"Getting similar users for {username}.")
-    return client._get(f"/1/user/{username}/similar-users")["payload"]
+    return client._get(f"/1/user/{username}/similar-users")["payload"][:3]
 
 
 @LB_RETRY
@@ -81,7 +83,6 @@ def get_user_top_activity(
             "payload"
         ]
     except ListenBrainzAPIException as e:
-        print(e)
         if e.status_code == 204:
             return []  # no data in range
         raise e
@@ -89,6 +90,7 @@ def get_user_top_activity(
 
 def insert(conn, schema: str, table: str, data: List[dict]):
     cols = [
+        "payload_id",
         "from_username",
         "to_username",
         "user_similarity",
@@ -96,7 +98,18 @@ def insert(conn, schema: str, table: str, data: List[dict]):
         "time_range",
         "json_data",
     ]
-    sql = f"""insert into {schema}.{table} ({", ".join(cols)}) values %s"""
+    sql = f"""
+        insert into {schema}.{table} ({", ".join(cols)}) values %s
+        on conflict (payload_id) do update set
+                from_username = excluded.from_username
+                , to_username = excluded.to_username
+                , user_similarity = excluded.user_similarity
+                , entity = excluded.entity
+                , time_range = excluded.time_range
+                , json_data = excluded.json_data
+                , insert_ts_utc = current_timestamp
+            
+    """
     template = ", ".join([f"%({i})s" for i in cols])
 
     with conn.cursor() as cur:
@@ -142,6 +155,11 @@ def main(
 
         records.append(
             {
+                "payload_id": hashlib.md5(
+                    json.dumps(
+                        [username, user["user_name"], entity, time_range]
+                    ).encode()
+                ).hexdigest(),
                 "from_username": username,
                 "to_username": user["user_name"],
                 "entity": entity,
