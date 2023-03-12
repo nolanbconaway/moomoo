@@ -60,7 +60,7 @@ def get_similar_users(username: str) -> List[Dict[str, Union[str, float]]]:
     """
     client = ListenBrainz()
     click.echo(f"Getting similar users for {username}.")
-    return client._get(f"/1/user/{username}/similar-users")["payload"][:3]
+    return client._get(f"/1/user/{username}/similar-users")["payload"]
 
 
 @LB_RETRY
