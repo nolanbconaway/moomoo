@@ -1,0 +1,166 @@
+"""Query the ListenBrainz user statistics api and store similar user top activity.
+
+This script is meant to be run periodically and upload whatever data is available to the
+database. It will not overwrite existing data. So DBT will be needed to merge latest,
+over time, etc.
+"""
+import json
+import sys
+from itertools import product
+from typing import Dict, List, Union
+
+import click
+from psycopg2.extras import execute_values
+from pylistenbrainz import ListenBrainz
+from pylistenbrainz.errors import ListenBrainzAPIException
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+
+from .. import utils_
+
+ENTITIES = ("artists", "releases", "recordings")
+TIME_RANGES = ("month", "year", "all_time")
+
+LB_RETRY = retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(5),
+    retry=retry_if_exception_type(ListenBrainzAPIException),
+    reraise=True,
+)
+
+DDL = [
+    """
+    create table {schema}.{table} (
+        "id" serial not null primary key
+        , from_username text not null
+        , to_username text not null
+        , entity varchar not null
+        , time_range varchar not null
+        , user_similarity float not null
+        , json_data jsonb not null
+        , insert_ts_utc timestamp with time zone default current_timestamp not null
+    )
+    """,
+    "create index {schema}_{table}_from_idx on {schema}.{table} (from_username)",
+    "create index {schema}_{table}_to_idx on {schema}.{table} (to_username)",
+    "create index {schema}_{table}_entity_idx on {schema}.{table} (entity)",
+    "create index {schema}_{table}_time_range_idx on {schema}.{table} (time_range)",
+    "create index {schema}_{table}_at_idx on {schema}.{table} (insert_ts_utc)",
+]
+
+
+@LB_RETRY
+def get_similar_users(username: str) -> List[Dict[str, Union[str, float]]]:
+    """Get similar users for a user.
+
+    Returns a list of dicts with the following keys:
+        - user_name (str) - the username of the similar user
+        - similarity (float) - the similarity score between the two users, from 0-1.
+    """
+    client = ListenBrainz()
+    click.echo(f"Getting similar users for {username}.")
+    return client._get(f"/1/user/{username}/similar-users")["payload"]
+
+
+@LB_RETRY
+def get_user_top_activity(
+    username: str, entity: str, time_range: str = "all_time", count: int = 100
+) -> List[Dict[str, Union[str, float]]]:
+    """Get the top activity for a user/entity."""
+    if entity not in ENTITIES:
+        raise ValueError(f"Invalid entity: {entity}.")
+    if time_range not in TIME_RANGES:
+        raise ValueError(f"Invalid time range: {range}.")
+    if count < 1 or count > 100:
+        raise ValueError(f"Invalid count: {count}.")
+
+    client = ListenBrainz()
+    endpoint = f"/1/stats/user/{username}/{entity}"
+    click.echo(f"Getting top {entity} for {username} in the {time_range} range.")
+    try:
+        return client._get(endpoint, params={"range": time_range, "count": count})[
+            "payload"
+        ]
+    except ListenBrainzAPIException as e:
+        print(e)
+        if e.status_code == 204:
+            return []  # no data in range
+        raise e
+
+
+def insert(conn, schema: str, table: str, data: List[dict]):
+    cols = [
+        "from_username",
+        "to_username",
+        "user_similarity",
+        "entity",
+        "time_range",
+        "json_data",
+    ]
+    sql = f"""insert into {schema}.{table} ({", ".join(cols)}) values %s"""
+    template = ", ".join([f"%({i})s" for i in cols])
+
+    with conn.cursor() as cur:
+        execute_values(cur, sql, data, template=f"( {template} )")
+
+
+@click.command()
+@click.argument("username")
+@click.option("--table", required=True)
+@click.option("--schema", required=True)
+@click.option(
+    "--create", is_flag=True, help="Option to teardown and recreate the table"
+)
+def main(
+    username: str,
+    table: str,
+    schema: str,
+    create: bool,
+):
+    """Get the top releases for a user's similar users.
+
+    Ranks the releases by the number of listens and the similarity score of the similar
+    user. Returns a dict of {mbid: score} pairs, in descending order of score.
+    """
+    if create:
+        utils_.create_table(schema, table, DDL)
+    elif not utils_.check_table_exists(schema=schema, table=table):
+        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+        sys.exit(1)
+
+    similar_users = get_similar_users(username)
+    records = []
+    for user, entity, time_range in product(similar_users, ENTITIES, TIME_RANGES):
+        data = get_user_top_activity(
+            username=user["user_name"], entity=entity, time_range=time_range
+        )
+
+        if not data:
+            click.echo(f"No data for {user['user_name']} in the {time_range} range.")
+            continue
+        else:
+            click.echo(f"Successfully got data for {user['user_name']}.")
+
+        records.append(
+            {
+                "from_username": username,
+                "to_username": user["user_name"],
+                "entity": entity,
+                "time_range": time_range,
+                "user_similarity": user["similarity"],
+                "json_data": json.dumps(data),
+            }
+        )
+
+    if not records:
+        click.echo("No records to insert.")
+        sys.exit(0)
+
+    click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
+    with utils_.pg_connect() as conn:
+        insert(conn, schema, table, records)
+
+    click.echo("Done.")
+
+
+if __name__ == "__main__":
+    main()
