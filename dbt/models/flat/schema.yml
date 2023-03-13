@@ -74,6 +74,47 @@ models:
         tests:
           - not_null
 
+  - name: similar_user_activity_flat
+    config:
+      tags: ['ingest']
+    description: Listen counts for similar users across different entities and time ranges.
+    columns:
+      - name: similar_user_activity_id
+        tests:
+          - not_null
+          - unique
+      - name: mbid
+        tests:
+          - not_null
+      - name: listen_count
+        tests:
+          - not_null
+      - name: from_username
+        tests:
+          - not_null
+      - name: to_username
+        tests:
+          - not_null
+      - name: user_similarity
+        tests:
+          - not_null
+      - name: activity_from_ts
+        tests:
+          - not_null
+      - name: activity_to_ts
+        tests:
+          - not_null
+      - name: entity
+        tests:
+          - not_null
+      - name: ingest_payload_id
+        description: Hash of (from, to, entity, time range).
+        tests:
+          - not_null
+      - name: insert_ts_utc
+        tests:
+          - not_null
+
   - name: mbids
     config:
       tags: ['ingest']
@@ -86,3 +127,4 @@ models:
       - name: entity
         tests:
           - not_null
+
