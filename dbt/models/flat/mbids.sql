@@ -10,6 +10,12 @@ with release_mbids as (
   select distinct release_mbid as mbid
   from {{ ref('local_files_flat') }}
   where release_mbid is not null
+
+  union distinct
+
+  select distinct mbid
+  from {{ ref('similar_user_activity_flat') }}
+  where entity = 'release'
 )
 
 , recording_mbids as (
@@ -22,6 +28,12 @@ with release_mbids as (
   select distinct recording_mbid as mbid
   from {{ ref('local_files_flat') }}
   where recording_mbid is not null
+
+  union distinct
+
+  select distinct mbid
+  from {{ ref('similar_user_activity_flat') }}
+  where entity = 'recording'
 )
 
 , artist_mbids as (
@@ -36,6 +48,12 @@ with release_mbids as (
   select distinct artist_mbid as mbid
   from {{ ref('local_files_flat') }}
   where artist_mbid is not null
+
+  union distinct
+
+  select distinct mbid
+  from {{ ref('similar_user_activity_flat') }}
+  where entity = 'artist'
 )
 
 select

@@ -35,3 +35,32 @@ sources:
             tests:
               - not_null
           - name: payload_json
+
+      - name: listenbrainz_similar_user_activity
+        description: Activity from users marked as similar on Listenbrainz.
+        columns:
+          - name: payload_id
+            tests:
+              - not_null
+              - unique 
+          - name: from_username
+            tests:
+              - not_null
+          - name: to_username
+            tests:
+              - not_null
+          - name: entity
+            tests:
+              - not_null
+          - name: time_range
+            tests:
+              - not_null
+          - name: user_similarity
+            tests:
+              - not_null
+          - name: json_data
+            tests:
+              - not_null
+          - name: insert_ts_utc
+            tests:
+              - not_null
