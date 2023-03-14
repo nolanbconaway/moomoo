@@ -65,7 +65,7 @@ with exploded as (
 )
 
 select
-  {{ dbt_utils.surrogate_key(['base.payload_id', 'exploded.mbid']) }} as "similar_user_activity_id"
+  {{ dbt_utils.generate_surrogate_key(['base.payload_id', 'exploded.mbid']) }} as "similar_user_activity_id"
   , exploded."mbid"::uuid as "mbid"
   , exploded."listen_count" as "listen_count"
 
