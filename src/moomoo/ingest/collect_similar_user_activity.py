@@ -178,7 +178,13 @@ def main(
     click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
     with utils_.pg_connect() as conn:
         click.echo(f"Inserting {len(records)} records.")
-        insert(conn, schema, table, records)
+        insert(
+            conn=conn,
+            schema=schema,
+            table=table,
+            data=records,
+            username=username,
+        )
 
     click.echo("Done.")
 
