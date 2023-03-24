@@ -87,7 +87,7 @@ def get_user_top_activity(
         raise e
 
 
-def insert(conn, schema: str, table: str, data: List[dict]):
+def insert(conn, schema: str, table: str, data: List[dict], username: str):
     cols = [
         "payload_id",
         "from_username",
@@ -112,6 +112,9 @@ def insert(conn, schema: str, table: str, data: List[dict]):
     template = ", ".join([f"%({i})s" for i in cols])
 
     with conn.cursor() as cur:
+        cur.execute(
+            f"delete from {schema}.{table} where from_username = %s", (username,)
+        )
         execute_values(cur, sql, data, template=f"( {template} )")
 
 
@@ -174,14 +177,6 @@ def main(
 
     click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
     with utils_.pg_connect() as conn:
-        # first drop existing user data
-        click.echo(f"Deleting existing data for {username}.")
-        with conn.cursor() as cur:
-            cur.execute(
-                f"delete from {schema}.{table} where from_username = %s", (username,)
-            )
-        conn.commit()
-
         click.echo(f"Inserting {len(records)} records.")
         insert(conn, schema, table, records)
 
