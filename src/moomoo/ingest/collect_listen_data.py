@@ -135,15 +135,15 @@ def run_ingest(
     if from_dt >= to_dt:
         raise ValueError(f"from date ({from_dt}) is after to date ({to_dt})")
 
-    print(f"Getting {username} listens from {from_dt} to {to_dt}")
+    click.echo(f"Getting {username} listens from {from_dt} to {to_dt}")
     data = get_listens_in_period(username, from_dt, to_dt)
 
     if not data:
-        print("No listens found")
+        click.echo("No listens found")
         return
 
     with utils_.pg_connect() as conn:
-        print(f"""Inserting {len(data)} listens into {schema}.{table}""")
+        click.echo(f"""Inserting {len(data)} listens into {schema}.{table}""")
         for row in tqdm(data):
             insert(conn, schema, table, username=username, listen_data=row)
         conn.commit()

@@ -4,12 +4,11 @@ This script is meant to be run periodically and upload whatever data is availabl
 database. It will not overwrite existing data. So DBT will be needed to merge latest,
 over time, etc.
 """
+import hashlib
 import json
 import sys
 from itertools import product
 from typing import Dict, List, Union
-import hashlib
-
 
 import click
 from psycopg2.extras import execute_values
@@ -175,6 +174,15 @@ def main(
 
     click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
     with utils_.pg_connect() as conn:
+        # first drop existing user data
+        click.echo(f"Deleting existing data for {username}.")
+        with conn.cursor() as cur:
+            cur.execute(
+                f"delete from {schema}.{table} where from_username = %s", (username,)
+            )
+        conn.commit()
+
+        click.echo(f"Inserting {len(records)} records.")
         insert(conn, schema, table, records)
 
     click.echo("Done.")
