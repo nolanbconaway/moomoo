@@ -4,12 +4,11 @@ This script is meant to be run periodically and upload whatever data is availabl
 database. It will not overwrite existing data. So DBT will be needed to merge latest,
 over time, etc.
 """
+import hashlib
 import json
 import sys
 from itertools import product
 from typing import Dict, List, Union
-import hashlib
-
 
 import click
 from psycopg2.extras import execute_values
@@ -88,7 +87,7 @@ def get_user_top_activity(
         raise e
 
 
-def insert(conn, schema: str, table: str, data: List[dict]):
+def insert(conn, schema: str, table: str, data: List[dict], username: str):
     cols = [
         "payload_id",
         "from_username",
@@ -113,6 +112,9 @@ def insert(conn, schema: str, table: str, data: List[dict]):
     template = ", ".join([f"%({i})s" for i in cols])
 
     with conn.cursor() as cur:
+        cur.execute(
+            f"delete from {schema}.{table} where from_username = %s", (username,)
+        )
         execute_values(cur, sql, data, template=f"( {template} )")
 
 
@@ -175,7 +177,14 @@ def main(
 
     click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
     with utils_.pg_connect() as conn:
-        insert(conn, schema, table, records)
+        click.echo(f"Inserting {len(records)} records.")
+        insert(
+            conn=conn,
+            schema=schema,
+            table=table,
+            data=records,
+            username=username,
+        )
 
     click.echo("Done.")
 

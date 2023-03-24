@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Iterable, Iterator, List
 
+import click
 import musicbrainzngs
 import psycopg2
 import psycopg2.extras
@@ -49,7 +50,7 @@ def create_table(schema: str, table: str, ddl: List[str]):
 
     TODO: make dropping the table a kwarg. create if not exists.
     """
-    print('Creating table "{}" in schema "{}"...'.format(table, schema))
+    click.echo('Creating table "{}" in schema "{}"...'.format(table, schema))
     with pg_connect() as conn:
         with conn.cursor() as cur:
             cur.execute(

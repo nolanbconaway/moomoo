@@ -18,3 +18,13 @@ models:
           combination_of_columns:
             - username
             - release_year
+
+  - name: similar_user_recommends
+    desciption: Top mbids listened to by similar users but not by the user themselves.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - from_username
+            - time_range
+            - entity
+            - mbid
