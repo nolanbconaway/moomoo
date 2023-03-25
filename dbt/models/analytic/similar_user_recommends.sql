@@ -1,3 +1,5 @@
+{{ config(materialized='view') }}
+
 with similars as (
   select
     from_username
@@ -39,7 +41,7 @@ with similars as (
 )
 
 select
-  similars.from_username
+  similars.from_username as username
   , similars.time_range
   , similars.entity
   , similars.mbid
