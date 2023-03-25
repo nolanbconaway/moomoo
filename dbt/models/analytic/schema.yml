@@ -24,7 +24,20 @@ models:
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - from_username
+            - username
             - time_range
             - entity
             - mbid
+
+  - name: top_releases_by_release_year
+    descrpition: Top 5 most listened to releases for each release year.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - release_year
+            - rank
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - release_mbid
