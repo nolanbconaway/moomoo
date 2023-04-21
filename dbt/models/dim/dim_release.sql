@@ -31,8 +31,20 @@ with t as (
     and {{ json_get('payload_json', ['_success']) }} = 'true'
 )
 
+, artist_array as (
+  select
+    release_mbid
+    , array_agg({{ json_get('artist_credit', ['artist', 'id']) }}::uuid) as "artist_mbids_list"
+
+  from t
+    , jsonb_array_elements("artist_credit_list") as artist_credit
+
+  where "artist_credit" is not null
+  group by 1
+)
+
 select
-  "release_mbid"
+  t."release_mbid"
   , "release_title"
   , "artist_credit_phrase"
   , substring("release_date" from 1 for 4)::int as "release_year"
@@ -43,8 +55,10 @@ select
   , "release_asin"
   , "release_date"
   , "artist_credit_list"
+  , artist_array."artist_mbids_list" as "artist_mbids_list"
   , "label_info_list"
   , "url_relation_list"
   , "_ingest_insert_ts_utc"
 
 from t
+left join artist_array on artist_array.release_mbid = t.release_mbid
