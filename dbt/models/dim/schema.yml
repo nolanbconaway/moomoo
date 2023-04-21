@@ -48,6 +48,7 @@ models:
       - name: release_asin
       - name: release_date
       - name: artist_credit_list
+      - name: artist_mbids_list
       - name: label_info_list
       - name: url_relation_list
       - name: _ingest_insert_ts_utc
