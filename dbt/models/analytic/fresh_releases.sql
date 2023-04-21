@@ -17,6 +17,17 @@ with artist_listen_counts as (
     group by 1, 2
 )
 
+, skip_releases as (
+  {# skip anything with an artist with > 5 listens #}
+  select alc.username, r.release_mbid
+  
+  from {{ ref('dim_release') }} as r
+  inner join artist_listen_counts as alc on alc.artist_mbid = any(r.artist_mbids_list)
+  
+  group by 1, 2
+  having max(alc.listen_count) > 5
+)
+
 , release_scores as (
     select
       s.username
@@ -27,13 +38,11 @@ with artist_listen_counts as (
     inner join {{ ref('dim_release') }} as r
       on r.release_mbid = s.mbid
         and s.entity = 'release'
+    left join skip_releases
+      on skip_releases.release_mbid = r.release_mbid
+        and skip_releases.username = s.username
 
-    left join artist_listen_counts as alc
-      on alc.artist_mbid = any(r.artist_mbids_list)
-        and alc.username = s.username
-        and alc.listen_count < 5
-
-    where alc.artist_mbid is null
+    where skip_releases.release_mbid is null
 )
 
 select
