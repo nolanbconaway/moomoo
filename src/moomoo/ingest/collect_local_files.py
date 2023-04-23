@@ -3,7 +3,7 @@ import json
 import multiprocessing
 import sys
 from pathlib import Path
-from typing import List, Set, Dict
+from typing import Dict, List, Set
 
 import click
 import mutagen
@@ -89,7 +89,12 @@ def parse_audio_file(path: Path) -> dict:
     )
 
 
-def insert(conn, schema: str, table: str, filepath: Path, data: dict):
+def delete_all_rows(conn, schema: str, table: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute(f"delete from {schema}.{table} where true")
+
+
+def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -114,9 +119,21 @@ def insert(conn, schema: str, table: str, filepath: Path, data: dict):
 @click.option("--schema", required=True)
 @click.option("--procs", help="Number of processes to use", default=1, type=int)
 @click.option(
+    "--append-only",
+    is_flag=True,
+    help="Option to not drop all rows prior to ingest. Default is to drop all rows.",
+)
+@click.option(
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
-def main(src_dir: List[Path], table: str, schema: str, procs: int, create: bool):
+def main(
+    src_dir: List[Path],
+    table: str,
+    schema: str,
+    procs: int,
+    append_only: bool,
+    create: bool,
+):
     if create:
         utils_.create_table(schema, table, DDL)
     elif not utils_.check_table_exists(schema=schema, table=table):
@@ -152,7 +169,13 @@ def main(src_dir: List[Path], table: str, schema: str, procs: int, create: bool)
 
     # insert the files
     with utils_.pg_connect() as conn:
-        click.echo(f"""Inserting {len(files)} files into {schema}.{table}""")
+        if append_only:
+            click.echo("Running insert in append-only mode.")
+        else:
+            click.echo(f"Dropping all rows in {schema}.{table}")
+            delete_all_rows(conn=conn, schema=schema, table=table)
+
+        click.echo(f"Inserting {len(files)} files into {schema}.{table}")
         for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
             insert(conn=conn, schema=schema, table=table, filepath=path, data=data)
 

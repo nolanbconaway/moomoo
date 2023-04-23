@@ -9,8 +9,11 @@ from ..conftest import RESOURCES
 
 
 @pytest.fixture(autouse=True)
-def mock_insert(monkeypatch):
+def mock_db_wrappers(monkeypatch):
     monkeypatch.setattr(collect_local_files, "insert", lambda *args, **kwargs: ...)
+    monkeypatch.setattr(
+        collect_local_files, "delete_all_rows", lambda *args, **kwargs: ...
+    )
 
 
 def test_parse_audio_file():

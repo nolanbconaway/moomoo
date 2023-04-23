@@ -3,8 +3,6 @@ version: 2
 
 models:
   - name: dim_artist
-    config:
-      tags: ['dim']
     description: Dimensional model containing information about artists.
     columns:
       - name: artist_mbid
@@ -23,8 +21,6 @@ models:
           - not_null
 
   - name: dim_release
-    config:
-      tags: ['dim']
     description: Dimensional model containing information about releases.
     columns:
       - name: release_mbid
@@ -56,8 +52,6 @@ models:
           - not_null
 
   - name: dim_recording
-    config:
-      tags: ['dim']
     description: Dimensional model containing information about recordings.
     columns:
       - name: recording_mbid
