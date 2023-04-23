@@ -114,7 +114,7 @@ def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
 
 
 @click.command()
-@click.argument("src_dir", type=click.Path(exists=True, file_okay=False), nargs=-1)
+@click.argument("src_dir", type=click.Path(exists=True, file_okay=False))
 @click.option("--table", required=True)
 @click.option("--schema", required=True)
 @click.option("--procs", help="Number of processes to use", default=1, type=int)
@@ -140,8 +140,11 @@ def main(
         click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
         sys.exit(1)
 
+    # make sure the src_dir is a Path
+    src_dir = Path(src_dir)
+
     # get the list of files
-    files = list_audio_files(*map(Path, src_dir))
+    files = list_audio_files(src_dir)
     click.echo(f"Found {len(files)} audio files")
 
     if not files:
@@ -177,7 +180,13 @@ def main(
 
         click.echo(f"Inserting {len(files)} files into {schema}.{table}")
         for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
-            insert(conn=conn, schema=schema, table=table, filepath=path, data=data)
+            insert(
+                conn=conn,
+                schema=schema,
+                table=table,
+                filepath=path.relative_to(src_dir),
+                data=data,
+            )
 
         conn.commit()
 
