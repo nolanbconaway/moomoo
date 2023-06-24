@@ -8,6 +8,7 @@ WORKDIR /usr/src/moomoo
 # setup py modules
 COPY src/moomoo ./src/moomoo
 COPY setup.py .
+RUN pip install pip==23.*
 RUN pip install -e .[dbt,test]
 
 # setup dbt

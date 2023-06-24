@@ -3,9 +3,11 @@ __pycache__
 .env
 .python-version
 .vscode
+artifacts
 
 dbt/target/**/*
 dbt/dbt_packages/**/*
 dbt/logs/**/*
 dbt/.dotdbt
 deploy.sh
+

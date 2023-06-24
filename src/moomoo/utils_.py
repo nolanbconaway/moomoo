@@ -6,8 +6,9 @@ from typing import Iterable, Iterator, List
 
 import click
 import musicbrainzngs
-import psycopg2
-import psycopg2.extras
+import psycopg
+from pgvector.psycopg import register_vector
+from psycopg.rows import dict_row
 
 
 def moomoo_version() -> str:
@@ -21,18 +22,18 @@ musicbrainzngs.set_useragent(
 )
 
 
-def pg_connect(
-    dsn: str = None, dict_cursor: bool = False
-) -> psycopg2.extensions.connection:
+def pg_connect(dsn: str = None, dict_cursor: bool = False) -> psycopg.Connection:
     """Connect to the db.
 
     Option to use dict cursors instead of regular cursors via the dict_cursor kwarg.
     """
     if dict_cursor:
-        kw = dict(cursor_factory=psycopg2.extras.DictCursor)
+        kw = dict(row_factory=dict_row)
     else:
         kw = dict()
-    return psycopg2.connect(dsn or os.environ["POSTGRES_DSN"], **kw)
+    conn = psycopg.connect(dsn or os.environ["POSTGRES_DSN"], **kw)
+    register_vector(conn)
+    return conn
 
 
 def execute_sql_fetchall(sql: str, params: dict = None, dsn: str = None) -> List[dict]:
