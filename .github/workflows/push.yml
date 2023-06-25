@@ -48,6 +48,9 @@ jobs:
           pip install --upgrade pip
           pip install -e .[test]
 
+      - name: Download ML Artifacts
+        run: moomoo ml save-artifacts
+      
       - name: Black
         run: make py-lint
 
