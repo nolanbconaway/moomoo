@@ -21,6 +21,7 @@ musicbrainzngs.set_useragent(
     app="moomoo", version=moomoo_version(), contact=os.environ.get("CONTACT_EMAIL")
 )
 
+
 def _pg_connect(*args, **kwargs) -> psycopg.Connection:
     """Connect to the db; for mocking purposes."""
     return psycopg.connect(*args, **kwargs)
