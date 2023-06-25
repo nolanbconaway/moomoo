@@ -88,7 +88,6 @@ def get_user_top_activity(
 
 
 def insert(conn, schema: str, table: str, data: List[dict], username: str):
-
     sql = f"""
         insert into {schema}.{table} (
             payload_id
