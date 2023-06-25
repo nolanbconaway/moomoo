@@ -13,6 +13,7 @@ import datetime
 import json
 import sys
 from typing import List
+from uuid import UUID
 
 import click
 from tqdm import tqdm
@@ -33,6 +34,13 @@ DDL = [
 ]
 
 
+class UUIDEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return obj.hex
+        return json.JSONEncoder.default(self, obj)
+
+
 def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict):
     with conn.cursor() as cur:
         cur.execute(
@@ -44,7 +52,11 @@ def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict)
               , ts_utc = current_timestamp
               , payload_json = excluded.payload_json
             """,
-            dict(mbid=mbid, entity=entity, payload_json=json.dumps(payload)),
+            dict(
+                mbid=mbid,
+                entity=entity,
+                payload_json=json.dumps(payload, cls=UUIDEncoder),
+            ),
         )
         conn.commit()
 
