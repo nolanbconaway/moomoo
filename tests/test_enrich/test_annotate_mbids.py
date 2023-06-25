@@ -1,13 +1,15 @@
 """Test the annotate_mbids module."""
+import uuid
+
 import pytest
 from click.testing import CliRunner
 
+from moomoo import utils_
 from moomoo.enrich import annotate_mbids
 
 
-@pytest.fixture(autouse=True)
-def mock_insert(monkeypatch):
-    monkeypatch.setattr(annotate_mbids, "insert", lambda *args, **kwargs: ...)
+def create_table(schema, table):
+    utils_.create_table(schema=schema, table=table, ddl=annotate_mbids.DDL)
 
 
 @pytest.mark.parametrize(
@@ -36,7 +38,8 @@ def test_cli_date_args(monkeypatch, addtl_args, exit_0):
         annotate_mbids, "get_re_annotate_mbids", lambda *args, **kwargs: []
     )
 
-    args = ["--table=FAKE", "--schema=FAKE", "--dbt-schema=FAKE"]
+    create_table(schema="test", table="fake")
+    args = ["--table=fake", "--schema=test", "--dbt-schema=dbt"]
     runner = CliRunner()
 
     # no args, good to go.
@@ -49,14 +52,16 @@ def test_cli_date_args(monkeypatch, addtl_args, exit_0):
 
 def test_cli_main(monkeypatch):
     """Test required flags are enforced."""
-    mbids = [dict(mbid=f"fake_{i}", entity="fake") for i in range(10)]
+    mbids = [dict(mbid=uuid.uuid1(), entity="fake") for _ in range(10)]
+
+    create_table(schema="test", table="fake")
 
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda **_: [])
     monkeypatch.setattr(annotate_mbids, "get_re_annotate_mbids", lambda **_: [])
     monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", lambda *_: dict(a=1))
 
     runner = CliRunner()
-    args = ["--table=FAKE", "--schema=FAKE", "--dbt-schema=FAKE"]
+    args = ["--table=fake", "--schema=test", "--dbt-schema=dbt"]
 
     # no args, no annotation
     result = runner.invoke(annotate_mbids.main, args)

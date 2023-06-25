@@ -35,6 +35,7 @@ setup(
             "pytest==7.2.2",
             "sqlfluff==1.4.5",
             "sqlfluff-templater-dbt==1.4.5",
+            "pytest-postgresql==5.0.0",
         ],
     ),
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},

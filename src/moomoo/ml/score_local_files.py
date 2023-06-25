@@ -40,7 +40,7 @@ def main(src_dir: Path, table: str, schema: str, create: bool, artifacts: Path):
 
     click.echo("Listing unscored media files.")
     sql = f"select filepath from {schema}.{table}"
-    already_scored = set([Path(i) for (i,) in utils_.execute_sql_fetchall(sql)])
+    already_scored = set([src_dir / i for (i,) in utils_.execute_sql_fetchall(sql)])
     all_files = set(list_audio_files(src_dir))
     unscored_files = all_files - already_scored
 

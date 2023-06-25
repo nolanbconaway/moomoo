@@ -88,34 +88,41 @@ def get_user_top_activity(
 
 
 def insert(conn, schema: str, table: str, data: List[dict], username: str):
-    cols = [
-        "payload_id",
-        "from_username",
-        "to_username",
-        "user_similarity",
-        "entity",
-        "time_range",
-        "json_data",
-    ]
+
     sql = f"""
-        insert into {schema}.{table} ({", ".join(cols)}) values %s
+        insert into {schema}.{table} (
+            payload_id
+            , from_username
+            , to_username
+            , user_similarity
+            , entity
+            , time_range
+            , json_data
+        ) 
+        values (
+            %(payload_id)s
+            , %(from_username)s
+            , %(to_username)s
+            , %(user_similarity)s
+            , %(entity)s
+            , %(time_range)s
+            , %(json_data)s
+        )
         on conflict (payload_id) do update set
-                from_username = excluded.from_username
-                , to_username = excluded.to_username
-                , user_similarity = excluded.user_similarity
-                , entity = excluded.entity
-                , time_range = excluded.time_range
-                , json_data = excluded.json_data
-                , insert_ts_utc = current_timestamp
-            
+            from_username = excluded.from_username
+            , to_username = excluded.to_username
+            , user_similarity = excluded.user_similarity
+            , entity = excluded.entity
+            , time_range = excluded.time_range
+            , json_data = excluded.json_data
+            , insert_ts_utc = current_timestamp
     """
-    template = ", ".join([f"%({i})s" for i in cols])
 
     with conn.cursor() as cur:
         cur.execute(
             f"delete from {schema}.{table} where from_username = %s", (username,)
         )
-        execute_values(cur, sql, data, template=f"( {template} )")
+        cur.executemany(sql, data)
 
 
 @click.command()
@@ -177,7 +184,6 @@ def main(
 
     click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
     with utils_.pg_connect() as conn:
-        click.echo(f"Inserting {len(records)} records.")
         insert(
             conn=conn,
             schema=schema,

@@ -22,24 +22,22 @@ musicbrainzngs.set_useragent(
 )
 
 
-def pg_connect(dsn: str = None, dict_cursor: bool = False) -> psycopg.Connection:
-    """Connect to the db.
+def _pg_connect(*args, **kwargs) -> psycopg.Connection:
+    """Connect to the db; for mocking purposes."""
+    return psycopg.connect(*args, **kwargs)
 
-    Option to use dict cursors instead of regular cursors via the dict_cursor kwarg.
-    """
-    if dict_cursor:
-        kw = dict(row_factory=dict_row)
-    else:
-        kw = dict()
-    conn = psycopg.connect(dsn or os.environ["POSTGRES_DSN"], **kw)
+
+def pg_connect(dsn: str = None) -> psycopg.Connection:
+    """Connect to the db."""
+    conn = _pg_connect(dsn or os.environ["POSTGRES_DSN"])
     register_vector(conn)
     return conn
 
 
 def execute_sql_fetchall(sql: str, params: dict = None, dsn: str = None) -> List[dict]:
     """Execute a SQL statement and return all results via dict cursors."""
-    with pg_connect(dsn=dsn, dict_cursor=True) as conn:
-        with conn.cursor() as cur:
+    with pg_connect(dsn=dsn) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
             cur.execute(sql, params or dict())
             return cur.fetchall()
 
