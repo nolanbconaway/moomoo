@@ -11,7 +11,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres
+        image: ankane/pgvector # has pgvector already installed
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -34,13 +34,6 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Install pgvector
-        run: |
-          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-          sudo apt update
-          sudo apt install postgresql-server-dev-14
-          sudo apt install postgresql-14-pgvector
 
       - name: Install Python Dependencies
         run: |
