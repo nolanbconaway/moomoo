@@ -40,7 +40,7 @@ CONTACT_EMAIL="me@email.com"  # identify with musicbrainz
 
 ### Docker Setup
 
-I run moomoo on my local desktop which also hosts the postgres db. I execute jobs on an airflow server hosted on the same machine, so I've dockerized an environment that works for me.
+I run moomoo on my local desktop which also hosts the postgres db. I execute jobs on an airflow server hosted on the same machine, so I've dockerized an environment that works for me. You'll need to set up the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/user-guide.html) to run ml work with the host gpu.
 
 I export the following env vars:
 
