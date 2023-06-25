@@ -4,16 +4,9 @@ import pytest
 from click.testing import CliRunner
 
 from moomoo.ingest import collect_local_files
+from moomoo.utils_ import execute_sql_fetchall
 
 from ..conftest import RESOURCES
-
-
-@pytest.fixture(autouse=True)
-def mock_db_wrappers(monkeypatch):
-    monkeypatch.setattr(collect_local_files, "insert", lambda *args, **kwargs: ...)
-    monkeypatch.setattr(
-        collect_local_files, "delete_all_rows", lambda *args, **kwargs: ...
-    )
 
 
 def test_parse_audio_file():
@@ -31,7 +24,17 @@ def test_cli_main(procs):
 
     result = runner.invoke(
         collect_local_files.main,
-        [str(RESOURCES), "--table=FAKE", "--schema=FAKE", f"--procs={procs}"],
+        [
+            str(RESOURCES),
+            "--table=fake",
+            "--schema=test",
+            f"--procs={procs}",
+            "--create",
+        ],
     )
     assert result.exit_code == 0
     assert "Inserting" in result.output
+
+    rows = execute_sql_fetchall("select * from test.fake")
+    assert len(rows) == 1
+    assert rows[0]["json_data"]["title"] == "fake"

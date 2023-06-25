@@ -4,13 +4,38 @@ on: push
 
 jobs:
   run:
+    env:
+      CONTACT_EMAIL: fake
+
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10']
 
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v3
+
+      - uses: ankane/setup-postgres@v1
+        with:
+          postgres-version: 14
+
+      - name: install pgvector
+        run: |
+          sudo apt install curl ca-certificates gnupg
+
+          curl https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | gpg --dearmor \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg \
+            >/dev/null
+
+          sudo sh -c \
+            'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list'
+          
+          sudo apt update
+          sudo apt install postgresql-server-dev-14
+          sudo apt install postgresql-14-pgvector
 
       - uses: actions/cache@v3
         with:
@@ -23,15 +48,17 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Dependencies
+
+      - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
           pip install -e .[test]
+
+      - name: Download ML Artifacts
+        run: moomoo ml save-artifacts
 
       - name: Black
         run: make py-lint
 
       - name: Python Unit Tests
         run: make py-test
-        env:
-          CONTACT_EMAIL: fake

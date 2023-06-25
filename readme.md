@@ -71,7 +71,7 @@ docker-compose run moomoo ...
 
 ### Database
 
-This postgres table stores the raw data obtained from the Last FM API. My goal is to run a script daily to append values here.
+A postgres DB is needed for basically everything. I run postgres 13 locally. [`pgvector`](https://github.com/pgvector/pgvector) is needed to support embeddings.
 
 > TODO: db diagram
 

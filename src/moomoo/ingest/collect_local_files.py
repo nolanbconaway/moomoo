@@ -89,11 +89,6 @@ def parse_audio_file(path: Path) -> dict:
     )
 
 
-def delete_all_rows(conn, schema: str, table: str) -> None:
-    with conn.cursor() as cur:
-        cur.execute(f"delete from {schema}.{table} where true")
-
-
 def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -114,7 +109,9 @@ def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
 
 
 @click.command()
-@click.argument("src_dir", type=click.Path(exists=True, file_okay=False))
+@click.argument(
+    "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
+)
 @click.option("--table", required=True)
 @click.option("--schema", required=True)
 @click.option("--procs", help="Number of processes to use", default=1, type=int)
@@ -139,9 +136,6 @@ def main(
     elif not utils_.check_table_exists(schema=schema, table=table):
         click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
         sys.exit(1)
-
-    # make sure the src_dir is a Path
-    src_dir = Path(src_dir)
 
     # get the list of files
     files = list_audio_files(src_dir)
@@ -176,7 +170,8 @@ def main(
             click.echo("Running insert in append-only mode.")
         else:
             click.echo(f"Dropping all rows in {schema}.{table}")
-            delete_all_rows(conn=conn, schema=schema, table=table)
+            with conn.cursor() as cur:
+                cur.execute(f"delete from {schema}.{table} where true")
 
         click.echo(f"Inserting {len(files)} files into {schema}.{table}")
         for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
