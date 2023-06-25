@@ -4,16 +4,22 @@ on: push
 
 jobs:
   run:
+    env:
+      CONTACT_EMAIL: fake
+
     runs-on: ubuntu-latest
+
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10']
+
     steps:
       - uses: actions/checkout@v3
 
       - uses: ankane/setup-postgres@v1
         with:
           postgres-version: 14
+
       - name: install pgvector
         run: |
           sudo apt install curl ca-certificates gnupg
@@ -50,11 +56,9 @@ jobs:
 
       - name: Download ML Artifacts
         run: moomoo ml save-artifacts
-      
+
       - name: Black
         run: make py-lint
 
       - name: Python Unit Tests
         run: make py-test
-        env:
-          CONTACT_EMAIL: fake
