@@ -18,9 +18,8 @@ def moomoo_version() -> str:
 
 # set user agent for all musicbrainzngs requests
 musicbrainzngs.set_useragent(
-    app="moomoo", version=moomoo_version(), contact=os.environ["CONTACT_EMAIL"]
+    app="moomoo", version=moomoo_version(), contact=os.environ.get("CONTACT_EMAIL")
 )
-
 
 def _pg_connect(*args, **kwargs) -> psycopg.Connection:
     """Connect to the db; for mocking purposes."""
@@ -168,6 +167,10 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
     - error: error message if the request was not successful
     - data: the data returned from MusicBrainz if the request was successful
     """
+    # check contact email set
+    if not os.environ.get("CONTACT_EMAIL"):
+        raise ValueError("CONTACT_EMAIL environment variable not set.")
+
     args = dict(mbid=mbid, entity=entity)
     fn = {
         "recording": _get_recording_data,

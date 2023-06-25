@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 
+import musicbrainzngs
 import psycopg
 import pytest
 
@@ -13,6 +14,17 @@ RESOURCES = Path(__file__).parent / "resources"
 def remove_env_variables(monkeypatch):
     monkeypatch.setenv("POSTGRES_DSN", "dbname=fake user=fake password=fake host=fake")
     monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
+    monkeypatch.setenv("CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
+
+
+@pytest.fixture(autouse=True)
+def disable_musicbrainzngs_calls(monkeypatch):
+    def f(*_, **__):
+        raise RuntimeError("musicbrainzngs called unexpectedly")
+
+    monkeypatch.setattr(musicbrainzngs, "get_recording_by_id", f)
+    monkeypatch.setattr(musicbrainzngs, "get_release_by_id", f)
+    monkeypatch.setattr(musicbrainzngs, "get_artist_by_id", f)
 
 
 @pytest.fixture(autouse=True)
