@@ -12,6 +12,7 @@ RESOURCES = Path(__file__).parent / "resources"
 @pytest.fixture(autouse=True)
 def remove_env_variables(monkeypatch):
     monkeypatch.setenv("POSTGRES_DSN", "dbname=fake user=fake password=fake host=fake")
+    monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
 
 
 @pytest.fixture(autouse=True)

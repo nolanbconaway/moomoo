@@ -35,6 +35,6 @@ def test_cli_main(procs):
     assert result.exit_code == 0
     assert "Inserting" in result.output
 
-    rows = execute_sql_fetchall("SELECT * FROM test.fake")
+    rows = execute_sql_fetchall("select * from test.fake")
     assert len(rows) == 1
     assert rows[0]["json_data"]["title"] == "fake"
