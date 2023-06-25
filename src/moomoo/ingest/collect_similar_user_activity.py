@@ -11,7 +11,6 @@ from itertools import product
 from typing import Dict, List, Union
 
 import click
-from psycopg2.extras import execute_values
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
