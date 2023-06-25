@@ -68,6 +68,11 @@ models:
         tests:
           - not_null
 
+      - name: embedding_success
+      - name: embedding_duration_seconds
+      - name: embedding
+      - name: embedding_insert_ts_utc
+
   - name: similar_user_activity_flat
     description: Listen counts for similar users across different entities and time ranges.
     columns:
