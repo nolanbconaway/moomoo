@@ -13,6 +13,14 @@ sources:
               - not_null
               - unique
 
+      - name: local_music_embeddings
+        description: Embeddings from the ml service.
+        columns:
+          - name: filepath
+            tests:
+              - not_null
+              - unique 
+
       - name: local_music_files
         description: Raw local files data ingested via python script.
         columns:

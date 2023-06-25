@@ -58,19 +58,25 @@ with extracted as (
 )
 
 select
-  "filepath"
-  , file_created_at
-  , track_name
-  , album_name
-  , artist_name
-  , album_artist_name
-  , track_date
-  , track_year
-  , track_length_seconds
-  , {{ try_cast_uuid('recording_mbid') }} as recording_mbid
+  processed.filepath
+  , processed.file_created_at
+  , processed.track_name
+  , processed.album_name
+  , processed.artist_name
+  , processed.album_artist_name
+  , processed.track_date
+  , processed.track_year
+  , processed.track_length_seconds
+  , {{ try_cast_uuid('processed.recording_mbid') }} as recording_mbid
+  , {{ try_cast_uuid('processed.release_mbid') }} as release_mbid
+  , {{ try_cast_uuid('processed.artist_mbid') }} as artist_mbid
+  , processed.insert_ts_utc
 
-  , {{ try_cast_uuid('release_mbid') }} as release_mbid
-  , {{ try_cast_uuid('artist_mbid') }} as artist_mbid
-  , insert_ts_utc
+  , embeds.success as embedding_success
+  , embeds.duration_seconds as embedding_duration_seconds
+  , embeds.embedding as embedding
+  , embeds.insert_ts_utc as embedding_insert_ts_utc
 
 from processed
+left join {{ source('pyingest', 'local_music_embeddings') }} as embeds
+  on processed.filepath = embeds.filepath
