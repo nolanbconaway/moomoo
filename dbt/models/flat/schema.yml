@@ -69,6 +69,9 @@ models:
           - not_null
 
       - name: embedding_success
+        tests:
+          - dbt_utils.not_null_proportion:
+              at_least: 0.5  # test nothing pathologically wrong with the ingest/join.
       - name: embedding_duration_seconds
       - name: embedding
       - name: embedding_insert_ts_utc
