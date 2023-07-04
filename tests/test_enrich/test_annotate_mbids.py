@@ -59,7 +59,7 @@ def test_cli_main(monkeypatch):
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda **_: [])
     monkeypatch.setattr(annotate_mbids, "get_re_annotate_mbids", lambda **_: [])
     monkeypatch.setattr(
-        annotate_mbids.utils_, "annotate_mbid", lambda *_: dict(a=uuid.uuid1())
+        annotate_mbids.mbz_utils, "annotate_mbid", lambda *_: dict(a=uuid.uuid1())
     )
 
     runner = CliRunner()
