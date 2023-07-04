@@ -3,7 +3,7 @@ name: Unit Tests
 on: push
 
 jobs:
-  run:
+  lint-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -45,7 +45,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           pip install --upgrade pip
-          pip install -e .[test]
+          pip install -e .[all]
 
       - name: Download ML Artifacts
         run: moomoo ml save-artifacts
@@ -55,3 +55,29 @@ jobs:
 
       - name: Python Unit Tests
         run: make py-test
+
+
+  check-thin-cli:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache/restore@v3 # use test cache
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install .
+
+      - name: Check CLI Help
+        run: moomoo --help

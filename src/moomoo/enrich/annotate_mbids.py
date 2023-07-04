@@ -19,6 +19,7 @@ import click
 from tqdm import tqdm
 
 from .. import utils_
+from . import mbz_utils
 
 DDL = [
     """
@@ -170,7 +171,7 @@ def main(
 
     # annotate and insert
     click.echo("annotating...")
-    annotated = utils_.annotate_mbid_batch(to_ingest)
+    annotated = mbz_utils.annotate_mbid_batch(to_ingest)
     with utils_.pg_connect() as conn:
         for args, res in tqdm(
             zip(to_ingest, annotated), disable=None, total=len(to_ingest)

@@ -1,13 +1,27 @@
 """Cli group for moomoo."""
 
-from pathlib import Path
-
 import click
 
-from .enrich import cli as enrich_cli
-from .ingest import cli as ingest_cli
-from .ml import cli as ml_cli
 from .playlist import cli as playlist_cli
+
+try:
+    # needs ingest deps
+    from .enrich import cli as enrich_cli
+except ImportError:
+    enrich_cli = None
+
+try:
+    # needs ingest deps
+    from .ingest import cli as ingest_cli
+except ImportError:
+    ingest_cli = None
+
+try:
+    # needs ml deps
+    from .ml import cli as ml_cli
+except ImportError:
+    ml_cli = None
+
 from .utils_ import moomoo_version
 
 
@@ -23,10 +37,14 @@ def version():
     click.echo(moomoo_version())
 
 
-cli.add_command(ingest_cli.cli, "ingest")
-cli.add_command(enrich_cli.cli, "enrich")
-cli.add_command(ml_cli.cli, "ml")
 cli.add_command(playlist_cli.cli, "playlist")
+
+if ingest_cli is not None:
+    cli.add_command(ingest_cli.cli, "ingest")
+if enrich_cli is not None:
+    cli.add_command(enrich_cli.cli, "enrich")
+if ml_cli is not None:
+    cli.add_command(ml_cli.cli, "ml")
 
 if __name__ == "__main__":
     cli()

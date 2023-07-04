@@ -3,6 +3,7 @@ from pathlib import Path
 
 import click
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
+
 from . import score_local_files
 
 
