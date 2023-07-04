@@ -23,6 +23,7 @@ Current status: Writing ingestion pipeline and DBT models to curate a detailed d
 ## Setup 
 
 - install: `pip install -e .`
+- A postgres DB is needed for basically everything. [`pgvector`](https://github.com/pgvector/pgvector) is needed in that database.
 - CLI entrypoint: `moomoo`
 
 ### Env Requires
