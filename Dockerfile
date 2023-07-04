@@ -13,7 +13,7 @@ WORKDIR /usr/src/moomoo
 COPY src/moomoo ./src/moomoo
 COPY setup.py .
 RUN pip install pip==23.* --no-cache-dir
-RUN pip install -e .[dbt,test] --no-cache-dir
+RUN pip install -e .[all] --no-cache-dir
 
 # setup dbt
 COPY dbt/docker-profiles.yml /root/.dbt/profiles.yml 
