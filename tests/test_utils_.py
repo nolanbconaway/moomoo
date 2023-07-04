@@ -1,5 +1,7 @@
 """Test utils functinos."""
 import datetime
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -83,3 +85,69 @@ def test_annotate_mbid_batch(monkeypatch):
     assert results[2]["data"] == dict(c=3)
     assert results[3]["_success"] is False
     assert results[3]["error"] == "Unknown entity type: INVALID."
+
+
+def test_resolve_db_path__file_not_found():
+    """Test that errors are raised when the db file is not found."""
+    schema = "test"
+    with utils_.pg_connect() as conn:
+        cur = conn.cursor()
+        sql = f"create table {schema}.local_files_flat (filepath text primary key)"
+        cur.execute(sql)
+
+    # file does not exist
+    with pytest.raises(ValueError, match="Could not find file/folder"):
+        utils_.resolve_db_path(Path("fake"), schema=schema)
+
+    # folder has no files
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir)
+        with pytest.raises(ValueError, match=f"Could not find any files in {p}"):
+            utils_.resolve_db_path(p, schema=schema)
+
+    # no local paths in db
+    with tempfile.TemporaryDirectory() as tmpdir:
+        p = Path(tmpdir)
+        (p / "foo").touch()
+        with pytest.raises(
+            ValueError, match=f"Could not find any matches to {p} in database."
+        ):
+            utils_.resolve_db_path(p, schema=schema)
+
+        with pytest.raises(
+            ValueError, match=f"Could not find any matches to {p}/foo in database."
+        ):
+            utils_.resolve_db_path(p / "foo", schema=schema)
+
+
+def test_resolve_db_path__matching():
+    schema = "test"
+
+    with utils_.pg_connect() as conn:
+        cur = conn.cursor()
+        sql = f"create table {schema}.local_files_flat (filepath text primary key)"
+        cur.execute(sql)
+        cur.execute(f"insert into {schema}.local_files_flat values ('foo/bar/a')")
+        cur.execute(f"insert into {schema}.local_files_flat values ('foo/baz/b')")
+        cur.execute(f"insert into {schema}.local_files_flat values ('foo/bat/c')")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        base_path = Path(tmpdir)
+        for f in ["foo/bar/a", "foo/baz/b", "foo/bat/c", "foo/bop/d"]:
+            (base_path / f).parent.mkdir(parents=True, exist_ok=True)
+            (base_path / f).touch()
+
+        # test file match works
+        b, ps = utils_.resolve_db_path(base_path / "foo/bar/a", schema=schema)
+        assert b == base_path
+        assert ps == [Path("foo/bar/a")]
+
+        # first level dir match works
+        b, ps = utils_.resolve_db_path(base_path / "foo", schema=schema)
+        assert b == base_path
+        assert len(ps) == 3
+
+        # second level dir match works
+        b, ps = utils_.resolve_db_path(base_path / "foo/bar", schema=schema)
+        assert b == base_path
+        assert ps == [Path("foo/bar/a")]

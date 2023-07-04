@@ -27,6 +27,7 @@ setup(
         "torchaudio==2.*",
         "pgvector==0.1.*",
         "nnAudio==0.3.*",
+        "xspf-lib==0.3.*",
     ],
     extras_require=dict(
         dbt=["dbt-postgres==1.4.4"],

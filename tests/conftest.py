@@ -1,3 +1,4 @@
+"""Common fixtures for all tests."""
 import time
 from pathlib import Path
 
@@ -44,7 +45,6 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
         with conn.cursor() as cursor:
             cursor.execute("create extension if not exists vector")
             cursor.execute("create schema if not exists test")
-            cursor.execute("create schema if not exists dbt")
 
         conn.commit()
         return conn
