@@ -17,3 +17,5 @@ clean-targets:
 
 models:
   +materialized: table
+  +grants:
+    select: ['ro']
