@@ -7,13 +7,6 @@
 I want to ditch Spotify and the other major streaming platforms, but I also love the recommendation/playlisting products they provide.
 I'll never do it so long as I cannot get that service elsewhere, so let's see if I can't use open source software to get what I need.
 
-Specifically, I'll be:
-
-- Scrobbling my listening behavior to [ListenBrainz](https://listenbrainz.org/)
-- Enriching media via the [MusicBrainz](https://musicbrainz.org/) API
-- Providing analytics on what I've listened to via [dbt](dbt/)
-- Working on a recommender system for music I haven't heard yet.
-
 ## Status
 
 This is ongoing! 

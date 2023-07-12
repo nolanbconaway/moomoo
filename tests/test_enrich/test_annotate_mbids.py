@@ -23,17 +23,8 @@ def mbids() -> List[dict]:
     "addtl_args, exit_0",
     [
         ([], True),
-        (["--re-annotate-lb=2020-01-01", "--re-annotate-ub=2020-02-01"], True),
-        (["--re-annotate-lb=2020-01-01"], False),  # missing --re-annotate-ub
-        (["--re-annotate-ub=2020-01-01"], False),  # missing --re-annotate-lb
-        (
-            ["--re-annotate-lb=2020-01-01", "--re-annotate-ub=2020-01-01"],
-            False,
-        ),  # ub == lb
-        (
-            ["--re-annotate-lb=2020-02-01", "--re-annotate-ub=2020-01-01"],
-            False,
-        ),  # ub < lb
+        (["--before=2020-01-01"], True),
+        (["--before=2020-01-01", "--new"], True),
         (["--limit=0"], False),  # limit < 1
     ],
 )
@@ -85,25 +76,21 @@ def test_cli_main__no_args():
     assert result.exit_code == 0
 
     # nothing is done if no new mbids are found.
-    result = cli_run(unannotated=[], reannotated=[], args=["--find-new"])
+    result = cli_run(unannotated=[], reannotated=[], args=["--new"])
     assert "Found 0 mbids to annotate." in result.output
     assert result.exit_code == 0
 
 
 def test_cli_main__unannotated(mbids: List[dict]):
     """Test working with unannotated mbids."""
-    result = cli_run(unannotated=mbids, reannotated=[], args=["--find-new"])
+    result = cli_run(unannotated=mbids, reannotated=[], args=["--new"])
     assert "Found 10 mbids to annotate." in result.output
     assert result.exit_code == 0
 
 
 def test_cli_main__reannotated(mbids: List[dict]):
     """Test working with re-annotated mbids."""
-    result = cli_run(
-        unannotated=[],
-        reannotated=mbids,
-        args=["--re-annotate-lb=2021-01-01", "--re-annotate-ub=2021-01-02"],
-    )
+    result = cli_run(unannotated=[], reannotated=mbids, args=["--before=2021-01-01"])
     assert "Found 10 mbids to annotate." in result.output
     assert result.exit_code == 0
 
@@ -112,7 +99,7 @@ def test_cli_main__limit(mbids: List[dict]):
     """Test limit handler"""
     limit = len(mbids) // 2
     result = cli_run(
-        unannotated=mbids, reannotated=[], args=["--find-new", f"--limit={limit}"]
+        unannotated=mbids, reannotated=[], args=["--new", f"--limit={limit}"]
     )
     assert "Found 10 mbids to annotate." in result.output
     assert f"Limiting to {limit} mbids randomly." in result.output
@@ -121,7 +108,7 @@ def test_cli_main__limit(mbids: List[dict]):
     # limit > mbids
     limit = len(mbids) * 2
     result = cli_run(
-        unannotated=mbids, reannotated=[], args=["--find-new", f"--limit={limit}"]
+        unannotated=mbids, reannotated=[], args=["--new", f"--limit={limit}"]
     )
     assert "Found 10 mbids to annotate." in result.output
     assert f"Limiting to {limit} mbids randomly." not in result.output
