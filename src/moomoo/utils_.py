@@ -3,18 +3,30 @@
 Put no specialty imports beyond cli, postgres here, as the thin client needs this.
 """
 import datetime
+import json
 import os
 import subprocess
 import tempfile
 import time
 from pathlib import Path
 from typing import List, Tuple
+from uuid import UUID
 
 import click
 import psycopg
 import xspf_lib as xspf
 from pgvector.psycopg import register_vector
 from psycopg.rows import dict_row
+
+
+class UUIDEncoder(json.JSONEncoder):
+    """JSON encoder for UUIDs."""
+
+    def default(self, obj):
+        """Encode UUIDs as hex strings."""
+        if isinstance(obj, UUID):
+            return obj.hex
+        return json.JSONEncoder.default(self, obj)
 
 
 def moomoo_version() -> str:

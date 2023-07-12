@@ -72,3 +72,17 @@ sources:
           - name: insert_ts_utc
             tests:
               - not_null
+
+      - name: listenbrainz_artist_stats
+        description: Artist stats from listenbrainz.
+        columns:
+          - name: mbid
+            tests:
+              - not_null
+              - unique 
+          - name: payload_json
+            tests:
+              - not_null
+          - name: ts_utc
+            tests:
+              - not_null

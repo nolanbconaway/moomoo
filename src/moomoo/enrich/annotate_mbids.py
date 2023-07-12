@@ -14,7 +14,6 @@ import json
 import random
 import sys
 from typing import List, Optional
-from uuid import UUID
 
 import click
 from tqdm import tqdm
@@ -36,13 +35,6 @@ DDL = [
 ]
 
 
-class UUIDEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, UUID):
-            return obj.hex
-        return json.JSONEncoder.default(self, obj)
-
-
 def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict):
     with conn.cursor() as cur:
         cur.execute(
@@ -57,42 +49,36 @@ def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict)
             dict(
                 mbid=mbid,
                 entity=entity,
-                payload_json=json.dumps(payload, cls=UUIDEncoder),
+                payload_json=json.dumps(payload, cls=utils_.UUIDEncoder),
             ),
         )
         conn.commit()
 
 
-def get_unannotated_mbids(
-    annotate_schema: str, annotate_table: str, dbt_schema: str
-) -> List[dict]:
+def get_unannotated_mbids(schema: str, table: str, dbt_schema: str) -> List[dict]:
     """Get mbids that have not been annotated from the mbids table."""
     sql = f"""
         select mbids.mbid as mbid, mbids.entity
         from {dbt_schema}.mbids
-        left join {annotate_schema}.{annotate_table} as src on mbids.mbid = src.mbid
+        left join {schema}.{table} as src on mbids.mbid = src.mbid
         where src.mbid is null
     """
     return utils_.execute_sql_fetchall(sql)
 
 
 def get_re_annotate_mbids(
-    annotate_schema: str,
-    annotate_table: str,
-    dbt_schema: str,
-    from_dt: datetime.datetime,
-    to_dt: datetime.datetime,
+    schema: str, table: str, dbt_schema: str, before: datetime.datetime
 ) -> List[dict]:
     """Get mbids that were annotated between from_dt and to_dt."""
     sql = f"""
         select mbids.mbid, mbids.entity
         from {dbt_schema}.mbids
-        left join {annotate_schema}.{annotate_table} as src
+        inner join {schema}.{table} as src
             on mbids.mbid::varchar = src.mbid::varchar
-        where src.ts_utc >= %(lb_utc)s and src.ts_utc < %(ub_utc)s
+        where src.ts_utc < %(before)s
         order by src.ts_utc
     """
-    return utils_.execute_sql_fetchall(sql, params=dict(lb_utc=from_dt, ub_utc=to_dt))
+    return utils_.execute_sql_fetchall(sql, params=dict(before=before))
 
 
 @click.command(help=__doc__)
@@ -107,19 +93,14 @@ def get_re_annotate_mbids(
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
 @click.option(
-    "--find-new",
+    "--new",
+    "new_",
     is_flag=True,
     help="Option to detect new mbids that have not been annotated yet.",
 )
 @click.option(
-    "--re-annotate-lb",
-    "from_dt",
-    type=utils_.utcfromisodate,
-    help="Lower bound on last-annotated-at timestamps to re-annotate.",
-)
-@click.option(
-    "--re-annotate-ub",
-    "to_dt",
+    "--before",
+    "before",
     type=utils_.utcfromisodate,
     help="Upper bound on last-annotated-at timestamps to re-annotate.",
 )
@@ -134,9 +115,8 @@ def main(
     schema: str,
     dbt_schema: str,
     create: bool,
-    find_new: bool,
-    from_dt: Optional[datetime.datetime],
-    to_dt: Optional[datetime.datetime],
+    new_: bool,
+    before: Optional[datetime.datetime],
     limit: Optional[int],
 ):
     """Run the main CLI."""
@@ -146,28 +126,17 @@ def main(
         click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
         sys.exit(1)
 
-    if bool(from_dt) != bool(to_dt):
-        click.echo("--re-annotate-lb and --re-annotate-ub must be used together.")
-        sys.exit(1)
-    elif bool(from_dt) and from_dt >= to_dt:
-        click.echo("--re-annotate-lb must be before --re-annotate-ub.")
-        sys.exit(1)
-
     # get list of mbids to annotate
     to_ingest: List[dict] = []
-    if find_new:
+    if new_:
         click.echo("Getting unannotated mbids...")
         to_ingest += get_unannotated_mbids(
-            annotate_schema=schema, annotate_table=table, dbt_schema=dbt_schema
+            schema=schema, table=table, dbt_schema=dbt_schema
         )
-    if bool(from_dt):
-        click.echo(f"Getting mbids to re-annotate (from {from_dt} to {to_dt})...")
+    if before:
+        click.echo(f"Getting mbids to re-annotate (before {before})...")
         to_ingest += get_re_annotate_mbids(
-            annotate_schema=schema,
-            annotate_table=table,
-            dbt_schema=dbt_schema,
-            from_dt=from_dt,
-            to_dt=to_dt,
+            schema=schema, table=table, dbt_schema=dbt_schema, before=before
         )
 
     # exit if there is nothing to do
