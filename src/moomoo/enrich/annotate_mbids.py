@@ -72,7 +72,6 @@ def get_unannotated_mbids(
         from {dbt_schema}.mbids
         left join {annotate_schema}.{annotate_table} as src on mbids.mbid = src.mbid
         where src.mbid is null
-        order by mbids.entity, mbids.mbid
     """
     return utils_.execute_sql_fetchall(sql)
 
@@ -91,7 +90,7 @@ def get_re_annotate_mbids(
         left join {annotate_schema}.{annotate_table} as src
             on mbids.mbid::varchar = src.mbid::varchar
         where src.ts_utc >= %(lb_utc)s and src.ts_utc < %(ub_utc)s
-        order by mbids.entity, mbids.mbid
+        order by src.ts_utc
     """
     return utils_.execute_sql_fetchall(sql, params=dict(lb_utc=from_dt, ub_utc=to_dt))
 
