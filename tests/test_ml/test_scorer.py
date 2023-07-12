@@ -24,4 +24,13 @@ def test_score_single_path__error(monkeypatch):
     result = model.score(path)
     assert not result.success
     assert result.embedding is None
-    assert result.fail_reason == "test error"
+    assert result.fail_reason == "ValueError: test error"
+
+    # check handling of empty error message
+    def f(*_):
+        raise ValueError
+
+    monkeypatch.setattr(Model, "get_input", f)
+    result = model.score(path)
+    assert not result.success
+    assert result.fail_reason == "ValueError"
