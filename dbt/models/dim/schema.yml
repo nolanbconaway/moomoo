@@ -16,7 +16,11 @@ models:
       - name: alias_list
       - name: url_relation_list
       - name: artist_relation_list
-      - name: _ingest_insert_ts_utc
+      - name: stats_from_ts
+      - name: stats_to_ts
+      - name: total_listen_count
+      - name: listeners
+      - name: annotate_ingest_ts_utc
         tests:
           - not_null
 

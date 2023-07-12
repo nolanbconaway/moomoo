@@ -115,34 +115,6 @@ models:
         tests:
           - not_null
 
-  - name: artist_stats_flat
-    description: Listenbrainz artist stats.
-    columns:
-      - name: mbid
-        tests:
-          - not_null
-          - unique
-      - name: from_ts
-        tests:
-          - not_null
-      - name: to_ts
-        tests:
-          - not_null
-      - name: lb_last_updated
-        tests:
-          - not_null
-      - name: artist_name
-      - name: stats_range
-        tests:
-          - not_null
-      - name: total_listen_count
-        tests:
-          - not_null
-      - name: listeners
-      - name: ts_utc
-        tests:
-          - not_null
-
   - name: mbids
     description: Long format list of every mbid in the system and the entity to which it applies.
     columns:
@@ -153,5 +125,4 @@ models:
       - name: entity
         tests:
           - not_null
-
 
