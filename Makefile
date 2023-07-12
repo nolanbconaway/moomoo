@@ -10,6 +10,8 @@ py-format:
 py-test:
 	@ CONTACT_EMAIL=FAKE pytest tests --verbose
 
+.PHONY: 
+py-lint-test: py-lint py-test
 
 .PHONY:
 dbt-deps:
