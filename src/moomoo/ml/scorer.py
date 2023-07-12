@@ -114,7 +114,11 @@ class Model:
             output = self.aggregate(output)
 
         except Exception as e:
-            return EmbeddingResult(success=False, fail_reason=str(e))
+            if str(e):
+                fail_reason = f"{type(e).__name__}: {e}"
+            else:
+                fail_reason = f"{type(e).__name__}"
+            return EmbeddingResult(success=False, fail_reason=fail_reason)
 
         return EmbeddingResult(
             success=True, embedding=output, duration_seconds=duration_seconds

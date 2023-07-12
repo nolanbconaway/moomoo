@@ -11,8 +11,9 @@ we need to keep track of when we checked as well as the status of the check.
 """
 import datetime
 import json
+import random
 import sys
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 import click
@@ -83,7 +84,7 @@ def get_re_annotate_mbids(
     from_dt: datetime.datetime,
     to_dt: datetime.datetime,
 ) -> List[dict]:
-    """Get mbids that have were annotated between from_dt and to_dt."""
+    """Get mbids that were annotated between from_dt and to_dt."""
     sql = f"""
         select mbids.mbid, mbids.entity
         from {dbt_schema}.mbids
@@ -123,14 +124,21 @@ def get_re_annotate_mbids(
     type=utils_.utcfromisodate,
     help="Upper bound on last-annotated-at timestamps to re-annotate.",
 )
+@click.option(
+    "--limit",
+    type=click.IntRange(min=1),
+    help="Limit the number of mbids to annotate.",
+    default=None,
+)
 def main(
     table: str,
     schema: str,
     dbt_schema: str,
     create: bool,
     find_new: bool,
-    from_dt: datetime.datetime,
-    to_dt: datetime.datetime,
+    from_dt: Optional[datetime.datetime],
+    to_dt: Optional[datetime.datetime],
+    limit: Optional[int],
 ):
     """Run the main CLI."""
     if create:
@@ -147,7 +155,7 @@ def main(
         sys.exit(1)
 
     # get list of mbids to annotate
-    to_ingest = []
+    to_ingest: List[dict] = []
     if find_new:
         click.echo("Getting unannotated mbids...")
         to_ingest += get_unannotated_mbids(
@@ -168,6 +176,11 @@ def main(
     if not to_ingest:
         click.echo("Nothing to do.")
         sys.exit(0)
+
+    # limit if needed
+    if limit and len(to_ingest) > limit:
+        click.echo(f"Limiting to {limit} mbids randomly.")
+        to_ingest = random.choices(to_ingest, k=limit)
 
     # annotate and insert
     click.echo("annotating...")
