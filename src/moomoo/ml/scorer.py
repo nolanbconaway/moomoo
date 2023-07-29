@@ -60,7 +60,7 @@ class Model:
 
     def aggregate(self, output: BaseModelOutput) -> np.ndarray:
         """Aggregate the output of the model to a vector, move it to the cpu."""
-        return output.last_hidden_state.squeeze().max(axis=0).values.cpu().numpy()
+        return output.last_hidden_state.squeeze().mean(axis=0).values.cpu().numpy()
 
     def get_input(self, p: Path) -> BatchFeature:
         """Get input for the model.
