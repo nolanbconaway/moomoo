@@ -58,7 +58,7 @@ with t as (
     "listen_md5"
     , "username"::varchar as "username"
     , to_timestamp({{ json_get('json_data', ['listened_at']) }}::int) as "listen_at_ts_utc"
-    , {{ json_get('json_data', ['recording_msid']) }}::varchar as "recording_msid"
+    , {{ json_get('json_data', ['recording_msid']) }}::uuid as "recording_msid"
     , {{ json_get('json_data', ['track_metadata', 'track_name']) }}::varchar as "track_name"
 
     , {{
@@ -114,6 +114,7 @@ select
   , release_name
   , release_mbid
   , recording_mbid
+  , {{ recording_md5( 'track_name', 'artist_name', 'release_name') }} as recording_md5
   , artist_mbids
   , caa_release_mbid
   , duration_ms
