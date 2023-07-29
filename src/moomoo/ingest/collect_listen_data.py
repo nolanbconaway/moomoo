@@ -114,6 +114,7 @@ def insert(conn, schema: str, table: str, username: str, listen_data: dict):
             set username = excluded.username
               , json_data = excluded.json_data
               , listen_at_ts_utc = excluded.listen_at_ts_utc
+              , insert_ts_utc = current_timestamp
             """,
             dict(
                 listen_md5=listen_hash(username, listen_data),

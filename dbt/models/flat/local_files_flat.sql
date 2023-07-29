@@ -2,6 +2,7 @@
 {{ config(
   indexes=[
     {'columns': ['filepath'], 'unique': True},
+    {'columns': ['recording_msid']},
   ]
 ) }}
 
@@ -54,7 +55,15 @@ with extracted as (
       when substring("track_date" from 1 for 4) ~ '^\d+(\.\d+)?$'
         then substring("track_date" from 1 for 4)::int
     end as "track_year"
+    , {{ recording_md5( 'track_name', 'artist_name', 'album_name') }} as recording_md5
   from extracted
+)
+
+, msid as (
+  select distinct processed.filepath, listens.recording_msid
+  from processed
+  left join {{ ref('listens_flat') }} as listens
+    on processed.recording_md5 = listens.recording_md5
 )
 
 select
@@ -72,11 +81,15 @@ select
   , {{ try_cast_uuid('processed.artist_mbid') }} as artist_mbid
   , processed.insert_ts_utc
 
+  , processed.recording_md5
+  , msid.recording_msid
+
   , embeds.success as embedding_success
   , embeds.duration_seconds as embedding_duration_seconds
   , embeds.embedding as embedding
   , embeds.insert_ts_utc as embedding_insert_ts_utc
 
 from processed
+left join msid on processed.filepath = msid.filepath
 left join {{ source('pyingest', 'local_music_embeddings') }} as embeds
   on processed.filepath = embeds.filepath
