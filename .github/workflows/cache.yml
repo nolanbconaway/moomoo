@@ -14,6 +14,7 @@ jobs:
           python-version: '3.10'
 
       - uses: actions/cache@v3
+        id: pip_cache
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('**/setup.py') }}
@@ -25,10 +26,11 @@ jobs:
           key: moomoo-${{ hashFiles('**/src/moomoo/ml/model-info.json') }}
 
       - name: Install Python Dependencies
+        if: steps.pip_cache.outputs.cache-hit != 'true'
         run: |
           pip install --upgrade pip
           pip install -e .[all]
 
       - name: Download ML Artifacts
-        run: moomoo ml save-artifacts
         if: steps.moomoo_ml_cache.outputs.cache-hit != 'true'
+        run: moomoo ml save-artifacts
