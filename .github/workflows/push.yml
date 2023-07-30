@@ -30,10 +30,17 @@ jobs:
           sudo apt install postgresql-server-dev-14
           sudo apt install postgresql-14-pgvector
 
-      - uses: actions/cache@v3
+
+      - uses: actions/cache/restore@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          key: pip-${{ hashFiles('**/setup.py') }}
+
+      - uses: actions/cache/restore@v3
+        id: moomoo_ml_cache
+        with:
+          path: artifacts
+          key: moomoo-${{ hashFiles('**/src/moomoo/ml/model-info.json') }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -47,6 +54,7 @@ jobs:
 
       - name: Download ML Artifacts
         run: moomoo ml save-artifacts
+        if: steps.moomoo_ml_cache.outputs.cache-hit != 'true'
 
       - name: Black
         run: make py-lint
@@ -63,7 +71,7 @@ jobs:
       - uses: actions/cache/restore@v3  # use above cache
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/setup.py') }}
+          key: pip-${{ hashFiles('**/setup.py') }}
 
       - name: Set up Python
         uses: actions/setup-python@v4
