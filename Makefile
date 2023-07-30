@@ -37,11 +37,25 @@ dbt-test:
 		then dbt test --project-dir dbt/ --select "$(select)"; \
 		else echo "ERROR: select=... is required."; exit 1; \
 	  fi
+
 .PHONY:
 sql-lint:
 	@ cd dbt && sqlfluff lint models \
 		--config ../.sqlfluff \
 		--disable-progress-bar
 
+.PHONY:
+docker-build:
+	@ echo "Running python linting and tests..."
+	@ make py-lint
+	@ make py-test
 
+	@ echo 
+	@ echo 
+	@ echo "Running dbt build..."
+	@ dbt build --project-dir dbt/
 
+	@ echo 
+	@ echo 
+	@ echo "\n\nBuilding docker image..."
+	@ docker build -t moomoo-v$$(moomoo version) .

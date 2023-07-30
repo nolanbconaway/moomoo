@@ -50,5 +50,8 @@ setup(
     ],
     extras_require=extras_require,
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},
-    package_data={"moomoo": ["version"]},
+    package_data={
+        "moomoo": ["version"],
+        "moomoo": ["ml/model-info.json"],
+    },
 )
