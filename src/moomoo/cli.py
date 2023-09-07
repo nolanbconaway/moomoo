@@ -2,6 +2,8 @@
 
 import click
 
+from .client_cli import cli as client_cli
+
 try:
     # needs ingest deps
     from .enrich import cli as enrich_cli
@@ -34,6 +36,8 @@ def version():
     """Get the version of moomoo."""
     click.echo(moomoo_version())
 
+
+cli.add_command(client_cli, "client")
 
 if ingest_cli is not None:
     cli.add_command(ingest_cli.cli, "ingest")

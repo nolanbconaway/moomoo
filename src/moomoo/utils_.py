@@ -5,15 +5,11 @@ Put no specialty imports beyond cli, postgres here, as the thin client needs thi
 import datetime
 import json
 import os
-import subprocess
-import tempfile
-import time
 from pathlib import Path
 from uuid import UUID
 
 import click
 import psycopg
-import xspf_lib as xspf
 from pgvector.psycopg import register_vector
 from psycopg.rows import dict_row
 
@@ -113,36 +109,3 @@ def utcfromunixtime(unixtime: int) -> datetime.datetime:
     return datetime.datetime.utcfromtimestamp(int(unixtime)).replace(
         tzinfo=datetime.timezone.utc
     )
-
-
-def render_playlist(
-    files: list[Path], out: str, outfile: Path = None, **plist_kw
-) -> None:
-    """Render an xspf playlist to stdout or a file/program.
-
-    Supported output formats are:
-
-        - stdout: print xspf xml string
-        - file: write xspf xml string to file. must supply out_file
-        - strawberry: load directly into the strawberry player
-    """
-    playlist = xspf.Playlist(
-        trackList=[xspf.Track(location=str(p)) for p in files], **plist_kw
-    )
-
-    if out == "stdout":
-        click.echo(playlist.xml_string())
-
-    elif out == "file":
-        if outfile is None:
-            raise ValueError("Must supply out_file when outputting to file.")
-        outfile.write_text(playlist.xml_string())
-
-    elif out == "strawberry":
-        with tempfile.NamedTemporaryFile() as f:
-            fp = Path(f.name)
-            fp.write_text(playlist.xml_string())
-            subprocess.run(["strawberry", "--load", f.name])
-            time.sleep(0.5)
-    else:
-        raise ValueError(f"Unknown output format {out}")

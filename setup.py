@@ -48,6 +48,7 @@ setup(
         "click==8.1.3",
         "xspf-lib==0.3.*",
         "pgvector==0.1.*",
+        "requests==2.*",
     ],
     extras_require=extras_require,
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},

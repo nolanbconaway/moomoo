@@ -73,7 +73,7 @@ def from_parent_path():
     args = PlaylistArgs.from_request(request)
     path = request.args.get("path", type=Path)
 
-    logger.info(f"from-files request: {path} ({args})")
+    logger.info(f"from-parent request: {path} ({args})")
 
     if not path:
         return ({"success": False, "error": "No path provided."}, 400)
