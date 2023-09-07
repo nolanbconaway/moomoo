@@ -51,6 +51,18 @@ http:
 		&& python -m moomoo.http.app --port=$$PORT --host=$$HOST
 
 .PHONY:
+docker-http-serve:
+	@ PORT=$${port:-8080} && \
+		echo Serving locally on http://localhost:$$PORT && \
+		docker run -it --rm \
+			--publish $$PORT:8080 \
+			--add-host=host.docker.internal:host-gateway \
+			--env POSTGRES_DSN="$(DOCKER_POSTGRES_DSN)" \
+			--env MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA} \
+			moomoo-v$$(moomoo version) \
+			make http
+
+.PHONY:
 docker-build:
 	@ echo "Running python linting and tests..."
 	@ make py-lint

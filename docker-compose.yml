@@ -9,6 +9,8 @@ services:
       - MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "5000:8080"
 
   moomoo:
     build:
