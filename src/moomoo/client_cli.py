@@ -15,13 +15,6 @@ import click
 import requests
 import xspf_lib as xspf
 
-HOST = os.environ["MOOMOO_HOST"]
-MEDIA_LIBRARY = Path(os.environ["MOOMOO_MEDIA_LIBRARY"])
-
-
-if not MEDIA_LIBRARY.exists():
-    raise ValueError(f"Media library {MEDIA_LIBRARY} does not exist.")
-
 
 def render_playlist(files: list[Path], out: str, **plist_kw) -> None:
     """Render an xspf playlist to stdout or a file/program.
@@ -64,8 +57,14 @@ def cli():
 )
 def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     """Get a playlist from a path."""
+    host = os.environ["MOOMOO_HOST"]
+    media_library = Path(os.environ["MOOMOO_MEDIA_LIBRARY"])
+
+    if not media_library.exists():
+        raise ValueError(f"Media library {media_library} does not exist.")
+
     # ensures paths are relative to media library
-    args = [("path", Path(p).resolve().relative_to(MEDIA_LIBRARY)) for p in paths]
+    args = [("path", Path(p).resolve().relative_to(media_library)) for p in paths]
 
     # add other args
     args += [("n", n), ("seed", seed), ("shuffle", shuffle)]
@@ -77,7 +76,7 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     else:
         endpoint = "from-files"
 
-    resp = requests.get(f"{HOST}/playlist/{endpoint}", params=args)
+    resp = requests.get(f"{host}/playlist/{endpoint}", params=args)
 
     if resp.status_code != 200:
         try:
@@ -88,7 +87,7 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     if not resp.json()["success"]:
         raise RuntimeError(resp.json()["error"])
 
-    files = [MEDIA_LIBRARY / f for f in resp.json()["paths"]]
+    files = [media_library / f for f in resp.json()["paths"]]
     render_playlist(files, out)
 
 
