@@ -15,7 +15,7 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 
-MOOMOO_SCHEMA = os.environ.get("MOOMOO_DBT_SCHEMA", "moomoo")  # TODO: remove default
+MOOMOO_SCHEMA = os.environ["MOOMOO_DBT_SCHEMA"]
 
 bp = Blueprint("playlist", __name__, url_prefix="/playlist")
 

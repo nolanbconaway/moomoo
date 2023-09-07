@@ -1,5 +1,15 @@
 version: '3'
 services:
+  http:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment: 
+      - POSTGRES_DSN=${DOCKER_POSTGRES_DSN:-default}
+      - MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   moomoo:
     build:
       context: .
@@ -13,6 +23,7 @@ services:
       - DBT_PG_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
       - DBT_PG_PASSWORD=${DOCKER_DBT_PG_PASSWORD:-default}
       - CONTACT_EMAIL=${CONTACT_EMAIL:-default}
+      - MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}  # for http
 
     volumes:
     - ${DOCKER_MOUNT_LOCAL_MUSIC_DIR:-default}:/mnt/moomoo/music
