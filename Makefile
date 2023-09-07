@@ -1,3 +1,4 @@
+
 .PHONY: 
 py-lint:
 	@ black tests src --check --verbose
@@ -43,6 +44,11 @@ sql-lint:
 	@ cd dbt && sqlfluff lint models \
 		--config ../.sqlfluff \
 		--disable-progress-bar
+
+.PHONY:
+http:
+	@ PORT=$${port:-8080} HOST=$${host:-0.0.0.0} \
+		&& python -m moomoo.http.app --port=$$PORT --host=$$HOST
 
 .PHONY:
 docker-build:

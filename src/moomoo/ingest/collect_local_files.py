@@ -3,7 +3,6 @@ import json
 import multiprocessing
 import sys
 from pathlib import Path
-from typing import Dict, List, Set
 
 import click
 import mutagen
@@ -23,11 +22,11 @@ DDL = [
     """,
 ]
 
-EXTENSIONS: Set[str] = set([".mp3", ".flac", ".ogg", ".opus", ".wav"])
+EXTENSIONS: set[str] = set([".mp3", ".flac", ".ogg", ".opus", ".wav"])
 
 # I manually looked at all the tags in my library and grouped semantically similar tags
 # together here. Likely there are more tags that could be added.
-ATTRIBUTES: Dict[str, List[str]] = dict(
+ATTRIBUTES: dict[str, list[str]] = dict(
     album=["album"],
     title=["title"],
     artist=["artist"],
@@ -48,7 +47,7 @@ ATTRIBUTES: Dict[str, List[str]] = dict(
 )
 
 
-def list_audio_files(*dirs: Path) -> List[Path]:
+def list_audio_files(*dirs: Path) -> list[Path]:
     """List all audio files in the directories."""
     return [
         p
@@ -124,7 +123,7 @@ def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
     "--create", is_flag=True, help="Option to teardown and recreate the table"
 )
 def main(
-    src_dir: List[Path],
+    src_dir: list[Path],
     table: str,
     schema: str,
     procs: int,

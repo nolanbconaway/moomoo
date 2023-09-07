@@ -1,6 +1,5 @@
 """Test the annotate_mbids module."""
 import uuid
-from typing import List
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +14,7 @@ def create_table(schema, table):
 
 
 @pytest.fixture
-def mbids() -> List[dict]:
+def mbids() -> list[dict]:
     return [dict(mbid=uuid.uuid1(i), entity="fake") for i in range(10)]
 
 
@@ -50,7 +49,7 @@ def test_cli_date_args(monkeypatch, addtl_args, exit_0):
 
 
 def cli_run(
-    unannotated: List[dict], reannotated: List[dict], args: List[str]
+    unannotated: list[dict], reannotated: list[dict], args: list[str]
 ) -> Result:
     """Run the cli with the given args and mocked data."""
     create_table(schema="test", table="fake")
@@ -81,21 +80,21 @@ def test_cli_main__no_args():
     assert result.exit_code == 0
 
 
-def test_cli_main__unannotated(mbids: List[dict]):
+def test_cli_main__unannotated(mbids: list[dict]):
     """Test working with unannotated mbids."""
     result = cli_run(unannotated=mbids, reannotated=[], args=["--new"])
     assert "Found 10 mbids to annotate." in result.output
     assert result.exit_code == 0
 
 
-def test_cli_main__reannotated(mbids: List[dict]):
+def test_cli_main__reannotated(mbids: list[dict]):
     """Test working with re-annotated mbids."""
     result = cli_run(unannotated=[], reannotated=mbids, args=["--before=2021-01-01"])
     assert "Found 10 mbids to annotate." in result.output
     assert result.exit_code == 0
 
 
-def test_cli_main__limit(mbids: List[dict]):
+def test_cli_main__limit(mbids: list[dict]):
     """Test limit handler"""
     limit = len(mbids) // 2
     result = cli_run(

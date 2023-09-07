@@ -2,8 +2,6 @@
 
 import click
 
-from .playlist import cli as playlist_cli
-
 try:
     # needs ingest deps
     from .enrich import cli as enrich_cli
@@ -36,8 +34,6 @@ def version():
     """Get the version of moomoo."""
     click.echo(moomoo_version())
 
-
-cli.add_command(playlist_cli.cli, "playlist")
 
 if ingest_cli is not None:
     cli.add_command(ingest_cli.cli, "ingest")

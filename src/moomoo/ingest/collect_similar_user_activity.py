@@ -8,7 +8,7 @@ import hashlib
 import json
 import sys
 from itertools import product
-from typing import Dict, List, Union
+from typing import Union
 
 import click
 from pylistenbrainz import ListenBrainz
@@ -49,7 +49,7 @@ DDL = [
 
 
 @LB_RETRY
-def get_similar_users(username: str) -> List[Dict[str, Union[str, float]]]:
+def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
     """Get similar users for a user.
 
     Returns a list of dicts with the following keys:
@@ -64,7 +64,7 @@ def get_similar_users(username: str) -> List[Dict[str, Union[str, float]]]:
 @LB_RETRY
 def get_user_top_activity(
     username: str, entity: str, time_range: str = "all_time", count: int = 100
-) -> List[Dict[str, Union[str, float]]]:
+) -> list[dict[str, Union[str, float]]]:
     """Get the top activity for a user/entity."""
     if entity not in ENTITIES:
         raise ValueError(f"Invalid entity: {entity}.")
@@ -86,7 +86,7 @@ def get_user_top_activity(
         raise e
 
 
-def insert(conn, schema: str, table: str, data: List[dict], username: str):
+def insert(conn, schema: str, table: str, data: list[dict], username: str):
     sql = f"""
         insert into {schema}.{table} (
             payload_id

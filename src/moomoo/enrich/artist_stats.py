@@ -8,7 +8,7 @@ import json
 import random
 import sys
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 import click
 from psycopg import Connection
@@ -77,7 +77,7 @@ def get_artist_stats(mbid: uuid.UUID) -> dict:
     return dict(success=error is None, error=error, data=data)
 
 
-def get_new_mbids(schema: str, table: str, dbt_schema: str) -> List[uuid.UUID]:
+def get_new_mbids(schema: str, table: str, dbt_schema: str) -> list[uuid.UUID]:
     """Get mbids that have nostats from the mbids table."""
     sql = f"""
         select mbids.mbid as mbid
@@ -91,7 +91,7 @@ def get_new_mbids(schema: str, table: str, dbt_schema: str) -> List[uuid.UUID]:
 
 def get_old_mbids(
     schema: str, table: str, dbt_schema: str, before: datetime.datetime
-) -> List[uuid.UUID]:
+) -> list[uuid.UUID]:
     """Get mbids with stats between from_dt and to_dt."""
     sql = f"""
         select mbids.mbid
@@ -152,7 +152,7 @@ def main(
 
     get_artist_stats("509b8a09-e1cb-4ace-bbaf-296ee9701abd")
     # get list of mbids to annotate
-    to_ingest: List[str] = []
+    to_ingest: list[str] = []
     if new_:
         click.echo("Getting mbids with no stats...")
         to_ingest += get_new_mbids(schema=schema, table=table, dbt_schema=dbt_schema)

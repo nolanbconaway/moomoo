@@ -13,7 +13,7 @@ import datetime
 import json
 import random
 import sys
-from typing import List, Optional
+from typing import Optional
 
 import click
 from tqdm import tqdm
@@ -55,7 +55,7 @@ def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict)
         conn.commit()
 
 
-def get_unannotated_mbids(schema: str, table: str, dbt_schema: str) -> List[dict]:
+def get_unannotated_mbids(schema: str, table: str, dbt_schema: str) -> list[dict]:
     """Get mbids that have not been annotated from the mbids table."""
     sql = f"""
         select mbids.mbid as mbid, mbids.entity
@@ -68,7 +68,7 @@ def get_unannotated_mbids(schema: str, table: str, dbt_schema: str) -> List[dict
 
 def get_re_annotate_mbids(
     schema: str, table: str, dbt_schema: str, before: datetime.datetime
-) -> List[dict]:
+) -> list[dict]:
     """Get mbids that were annotated between from_dt and to_dt."""
     sql = f"""
         select mbids.mbid, mbids.entity
@@ -127,7 +127,7 @@ def main(
         sys.exit(1)
 
     # get list of mbids to annotate
-    to_ingest: List[dict] = []
+    to_ingest: list[dict] = []
     if new_:
         click.echo("Getting unannotated mbids...")
         to_ingest += get_unannotated_mbids(
