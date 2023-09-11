@@ -6,49 +6,7 @@ import pytest
 from moomoo import utils_
 from moomoo.playlist.playlist_generator import NoFilesRequestedError, PlaylistGenerator
 
-
-def load_local_files_table(schema: str, data: list[dict]):
-    """Load the local files table with keys:
-    - filepath: str
-    - embedding_success: bool
-    - embedding: list[float]
-    - artist_mbid: uuid
-    - embedding_duration_seconds: int
-    """
-
-    with utils_.pg_connect() as conn:
-        cur = conn.cursor()
-        sql = f"""
-            create table {schema}.local_files_flat (
-                filepath text primary key
-                , embedding_success bool
-                , embedding vector
-                , artist_mbid uuid
-                , embedding_duration_seconds int
-            )
-        """
-        cur.execute(sql)
-
-        sql = f"""
-            insert into {schema}.local_files_flat (
-                filepath
-                , embedding_success
-                , embedding
-                , artist_mbid
-                , embedding_duration_seconds
-            )
-            values (
-                %(filepath)s
-                , %(embedding_success)s
-                , %(embedding)s
-                , %(artist_mbid)s
-                , %(embedding_duration_seconds)s
-            )
-        """
-        for row in data:
-            cur.execute(sql, row)
-        conn.commit()
-
+from ..conftest import load_local_files_table
 
 # tests to write:
 #     get_playlist
@@ -155,13 +113,18 @@ def test_get_playlist__artist_limit():
     playlist = pg.get_playlist(
         schema="test", limit=5, shuffle=False, limit_per_artist=2
     )
-    assert playlist == [Path("test/4"), Path("test/6")]
+    assert playlist.playlist == [Path("test/4"), Path("test/6")]
 
     # should only get 4 songs not from the same artist even though 5 songs are requested
     playlist = pg.get_playlist(
         schema="test", limit=5, shuffle=False, limit_per_artist=4
     )
-    assert playlist == [Path("test/4"), Path("test/6"), Path("test/3"), Path("test/7")]
+    assert playlist.playlist == [
+        Path("test/4"),
+        Path("test/6"),
+        Path("test/3"),
+        Path("test/7"),
+    ]
 
 
 def test_get_playlist():
@@ -180,13 +143,16 @@ def test_get_playlist():
     pg = PlaylistGenerator.from_files([Path("test/5")], schema="test")
 
     playlist = pg.get_playlist(schema="test", limit=2, shuffle=False)
-    assert playlist == [Path("test/4"), Path("test/6")]
+    assert playlist.playlist == [Path("test/4"), Path("test/6")]
+    assert playlist.source_paths == [Path("test/5")]
 
     playlist = pg.get_playlist(schema="test", limit=2, shuffle=False, seed_count=1)
-    assert playlist == [Path("test/5"), Path("test/4"), Path("test/6")]
+    assert playlist.playlist == [Path("test/5"), Path("test/4"), Path("test/6")]
+    assert playlist.source_paths == [Path("test/5")]
 
     # multiple files requested
     pg = PlaylistGenerator.from_files([Path("test/5"), Path("test/6")], schema="test")
     assert pg.list_requested_paths() == [Path("test/5"), Path("test/6")]
     playlist = pg.get_playlist(schema="test", limit=2, shuffle=False)
-    assert playlist == [Path("test/4"), Path("test/7")]
+    assert playlist.playlist == [Path("test/4"), Path("test/7")]
+    assert playlist.source_paths == [Path("test/5"), Path("test/6")]

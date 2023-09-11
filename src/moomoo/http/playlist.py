@@ -4,6 +4,8 @@ Use the base postgres connection in the playlist module for now. eventually shou
 use a sqlalchemy session.
 """
 import os
+import sys
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,9 +17,12 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 
-MOOMOO_SCHEMA = os.environ["MOOMOO_DBT_SCHEMA"]
-
 bp = Blueprint("playlist", __name__, url_prefix="/playlist")
+
+
+def dbt_schema() -> str:
+    """Get the dbt schema."""
+    return os.environ["MOOMOO_DBT_SCHEMA"]
 
 
 @dataclass
@@ -54,17 +59,22 @@ def from_files():
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
     try:
-        generator = PlaylistGenerator.from_files(paths, schema=MOOMOO_SCHEMA)
+        generator = PlaylistGenerator.from_files(paths, schema=dbt_schema())
         plist = generator.get_playlist(
-            schema=MOOMOO_SCHEMA,
+            schema=dbt_schema(),
             limit=args.n,
             shuffle=args.shuffle,
             seed_count=args.seed,
         )
     except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         return ({"success": False, "error": str(e)}, 500)
 
-    return {"success": True, "paths": [str(f) for f in plist]}
+    return {
+        "success": True,
+        "playlist": [str(f) for f in plist.playlist],
+        "source_paths": [str(f) for f in plist.source_paths],
+    }
 
 
 @bp.route("/from-parent-path", methods=["GET"])
@@ -74,19 +84,23 @@ def from_parent_path():
     path = request.args.get("path", type=Path)
 
     logger.info(f"from-parent request: {path} ({args})")
-
     if not path:
         return ({"success": False, "error": "No path provided."}, 400)
 
     try:
-        generator = PlaylistGenerator.from_parent_path(path, schema=MOOMOO_SCHEMA)
+        generator = PlaylistGenerator.from_parent_path(path, schema=dbt_schema())
         plist = generator.get_playlist(
-            schema=MOOMOO_SCHEMA,
+            schema=dbt_schema(),
             limit=args.n,
             shuffle=args.shuffle,
             seed_count=args.seed,
         )
     except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         return ({"success": False, "error": str(e)}, 500)
 
-    return {"success": True, "paths": [str(f) for f in plist]}
+    return {
+        "success": True,
+        "playlist": [str(f) for f in plist.playlist],
+        "source_paths": [str(f) for f in plist.source_paths],
+    }

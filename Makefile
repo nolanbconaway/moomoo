@@ -52,15 +52,26 @@ http:
 
 .PHONY:
 docker-http-serve:
-	@ PORT=$${port:-8080} && \
-		echo Serving locally on http://localhost:$$PORT && \
-		docker run -it --rm \
-			--publish $$PORT:8080 \
-			--add-host=host.docker.internal:host-gateway \
-			--env POSTGRES_DSN="$(DOCKER_POSTGRES_DSN)" \
-			--env MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA} \
-			moomoo-v$$(moomoo version) \
-			make http
+# set PORT to the desired port to publish. default is 5600
+# 
+# set RUNOPT to --rm to remove the container after it exits (default), or something like
+#   --restart=always to keep it running.
+# 
+# there absolutely must be a better way to do this.
+	@ PORT=$${PORT:-5600} && \
+	  echo Serving locally on http://localhost:$$PORT && \
+	  docker run --interactive --tty --detach\
+	  	$${RUNOPT:---rm} \
+		--publish=$$PORT:8080 \
+		--add-host=host.docker.internal:host-gateway \
+		--env POSTGRES_DSN="$(DOCKER_POSTGRES_DSN)" \
+		--env MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA} \
+		moomoo-v$$(moomoo version) \
+		make http
+
+.PHONY:
+get-docker-logs:
+	@ docker logs $$(docker ps | grep moomoo-v$(moomoo version) |  cut -d' ' -f1)
 
 .PHONY:
 docker-build:

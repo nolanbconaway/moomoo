@@ -50,3 +50,41 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
         return conn
 
     monkeypatch.setattr(moomoo.utils_, "_pg_connect", f)
+    return postgresql.info.dsn
+
+
+def load_local_files_table(data: list[dict], schema: str = "test"):
+    """Load a fresh version of the local files table.
+
+    Input rows are dicts with keys:
+
+        - filepath: str
+        - embedding_success: bool
+        - embedding: list[float]
+        - artist_mbid: uuid
+        - embedding_duration_seconds: int
+    """
+    with moomoo.utils_.pg_connect() as conn:
+        cur = conn.cursor()
+        sql = f"""
+            create table {schema}.local_files_flat (
+                filepath text primary key
+                , embedding_success bool
+                , embedding vector
+                , artist_mbid uuid
+                , embedding_duration_seconds int
+            )
+        """
+        cur.execute(sql)
+
+        sql = f"""
+            insert into {schema}.local_files_flat (
+                filepath, embedding_success, embedding, artist_mbid, embedding_duration_seconds
+            )
+            values (
+                %(filepath)s, true, %(embedding)s , %(artist_mbid)s, 90
+            )
+        """
+        for i in data:
+            cur.execute(sql, i)
+        conn.commit()

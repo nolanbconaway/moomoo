@@ -3,42 +3,13 @@
 Eventually this should be split out into a separate package but for now it's
 easier to keep it here.
 """
-# TODO: TEST THIS
-
 import os
-import subprocess
-import tempfile
-import time
 from pathlib import Path
 
 import click
 import requests
-import xspf_lib as xspf
 
-
-def render_playlist(files: list[Path], out: str, **plist_kw) -> None:
-    """Render an xspf playlist to stdout or a file/program.
-
-    Supported output formats are:
-
-        - stdout: print xspf xml string
-        - strawberry: load directly into the strawberry player
-    """
-    playlist = xspf.Playlist(
-        trackList=[xspf.Track(location=str(p)) for p in files], **plist_kw
-    )
-
-    if out == "stdout":
-        click.echo(playlist.xml_string())
-
-    elif out == "strawberry":
-        with tempfile.NamedTemporaryFile() as f:
-            fp = Path(f.name)
-            fp.write_text(playlist.xml_string())
-            subprocess.run(["strawberry", "--load", f.name])
-            time.sleep(0.5)
-    else:
-        raise ValueError(f"Unknown output format {out}")
+from .utils_ import PlaylistResult
 
 
 @click.group()
@@ -47,14 +18,20 @@ def cli():
     pass
 
 
-@cli.command("playlist-from-path")
-@click.argument("paths", type=click.Path(exists=True), nargs=-1, required=True)
+@cli.group()
+def playlist():
+    """Playlist commands."""
+    pass
+
+
+@playlist.command("from-path")
+@click.argument(
+    "paths", type=click.Path(exists=True, path_type=Path), nargs=-1, required=True
+)
 @click.option("--n", default=20, type=int)
 @click.option("--seed", default=1, type=int)
 @click.option("--shuffle", default=True, type=bool)
-@click.option(
-    "--out", default="strawberry", type=click.Choice(["stdout", "strawberry"])
-)
+@click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
 def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     """Get a playlist from a path."""
     host = os.environ["MOOMOO_HOST"]
@@ -63,17 +40,25 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     if not media_library.exists():
         raise ValueError(f"Media library {media_library} does not exist.")
 
+    if any(p == media_library for p in paths):
+        raise ValueError("Media library cannot be used as a source path.")
+
     # ensures paths are relative to media library
     args = [("path", Path(p).resolve().relative_to(media_library)) for p in paths]
 
     # add other args
     args += [("n", n), ("seed", seed), ("shuffle", shuffle)]
 
-    # from parent path allows files or folders, from files only allows files
-    # TODO: validate the input types?
+    # from parent path allows files or folders but only one path.
+    # from files only allows files but multiple paths.
     if len(paths) == 1:
         endpoint = "from-parent-path"
     else:
+        if not all(p.is_file() for p in paths):
+            raise ValueError(
+                "Multiple paths must be files. "
+                + "Otherwise a single parent path should be provided."
+            )
         endpoint = "from-files"
 
     resp = requests.get(f"{host}/playlist/{endpoint}", params=args)
@@ -87,8 +72,13 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     if not resp.json()["success"]:
         raise RuntimeError(resp.json()["error"])
 
-    files = [media_library / f for f in resp.json()["paths"]]
-    render_playlist(files, out)
+    result = PlaylistResult(
+        playlist=[media_library / f for f in resp.json()["playlist"]],
+        source_paths=[media_library / f for f in resp.json()["source_paths"]],
+    )
+
+    # TODO: any check that the files exist?
+    result.render(out)
 
 
 if __name__ == "__main__":

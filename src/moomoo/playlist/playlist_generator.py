@@ -8,6 +8,10 @@ from psycopg import Connection
 
 from .. import utils_
 
+# maximum number of source paths to use when generating a playlist. this is to avoid
+# doing a huge number of pairwise distance calculations in the database.
+MAX_SOURCE_PATHS = 25
+
 SQL_TEMPLATE = """
 with base as (
     select filepath, embedding, artist_mbid
@@ -95,13 +99,12 @@ class PlaylistGenerator:
     @classmethod
     def from_parent_path(cls, path: Path, schema: str) -> "PlaylistGenerator":
         """Create a playlist generator from a parent path."""
-        # TODO: use parameterized query
         request_sql = f"""
             select filepath
             from {schema}.local_files_flat
             where filepath like %(path)s
             order by random()
-            limit 500
+            limit 25
         """
         return cls(request_sql, sql_params={"path": f"{path}%"})
 
@@ -124,7 +127,7 @@ class PlaylistGenerator:
         shuffle: bool = True,
         seed_count: int = 0,
         conn: Optional[Connection] = None,
-    ) -> list[Path]:
+    ) -> utils_.PlaylistResult:
         """Get a playlist of similar songs.
 
         Args:
@@ -147,9 +150,11 @@ class PlaylistGenerator:
             limit_per_artist=limit_per_artist,
         )
 
-        filepaths = self.list_requested_paths()
+        filepaths = sorted(self.list_requested_paths())
         if not filepaths:
             raise NoFilesRequestedError("No paths requested (or found via request).")
+        elif len(filepaths) > MAX_SOURCE_PATHS:
+            filepaths = sorted(random.sample(filepaths, MAX_SOURCE_PATHS))
 
         seed_files = [] if seed_count == 0 else random.sample(filepaths, seed_count)
         tracks = [
@@ -162,4 +167,6 @@ class PlaylistGenerator:
         if shuffle:
             random.shuffle(tracks)
 
-        return seed_files + tracks
+        return utils_.PlaylistResult(
+            playlist=seed_files + tracks, source_paths=filepaths
+        )

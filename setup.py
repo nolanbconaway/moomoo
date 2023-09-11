@@ -16,6 +16,7 @@ extras_require = dict(
         "sqlfluff==1.4.5",
         "sqlfluff-templater-dbt==1.4.5",
         "pytest-postgresql==5.0.0",
+        "pytest-xprocess==0.22.2",
     ],
     ml=[
         # heavy deps for ml inference
