@@ -68,7 +68,7 @@ def from_files():
         )
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        return ({"success": False, "error": str(e)}, 500)
+        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
     return {
         "success": True,
@@ -97,7 +97,7 @@ def from_parent_path():
         )
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        return ({"success": False, "error": str(e)}, 500)
+        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
     return {
         "success": True,

@@ -114,7 +114,7 @@ def test_playlist_from_path__json_parsable(local_files):
     result = runner.invoke(client_cli.from_path, [str(local_files / "test.mp3")])
     assert result.exit_code == 0
     assert len(result.output) > 0
-    assert json.loads(result.stdout)  # good as long as it parses
+    assert json.loads(result.output)  # good as long as it parses
 
     result = runner.invoke(
         client_cli.from_path,
@@ -122,9 +122,21 @@ def test_playlist_from_path__json_parsable(local_files):
     )
     assert result.exit_code == 0
     assert len(result.output) > 0
-    assert json.loads(result.stdout)  # good as long as it parses
+    assert json.loads(result.output)  # good as long as it parses
 
 
-def test_playlist_from_path__error_handling():
-    # TODO
-    pass
+def test_playlist_from_path__error_handling(local_files):
+    # make a fake file and pass that. we should have 0 request matches which produces
+    # a NoFilesRequestedError.
+    runner = CliRunner()
+
+    (local_files / "fake.mp3").touch()
+
+    result = runner.invoke(client_cli.from_path, [str(local_files / "fake.mp3")])
+    assert result.exit_code != 0
+
+    # should still be json parsable
+    assert len(result.output) > 0
+    assert json.loads(result.output)
+    assert json.loads(result.output)["success"] is False
+    assert "NoFilesRequestedError" in json.loads(result.output)["error"]

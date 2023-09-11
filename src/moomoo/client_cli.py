@@ -3,6 +3,7 @@
 Eventually this should be split out into a separate package but for now it's
 easier to keep it here.
 """
+import json
 import os
 from pathlib import Path
 
@@ -65,7 +66,9 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
 
     if resp.status_code != 200:
         try:
-            click.echo(resp.json())
+            data = resp.json()
+            data["status_code"] = resp.status_code
+            click.echo(json.dumps(data))
         finally:
             resp.raise_for_status()
 
