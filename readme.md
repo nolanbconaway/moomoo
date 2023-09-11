@@ -11,7 +11,7 @@ I'll never do it so long as I cannot get that service elsewhere, so let's see if
 
 This is ongoing! 
 
-Current status: Writing ingestion pipeline and DBT models to curate a detailed dataset on my listening behavior.
+Current status: I am using this locally in place of spotify. I need to collect more data on playlists to improve the ranking algorithm/ml model.
 
 ## Setup
 
