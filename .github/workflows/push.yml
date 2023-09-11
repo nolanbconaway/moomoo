@@ -84,4 +84,4 @@ jobs:
           pip install .
 
       - name: Check CLI Help
-        run: moomoo --help
+        run: moomoo client --help

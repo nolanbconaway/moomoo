@@ -16,6 +16,7 @@ extras_require = dict(
         "sqlfluff==1.4.5",
         "sqlfluff-templater-dbt==1.4.5",
         "pytest-postgresql==5.0.0",
+        "pytest-xprocess==0.22.2",
     ],
     ml=[
         # heavy deps for ml inference
@@ -32,6 +33,7 @@ extras_require = dict(
         "pylistenbrainz==0.5.1",
         "musicbrainzngs==0.7.1",
     ],
+    http=["flask==2.3.*", "waitress==2.1.*"],
 )
 
 extras_require["all"] = sum(extras_require.values(), [])
@@ -47,6 +49,7 @@ setup(
         "click==8.1.3",
         "xspf-lib==0.3.*",
         "pgvector==0.1.*",
+        "requests==2.*",
     ],
     extras_require=extras_require,
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},

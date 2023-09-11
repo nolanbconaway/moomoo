@@ -1,6 +1,5 @@
 """Test the annotate_mbids module."""
 import uuid
-from typing import List
 from unittest.mock import Mock, patch
 
 import pytest
@@ -16,7 +15,7 @@ def create_table(schema, table):
 
 
 @pytest.fixture
-def mbids() -> List[uuid.UUID]:
+def mbids() -> list[uuid.UUID]:
     return [uuid.uuid1(i) for i in range(10)]
 
 
@@ -54,7 +53,7 @@ def test_cli_date_args(monkeypatch, addtl_args, exit_0):
         assert result.exit_code != 0
 
 
-def cli_run(new_: List[dict], old_: List[dict], args: List[str]) -> Result:
+def cli_run(new_: list[dict], old_: list[dict], args: list[str]) -> Result:
     """Run the cli with the given args and mocked data."""
     create_table(schema="test", table="fake")
     base_args = ["--table=fake", "--schema=test", "--dbt-schema=dbt"]
@@ -80,21 +79,21 @@ def test_cli_main__no_args():
     assert result.exit_code == 0
 
 
-def test_cli_main__new(mbids: List[dict]):
+def test_cli_main__new(mbids: list[dict]):
     """Test working with new mbids."""
     result = cli_run(new_=mbids, old_=[], args=["--new"])
     assert "Found 10 mbids to ingest." in result.output
     assert result.exit_code == 0
 
 
-def test_cli_main__old(mbids: List[dict]):
+def test_cli_main__old(mbids: list[dict]):
     """Test working with old mbids."""
     result = cli_run(new_=[], old_=mbids, args=["--before=2021-01-01"])
     assert "Found 10 mbids to ingest." in result.output
     assert result.exit_code == 0
 
 
-def test_cli_main__limit(mbids: List[dict]):
+def test_cli_main__limit(mbids: list[dict]):
     """Test limit handler"""
     limit = len(mbids) // 2
     result = cli_run(new_=mbids, old_=[], args=["--new", f"--limit={limit}"])

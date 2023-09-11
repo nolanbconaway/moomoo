@@ -1,6 +1,6 @@
 """Storage for embeddings."""
 from pathlib import Path
-from typing import List
+
 from psycopg import Connection
 
 from .scorer import EmbeddingResult
@@ -72,7 +72,7 @@ def insert_embedding(
     conn.commit()
 
 
-def list_audio_files(src_dir: Path) -> List[Path]:
+def list_audio_files(src_dir: Path) -> list[Path]:
     """List all audio files in the directories."""
     return [
         p

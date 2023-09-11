@@ -2,7 +2,7 @@
 
 import click
 
-from .playlist import cli as playlist_cli
+from .client_cli import cli as client_cli
 
 try:
     # needs ingest deps
@@ -37,7 +37,7 @@ def version():
     click.echo(moomoo_version())
 
 
-cli.add_command(playlist_cli.cli, "playlist")
+cli.add_command(client_cli, "client")
 
 if ingest_cli is not None:
     cli.add_command(ingest_cli.cli, "ingest")

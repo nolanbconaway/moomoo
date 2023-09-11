@@ -8,8 +8,8 @@ import os
 import subprocess
 import tempfile
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 from uuid import UUID
 
 import click
@@ -48,7 +48,7 @@ def pg_connect() -> psycopg.Connection:
 
 def execute_sql_fetchall(
     sql: str, params: dict = None, conn: psycopg.Connection = None
-) -> List[dict]:
+) -> list[dict]:
     """Execute a SQL statement and return all results via dict cursors."""
 
     def f(c: psycopg.Connection):
@@ -63,7 +63,7 @@ def execute_sql_fetchall(
     return f(conn)
 
 
-def create_table(schema: str, table: str, ddl: List[str]):
+def create_table(schema: str, table: str, ddl: list[str]):
     """Create a table in the db with multiple DDL statements.
 
     Useful for creating tables with indexes. Drops the table if it already exists.
@@ -116,103 +116,54 @@ def utcfromunixtime(unixtime: int) -> datetime.datetime:
     )
 
 
-def resolve_db_path(syspath: Path, schema: str) -> Tuple[Path, List[Path]]:
-    """Resolve a system filepath to find the local path used in the db.
+@dataclass
+class PlaylistResult:
+    """A playlist result.
 
-    Uses the local_files_flat table in the dbt schema to find the local path, based on
-    the db filepath matching the end of the system path.
-
-    args:
-        filepath: the filepath to resolve
-        schema: the schema to use. should be the analytic DBT schema, as we use
-            the local_files_flat table.
-
-    Returns a tuple of the base path and a list of local paths known to the database.
+    Contains the target paths and the local paths used to generate it. Has methods
+    to render the playlist in different formats.
     """
-    syspath = syspath.resolve()
-    if not syspath.exists():
-        raise ValueError(f"Could not find file/folder {syspath}.")
-    elif syspath.is_dir():
-        filepaths = [p for p in syspath.glob("**/*") if p.is_file()]
-        if len(filepaths) == 0:
-            raise ValueError(f"Could not find any files in {syspath}.")
-    else:
-        filepaths = [syspath]
 
-    if len(filepaths) > 500:
-        # TODO: better catching whether the user is resolving the whole dang base path
-        raise ValueError("Found too many files matching {syspath}. ")
+    playlist: list[Path]
+    source_paths: list[Path]
 
-    # upload filepaths to a temp table, and join to local_files_flat
-    with pg_connect() as conn:
-        cur = conn.cursor()
-        cur.execute("create temp table tmp_filepaths (filepath text)")
-        cur.executemany(
-            "insert into tmp_filepaths values (%s)", [(str(p),) for p in filepaths]
+    def to_xspf(self) -> xspf.Playlist:
+        """Convert to an xspf playlist."""
+        return xspf.Playlist(
+            trackList=[xspf.Track(location=str(p)) for p in self.playlist],
+            creator="moomoo",
+            annotation=f"Generated via {len(self.source_paths)} source path(s).",
         )
 
-        sql = f"""
-        select local_files_flat.filepath
-        from {schema}.local_files_flat
-        inner join tmp_filepaths
-            on tmp_filepaths.filepath like '%' || local_files_flat.filepath
-        """
-        cur.execute(sql)
-        local_paths = [Path(r) for (r,) in cur]
+    def to_json(self) -> str:
+        """Convert to a json string."""
+        return json.dumps(
+            dict(
+                playlist=[str(p) for p in self.playlist],
+                source_paths=[str(p) for p in self.source_paths],
+            )
+        )
 
-    if not local_paths:
-        raise ValueError(f"Could not find any matches to {syspath} in database.")
+    def to_xml(self):
+        """Convert to an xspf xml string."""
+        return self.to_xspf().xml_string()
 
-    # remove the local path part from the filepath.
-    # this is easy if its a file, as we only need to remove the local path at the end.
-    # if a directory, we need to remove the ending match. like: a/b/c, a/b/c/d.e -> a/b
-    if syspath.is_dir():
-        base_dir = None
-        assert (
-            len(list(local_paths[0].parents)) > 1
-        )  # user would need to be resolving the base path for this to happen
-
-        for parent in local_paths[0].parents:
-            if str(syspath).endswith(str(parent)):
-                base_dir = Path(str(syspath)[: -len(str(parent))])
-                break
-
-        if base_dir is None:
-            raise ValueError(f"Could not find a base directory for {syspath}.")
-    else:
-        base_dir = Path(str(syspath)[: -len(str(local_paths[0]))])
-
-    return base_dir, local_paths
-
-
-def render_playlist(
-    files: List[Path], out: str, outfile: Path = None, **plist_kw
-) -> None:
-    """Render an xspf playlist to stdout or a file/program.
-
-    Supported output formats are:
-
-        - stdout: print xspf xml string
-        - file: write xspf xml string to file. must supply out_file
-        - strawberry: load directly into the strawberry player
-    """
-    playlist = xspf.Playlist(
-        trackList=[xspf.Track(location=str(p)) for p in files], **plist_kw
-    )
-
-    if out == "stdout":
-        click.echo(playlist.xml_string())
-
-    elif out == "file":
-        if outfile is None:
-            raise ValueError("Must supply out_file when outputting to file.")
-        outfile.write_text(playlist.xml_string())
-
-    elif out == "strawberry":
+    def to_strawberry(self, wait_seconds: float = 0.5):
+        """Load the playlist into strawberry."""
         with tempfile.NamedTemporaryFile() as f:
             fp = Path(f.name)
-            fp.write_text(playlist.xml_string())
+            fp.write_text(self.to_xml())
             subprocess.run(["strawberry", "--load", f.name])
-            time.sleep(0.5)
-    else:
-        raise ValueError(f"Unknown output format {out}")
+            time.sleep(wait_seconds)
+
+    def render(self, method: str):
+        """Render the playlist."""
+        if method not in ["json", "xml", "strawberry"]:
+            raise ValueError(f"Unknown method {method}")
+
+        if method == "json":
+            click.echo(self.to_json())
+        elif method == "xml":
+            click.echo(self.to_xml())
+        elif method == "strawberry":
+            self.to_strawberry()

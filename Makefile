@@ -1,3 +1,4 @@
+
 .PHONY: 
 py-lint:
 	@ black tests src --check --verbose
@@ -45,17 +46,45 @@ sql-lint:
 		--disable-progress-bar
 
 .PHONY:
+http:
+	@ PORT=$${port:-8080} HOST=$${host:-0.0.0.0} \
+		&& python -m moomoo.http.app --port=$$PORT --host=$$HOST
+
+.PHONY:
+docker-http-serve:
+# set PORT to the desired port to publish. default is 5600
+# 
+# set RUNOPT to --rm to remove the container after it exits (default), or something like
+#   --restart=always to keep it running.
+# 
+# there absolutely must be a better way to do this.
+	@ PORT=$${PORT:-5600} && \
+	  echo Serving locally on http://localhost:$$PORT && \
+	  docker run --interactive --tty --detach\
+	  	$${RUNOPT:---rm} \
+		--publish=$$PORT:8080 \
+		--add-host=host.docker.internal:host-gateway \
+		--env POSTGRES_DSN="$(DOCKER_POSTGRES_DSN)" \
+		--env MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA} \
+		moomoo-v$$(moomoo version) \
+		make http
+
+.PHONY:
+get-docker-logs:
+	@ docker logs $$(docker ps | grep moomoo-v$(moomoo version) |  cut -d' ' -f1)
+
+.PHONY:
 docker-build:
-	@ echo "Running python linting and tests..."
-	@ make py-lint
-	@ make py-test
+# run tests if TEST=1
+	@ if [ ! -z "$(TEST)" ]; \
+		then make py-lint-test; \
+		else echo "Skipping tests."; \
+	  fi
 
-	@ echo 
-	@ echo 
-	@ echo "Running dbt build..."
-	@ dbt build --project-dir dbt/
+	@ if [ ! -z "$(TEST)" ]; \
+		then dbt build --project-dir dbt/; \
+		else echo "Skipping dbt build."; \
+	  fi
 
-	@ echo 
-	@ echo 
 	@ echo "\n\nBuilding docker image..."
 	@ docker build -t moomoo-v$$(moomoo version) .

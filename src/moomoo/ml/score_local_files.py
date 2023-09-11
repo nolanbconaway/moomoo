@@ -3,7 +3,6 @@ import sys
 from pathlib import Path
 
 import click
-from psycopg import Connection
 from tqdm import tqdm
 
 from .. import utils_

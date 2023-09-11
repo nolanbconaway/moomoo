@@ -11,71 +11,114 @@ I'll never do it so long as I cannot get that service elsewhere, so let's see if
 
 This is ongoing! 
 
-Current status: Writing ingestion pipeline and DBT models to curate a detailed dataset on my listening behavior.
+Current status: I am using this locally in place of spotify. I need to collect more data on playlists to improve the ranking algorithm/ml model.
 
-## Setup 
+## Setup
 
-- install: `pip install -e .`
-- A postgres DB is needed for basically everything. [`pgvector`](https://github.com/pgvector/pgvector) is needed in that database.
-- CLI entrypoint: `moomoo`
+`moomoo` is orchestrated in an (overly?) complex manner. I built it in a monorepo for some reason. The upside of this monorepo is that you theoretically only need one docker image to do it all. A postgres DB is also needed for basically everything, and [`pgvector`](https://github.com/pgvector/pgvector) is needed in that database.
 
-### Env Requires
-
-I have a .env like:
+Build that docker image via.
 
 ```
-POSTGRES_DSN="dbname=my_db ..."
-CONTACT_EMAIL="me@email.com"  # identify with musicbrainz
+make docker-build
 ```
 
-## Order of operations
+There are three basic components to set up, outlined below:
 
->> TODO. ingest >> dbt >> enrich >> dbt ...
+1. Scheduled jobs
+2. HTTP server
+3. Client CLI
 
-### Docker Setup
-
-I run moomoo on my local desktop which also hosts the postgres db. I execute jobs on an airflow server hosted on the same machine, so I've dockerized an environment that works for me. You'll need to set up the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/user-guide.html) to run ml work with the host gpu.
-
-I export the following env vars:
+Running it all in one go requires some management of env secrets. I have a .env like:
 
 ```
+POSTGRES_DSN=... # for local dev
 CONTACT_EMAIL=...
-DOCKER_POSTGRES_DSN="dbname=my_db host=host.docker.internal ..."
-DOCKER_DBT_PG_HOST="host.docker.internal"
-DOCKER_DBT_PG_PORT=5432
-DOCKER_DBT_PG_USER="..."
-DOCKER_DBT_PG_DBNAME="..."
-DOCKER_DBT_PG_SCHEMA="..."
-DOCKER_DBT_PG_PASSWORD="..."
-DOCKER_MOUNT_LOCAL_MUSIC_DIR=/user/me/music  # mounted at /mnt/moomoo/music in docker
+
+# passed to docker
+DOCKER_POSTGRES_DSN=host=host.docker.internal...
+DOCKER_DBT_PG_HOST=...
+DOCKER_DBT_PG_PORT=...
+DOCKER_DBT_PG_USER=...
+DOCKER_DBT_PG_PASSWORD=...
+DOCKER_DBT_PG_DBNAME=...
+DOCKER_DBT_PG_SCHEMA=... # re-used as MOOMOO_DBT_SCHEMA
+DOCKER_MOUNT_LOCAL_MUSIC_DIR=...
+
+# http client
+MOOMOO_HOST=...
+MOOMOO_MEDIA_LIBRARY=...
 ```
 
-And
+### Scheduled jobs
 
-```sh
-docker-compose up --build
-```
+The basic building blocks are scheduled batch tasks (via airflow, cron, or otherwise) consisting of:
 
-Then run arbitrary whatever in that container via:
+1. Basic **ingestion** of data, running on a schedule via airflow, cron, or otherwise.
+    - `moomoo ingest files` populates a table about local music files.
+    - `moomoo ingest listens` populates a table about user listening behavior, via ListenBrainz.
+    - `moomoo ml score` populates a table of ML embeddings for each local music file. The [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/user-guide.html) is needed to run ml work in docker.
 
-```sh
-docker-compose run moomoo ...
-# like docker-compose run moomoo make dbt-run
-```
 
-### Database
+2. **Merging** of the MusicBrainz `mbids` learned about above, via dbt. The models in `dbt/models/flat` are all that are needed.
+    - So, `make dbt-build select=flat` is the command.
 
-A postgres DB is needed for basically everything. I run postgres 13 locally. [`pgvector`](https://github.com/pgvector/pgvector) is needed to support embeddings.
+3. **Enrichment** of the mbids.
+    - `moomoo enrich annotate` populates a table mapping `mbids` to json data via MusicBrainz API.
+    - `moomoo enrich artist-stats` populates a table with artist statistics for each mbid.
+
+4. **Analytic** models via dbt. This is a one shot building the rest of the models in dbt. The make command is `make dbt-build select=dim analytic`.
 
 > TODO: db diagram
 
-#### DBT Design
+The following envvars are needed for these:
 
-Database sources are iteratively processed, currently in this rough order:
+```
+POSTGRES_DSN=...
+CONTACT_EMAIL=...
+DBT_PG_HOST=...
+DBT_PG_PORT=...
+DBT_PG_USER=...
+DBT_PG_DBNAME=...
+DBT_PG_SCHEMA=...
+DBT_PG_PASSWORD=...
+```
 
-1. Source data collected from local files and listenbrainz. No dependencies outside the python jobs.
-2. *TODO: Resolution of the mbids for each local file that did not store its own mbids.*
-3. A list of mbid/entity combinations built via dbt, unioning the above sources.
-4. Enriched source data for each mbid from step 3, obtained in a python job by querying musicbrainz.
-5. Dimensional model making the enriched data per mbid available.
+Local development requires a valid dbt profiles.yml, and:
+
+```
+POSTGRES_DSN=...
+CONTACT_EMAIL=...
+```
+
+### HTTP Server
+
+The HTTP server manages access from the client to the database built above. It runs in a separate process and needs to be updated with updates to the scheduled work. That server needs to know where the dbt models are built, because it uses those to make playlists, etc.
+
+Envvars:
+
+```
+POSTGRES_DSN=...
+MOOMOO_DBT_SCHEMA=...
+```
+
+See the `make docker-http-serve` target for an easy way to run this.
+
+### Client CLI
+
+This part is undergoing the most iteration. The CLI is intended to provide an easy way to make playlists from the server, in a way that can be consumed by the client.
+
+Client will need to SFTP mount the server media directory to ensure the same access to the media library (or be ran directly on the host), and exoprt envvars pointing to the server:
+
+```
+MOOMOO_HOST=localhost:5600 # etc
+MOOMOO_MEDIA_LIBRARY=/mount/server/media
+```
+
+Fo integrations with media players (strawberry, etc), install the client directly via pipx or a venv. Then a CLI invocation can be wrapped in a small script:
+
+```
+moomoo client playlist from-path ~/Music/Artist/Album --out=strawberry
+```
+
 
