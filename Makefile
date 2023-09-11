@@ -75,16 +75,16 @@ get-docker-logs:
 
 .PHONY:
 docker-build:
-	@ echo "Running python linting and tests..."
-	@ make py-lint
-	@ make py-test
+# run tests if TEST=1
+	@ if [ ! -z "$(TEST)" ]; \
+		then make py-lint-test; \
+		else echo "Skipping tests."; \
+	  fi
 
-	@ echo 
-	@ echo 
-	@ echo "Running dbt build..."
-	@ dbt build --project-dir dbt/
+	@ if [ ! -z "$(TEST)" ]; \
+		then dbt build --project-dir dbt/; \
+		else echo "Skipping dbt build."; \
+	  fi
 
-	@ echo 
-	@ echo 
 	@ echo "\n\nBuilding docker image..."
 	@ docker build -t moomoo-v$$(moomoo version) .

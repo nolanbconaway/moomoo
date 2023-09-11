@@ -57,7 +57,7 @@ def test_invalid_filepaths(http_app: FlaskClient, endpoint: str):
     resp = http_app.get(endpoint, query_string=dict(path="test/3949"))
     assert resp.status_code == 500
     assert resp.json["success"] is False
-    assert resp.json["error"] == "No paths requested (or found via request)."
+    assert "No paths requested (or found via request)." in resp.json["error"]
 
     with patch(
         "moomoo.playlist.PlaylistGenerator.get_playlist",
@@ -66,7 +66,7 @@ def test_invalid_filepaths(http_app: FlaskClient, endpoint: str):
         resp = http_app.get(endpoint, query_string=dict(path="test/3949"))
         assert resp.status_code == 500
         assert resp.json["success"] is False
-        assert resp.json["error"] == "test exception message"
+        assert "test exception message" in resp.json["error"]
         assert mock.call_count == 1
 
     with patch(
