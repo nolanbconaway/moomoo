@@ -51,7 +51,7 @@ def from_files():
     args = PlaylistArgs.from_request(request)
     paths = request.args.getlist("path", type=Path)
 
-    logger.info(f"from-files request: {paths} ({args})")
+    logger.info(f"playlist request: {paths} ({args})")
 
     if len(paths) == 0:
         return ({"success": False, "error": "No filepaths provided."}, 400)
@@ -60,35 +60,6 @@ def from_files():
 
     try:
         generator = PlaylistGenerator.from_files(paths, schema=dbt_schema())
-        plist = generator.get_playlist(
-            schema=dbt_schema(),
-            limit=args.n,
-            shuffle=args.shuffle,
-            seed_count=args.seed,
-        )
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
-
-    return {
-        "success": True,
-        "playlist": [str(f) for f in plist.playlist],
-        "source_paths": [str(f) for f in plist.source_paths],
-    }
-
-
-@bp.route("/from-parent-path", methods=["GET"])
-def from_parent_path():
-    """Create a playlist from a parent path."""
-    args = PlaylistArgs.from_request(request)
-    path = request.args.get("path", type=Path)
-
-    logger.info(f"from-parent request: {path} ({args})")
-    if not path:
-        return ({"success": False, "error": "No path provided."}, 400)
-
-    try:
-        generator = PlaylistGenerator.from_parent_path(path, schema=dbt_schema())
         plist = generator.get_playlist(
             schema=dbt_schema(),
             limit=args.n,

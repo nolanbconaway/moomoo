@@ -52,17 +52,13 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
 
     # from parent path allows files or folders but only one path.
     # from files only allows files but multiple paths.
-    if len(paths) == 1:
-        endpoint = "from-parent-path"
-    else:
-        if not all(p.is_file() for p in paths):
-            raise ValueError(
-                "Multiple paths must be files. "
-                + "Otherwise a single parent path should be provided."
-            )
-        endpoint = "from-files"
+    if len(paths) > 1 and not all(p.is_file() for p in paths):
+        raise ValueError(
+            "Multiple paths must be files. "
+            + "Otherwise a single parent path should be provided."
+        )
 
-    resp = requests.get(f"{host}/playlist/{endpoint}", params=args)
+    resp = requests.get(f"{host}/playlist/from-files", params=args)
 
     if resp.status_code != 200:
         try:

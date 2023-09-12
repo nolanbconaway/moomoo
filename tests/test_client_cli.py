@@ -79,36 +79,6 @@ def test_playlist_from_path__media_library_exists_check(monkeypatch, local_files
     assert str(local_files) + "fakeeee" + " does not exist" in str(result.exception)
 
 
-def test_playlist_from_path__files_vs_parent_handler(xprocess, local_files):
-    """Test that we switch between the two endpoints correctly."""
-    logfile = Path(xprocess.getinfo("http_server").logpath)
-    runner = CliRunner()
-
-    # should be from parent path because only one path is provided and it is a folder
-    result = runner.invoke(client_cli.from_path, [str(local_files / "test")])
-    assert result.exit_code == 0
-    assert "INFO - from-parent request" in logfile.read_text()
-    assert "INFO - from-files request" not in logfile.read_text()
-
-    logfile.write_text("")
-
-    # should be from files because multiple paths are provided
-    result = runner.invoke(
-        client_cli.from_path,
-        [str(local_files / "test.mp3"), str(local_files / "test.mp3")],
-    )
-    assert result.exit_code == 0
-    assert "INFO - from-parent request" not in logfile.read_text()
-    assert "INFO - from-files request" in logfile.read_text()
-
-    # should invoke an error because multiple paths are provided but one is a folder
-    result = runner.invoke(
-        client_cli.from_path, [str(local_files / "test"), str(local_files / "test.mp3")]
-    )
-    assert result.exit_code != 0
-    assert "Multiple paths must be files" in str(result.exception)
-
-
 def test_playlist_from_path__json_parsable(local_files):
     runner = CliRunner()
     result = runner.invoke(client_cli.from_path, [str(local_files / "test.mp3")])

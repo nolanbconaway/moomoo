@@ -43,18 +43,10 @@ def test_arg_errors(http_app: FlaskClient):
     assert resp.json["success"] is False
     assert resp.json["error"] == "Too many filepaths provided (>500)."
 
-    resp = http_app.get("/playlist/from-parent-path", query_string=dict())
-    assert resp.status_code == 400
-    assert resp.json["success"] is False
-    assert resp.json["error"] == "No path provided."
 
-
-@pytest.mark.parametrize(
-    "endpoint", ["/playlist/from-files", "/playlist/from-parent-path"]
-)
-def test_invalid_filepaths(http_app: FlaskClient, endpoint: str):
+def test_invalid_filepaths(http_app: FlaskClient):
     """Test that an error is returned when invalid filepaths are provided."""
-    resp = http_app.get(endpoint, query_string=dict(path="test/3949"))
+    resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
     assert resp.status_code == 500
     assert resp.json["success"] is False
     assert "No paths requested (or found via request)." in resp.json["error"]
@@ -63,7 +55,7 @@ def test_invalid_filepaths(http_app: FlaskClient, endpoint: str):
         "moomoo.playlist.PlaylistGenerator.get_playlist",
         side_effect=Exception("test exception message"),
     ) as mock:
-        resp = http_app.get(endpoint, query_string=dict(path="test/3949"))
+        resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
         assert resp.status_code == 500
         assert resp.json["success"] is False
         assert "test exception message" in resp.json["error"]
@@ -73,7 +65,7 @@ def test_invalid_filepaths(http_app: FlaskClient, endpoint: str):
         "moomoo.playlist.PlaylistGenerator.get_playlist",
         return_value=PlaylistResult(playlist=[], source_paths=[Path("test/3949")]),
     ) as mock:
-        resp = http_app.get(endpoint, query_string=dict(path="test/3949"))
+        resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
         assert resp.status_code == 200
         assert resp.json["success"] is True
         assert resp.json["playlist"] == []
@@ -99,13 +91,3 @@ def test_from_files_playlist(http_app: FlaskClient):
     assert len(resp.json["playlist"]) == 2
     assert resp.json["playlist"] == ["test/3", "test/6"]
     assert resp.json["source_paths"] == ["test/4", "test/5"]
-
-
-def test_from_parent_path_playlist(http_app: FlaskClient):
-    resp = http_app.get(
-        "/playlist/from-parent-path", query_string=dict(path="test/2", n=10)
-    )
-    assert resp.status_code == 200
-    assert resp.json["success"] is True
-    assert len(resp.json["playlist"]) == 9  # all but file 2
-    assert resp.json["source_paths"] == ["test/2"]

@@ -1,9 +1,9 @@
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from moomoo import utils_
 from moomoo.playlist.playlist_generator import NoFilesRequestedError, PlaylistGenerator
 
 from ..conftest import load_local_files_table
@@ -125,6 +125,14 @@ def test_get_playlist__artist_limit():
         Path("test/3"),
         Path("test/7"),
     ]
+
+
+def test_from_files_pass_to_parent():
+    """Test that we pass from from_files to from_parent_path if one path is provided."""
+    with patch("moomoo.playlist.PlaylistGenerator.from_parent_path") as mock:
+        PlaylistGenerator.from_files([Path("test/5")], schema="test")
+        assert mock.call_count == 1
+        assert mock.call_args[0][0] == Path("test/5")
 
 
 def test_get_playlist():

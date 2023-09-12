@@ -89,12 +89,21 @@ class PlaylistGenerator:
     @classmethod
     def from_files(cls, files: list[Path], schema: str) -> "PlaylistGenerator":
         """Create a playlist generator from a list of files."""
+        files_ = list(set(files))  # dedupe
+
+        # if only one path, it makes sense to use the parent path generator instead
+        if len(files_) == 1:
+            return cls.from_parent_path(files[0], schema=schema)
+        elif len(files_) > MAX_SOURCE_PATHS:
+            files_ = random.sample(files_, MAX_SOURCE_PATHS)
+
         request_sql = f"""
             select filepath
             from {schema}.local_files_flat
             where filepath = any(%(filepaths)s)
         """
-        return cls(request_sql, sql_params={"filepaths": [str(f) for f in files]})
+
+        return cls(request_sql, sql_params={"filepaths": [str(f) for f in files_]})
 
     @classmethod
     def from_parent_path(cls, path: Path, schema: str) -> "PlaylistGenerator":
