@@ -1,22 +1,24 @@
 """Playlist generation utilities for user provided files."""
+import os
 import random
-from functools import cache
 from pathlib import Path
 from typing import Optional
 
-from psycopg import Connection
+from sqlalchemy.orm import Session
 
-from .. import utils_
+from ..db import execute_sql_fetchall
+from ..utils_ import PlaylistResult
 
 # maximum number of source paths to use when generating a playlist. this is to avoid
 # doing a huge number of pairwise distance calculations in the database.
 MAX_SOURCE_PATHS = 25
 
+
 SQL_TEMPLATE = """
 with base as (
     select filepath, embedding, artist_mbid
     from {schema}.local_files_flat
-    where filepath = any(%(filepaths)s)
+    where filepath = any(:filepaths)
 )
 
 , distances as (
@@ -30,7 +32,7 @@ with base as (
     where local_files_flat.embedding_success
       and local_files_flat.embedding_duration_seconds >= 60
       and local_files_flat.artist_mbid is not null
-      and not local_files_flat.filepath = any(%(filepaths)s)
+      and not local_files_flat.filepath = any(:filepaths)
 
     group by local_files_flat.filepath
 )
@@ -87,56 +89,53 @@ class PlaylistGenerator:
         self.sql_params = sql_params
 
     @classmethod
-    def from_files(cls, files: list[Path], schema: str) -> "PlaylistGenerator":
+    def from_files(cls, files: list[Path]) -> "PlaylistGenerator":
         """Create a playlist generator from a list of files."""
         files_ = list(set(files))  # dedupe
 
         # if only one path, it makes sense to use the parent path generator instead
         if len(files_) == 1:
-            return cls.from_parent_path(files[0], schema=schema)
+            return cls.from_parent_path(files[0])
         elif len(files_) > MAX_SOURCE_PATHS:
             files_ = random.sample(files_, MAX_SOURCE_PATHS)
 
         request_sql = f"""
             select filepath
-            from {schema}.local_files_flat
-            where filepath = any(%(filepaths)s)
+            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files_flat
+            where filepath = any(:filepaths)
         """
 
         return cls(request_sql, sql_params={"filepaths": [str(f) for f in files_]})
 
     @classmethod
-    def from_parent_path(cls, path: Path, schema: str) -> "PlaylistGenerator":
+    def from_parent_path(cls, path: Path) -> "PlaylistGenerator":
         """Create a playlist generator from a parent path."""
         request_sql = f"""
             select filepath
-            from {schema}.local_files_flat
-            where filepath like %(path)s
+            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files_flat
+            where filepath like :path
             order by random()
             limit 25
         """
         return cls(request_sql, sql_params={"path": f"{path}%"})
 
-    @cache
-    def list_requested_paths(self) -> list[Path]:
-        """List the paths requested by the user.
-
-        Cached, btw.
-        """
+    def list_requested_paths(self, session: Optional[Session] = None) -> list[Path]:
+        """List the paths requested by the user."""
         return [
             Path(row["filepath"])
-            for row in utils_.execute_sql_fetchall(self.request_sql, self.sql_params)
+            for row in execute_sql_fetchall(
+                self.request_sql, params=self.sql_params, session=session
+            )
         ]
 
     def get_playlist(
         self,
-        schema: str,
         limit: int = 20,
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-        conn: Optional[Connection] = None,
-    ) -> utils_.PlaylistResult:
+        session: Optional[Session] = None,
+    ) -> PlaylistResult:
         """Get a playlist of similar songs.
 
         Args:
@@ -147,19 +146,19 @@ class PlaylistGenerator:
             limit_per_artist: Maximum number of songs per artist.
             seed_count: Number of seed files from the request to include at the start of
                 the playlist.
+            session: Optional sqlalchemy session to use.
 
         Returns:
             List of Path objects, local to the database. As such, they must be resolved
             to system paths on the client side.
         """
-        # TODO: support existing connections
         sql = SQL_TEMPLATE.format(
             limit=limit,
-            schema=schema,
+            schema=os.environ["MOOMOO_DBT_SCHEMA"],
             limit_per_artist=limit_per_artist,
         )
 
-        filepaths = sorted(self.list_requested_paths())
+        filepaths = sorted(self.list_requested_paths(session=session))
         if not filepaths:
             raise NoFilesRequestedError("No paths requested (or found via request).")
         elif len(filepaths) > MAX_SOURCE_PATHS:
@@ -168,14 +167,12 @@ class PlaylistGenerator:
         seed_files = [] if seed_count == 0 else random.sample(filepaths, seed_count)
         tracks = [
             Path(row["filepath"])
-            for row in utils_.execute_sql_fetchall(
-                sql, params={"filepaths": list(map(str, filepaths))}, conn=conn
+            for row in execute_sql_fetchall(
+                sql, params={"filepaths": list(map(str, filepaths))}, session=session
             )
         ]
 
         if shuffle:
             random.shuffle(tracks)
 
-        return utils_.PlaylistResult(
-            playlist=seed_files + tracks, source_paths=filepaths
-        )
+        return PlaylistResult(playlist=seed_files + tracks, source_paths=filepaths)

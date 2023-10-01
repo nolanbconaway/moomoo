@@ -22,6 +22,17 @@ class EmbeddingResult:
     embedding: Optional[np.ndarray] = None
     duration_seconds: Optional[float] = None
 
+    def to_dict(self) -> dict[str, Optional[str]]:
+        """Convert the result to a dict."""
+        return {
+            "success": self.success,
+            "fail_reason": self.fail_reason,
+            "duration_seconds": self.duration_seconds,
+            "embedding": (
+                self.embedding.tolist() if self.embedding is not None else None
+            ),
+        }
+
 
 @dataclasses.dataclass
 class Model:

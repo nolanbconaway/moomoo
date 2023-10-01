@@ -16,6 +16,7 @@ from pylistenbrainz.errors import ListenBrainzAPIException
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from .. import utils_
+from ..db import ListenBrainzSimilarUserActivity, get_session
 
 ENTITIES = ("artists", "releases", "recordings")
 TIME_RANGES = ("month", "year", "all_time")
@@ -26,26 +27,6 @@ LB_RETRY = retry(
     retry=retry_if_exception_type(ListenBrainzAPIException),
     reraise=True,
 )
-
-DDL = [
-    """
-    create table {schema}.{table} (
-        payload_id varchar(32) not null primary key
-        , from_username text not null
-        , to_username text not null
-        , entity varchar not null
-        , time_range varchar not null
-        , user_similarity float not null
-        , json_data jsonb not null
-        , insert_ts_utc timestamp with time zone default current_timestamp not null
-    )
-    """,
-    "create index {schema}_{table}_from_idx on {schema}.{table} (from_username)",
-    "create index {schema}_{table}_to_idx on {schema}.{table} (to_username)",
-    "create index {schema}_{table}_entity_idx on {schema}.{table} (entity)",
-    "create index {schema}_{table}_time_range_idx on {schema}.{table} (time_range)",
-    "create index {schema}_{table}_at_idx on {schema}.{table} (insert_ts_utc)",
-]
 
 
 @LB_RETRY
@@ -86,65 +67,20 @@ def get_user_top_activity(
         raise e
 
 
-def insert(conn, schema: str, table: str, data: list[dict], username: str):
-    sql = f"""
-        insert into {schema}.{table} (
-            payload_id
-            , from_username
-            , to_username
-            , user_similarity
-            , entity
-            , time_range
-            , json_data
-        ) 
-        values (
-            %(payload_id)s
-            , %(from_username)s
-            , %(to_username)s
-            , %(user_similarity)s
-            , %(entity)s
-            , %(time_range)s
-            , %(json_data)s
-        )
-        on conflict (payload_id) do update set
-            from_username = excluded.from_username
-            , to_username = excluded.to_username
-            , user_similarity = excluded.user_similarity
-            , entity = excluded.entity
-            , time_range = excluded.time_range
-            , json_data = excluded.json_data
-            , insert_ts_utc = current_timestamp
-    """
-
-    with conn.cursor() as cur:
-        cur.execute(
-            f"delete from {schema}.{table} where from_username = %s", (username,)
-        )
-        cur.executemany(sql, data)
-
-
 @click.command()
 @click.argument("username")
-@click.option("--table", required=True)
-@click.option("--schema", required=True)
-@click.option(
-    "--create", is_flag=True, help="Option to teardown and recreate the table"
-)
-def main(
-    username: str,
-    table: str,
-    schema: str,
-    create: bool,
-):
+def main(username: str):
     """Get the top releases for a user's similar users.
 
     Ranks the releases by the number of listens and the similarity score of the similar
     user. Returns a dict of {mbid: score} pairs, in descending order of score.
     """
-    if create:
-        utils_.create_table(schema, table, DDL)
-    elif not utils_.check_table_exists(schema=schema, table=table):
-        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+    if not ListenBrainzSimilarUserActivity.exists():
+        name = ListenBrainzSimilarUserActivity.table_name()
+        click.echo(
+            f"Table {name} does not exist. "
+            + f"Use `moomoo db create {name}` to create it."
+        )
         sys.exit(1)
 
     similar_users = get_similar_users(username)
@@ -172,7 +108,7 @@ def main(
                 "entity": entity,
                 "time_range": time_range,
                 "user_similarity": user["similarity"],
-                "json_data": json.dumps(data),
+                "json_data": data,
             }
         )
 
@@ -180,15 +116,21 @@ def main(
         click.echo("No records to insert.")
         sys.exit(0)
 
-    click.echo(f"Inserting {len(records)} records into {schema}.{table}.")
-    with utils_.pg_connect() as conn:
-        insert(
-            conn=conn,
-            schema=schema,
-            table=table,
-            data=records,
-            username=username,
+    name = ListenBrainzSimilarUserActivity.full_name()
+    click.echo(f"Inserting {len(records)} records into {name}.")
+    with get_session() as session:
+        click.echo(f"Deleting all records for {username}.")
+        deleted = (
+            session.query(ListenBrainzSimilarUserActivity)
+            .filter(ListenBrainzSimilarUserActivity.from_username == username)
+            .delete()
         )
+        click.echo(f"Deleted {deleted} records for {username}.")
+
+        for row in records:
+            ListenBrainzSimilarUserActivity(
+                **row, insert_ts_utc=utils_.utcnow()
+            ).upsert(session=session)
 
     click.echo("Done.")
 

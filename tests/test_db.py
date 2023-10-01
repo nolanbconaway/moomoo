@@ -1,0 +1,236 @@
+import datetime
+
+import psycopg
+import pytest
+from click.testing import CliRunner
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.orm import Mapped, mapped_column
+
+from moomoo.db.cli import cli as db_cli
+from moomoo.db.connection import (
+    check_table_exists,
+    execute_sql_fetchall,
+    get_engine,
+    get_session,
+)
+from moomoo.db.ddl import TABLES, BaseTable, ListenBrainzListen
+
+
+class FakeTable(BaseTable):
+    """Fake table for testing."""
+
+    __tablename__ = "fake_table"
+    a: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    b: Mapped[str] = mapped_column(nullable=False)
+
+
+def test_pg_connect_mocked(postgresql: psycopg.Connection):
+    """Make sure the pg_connect function is mocked as expected.
+
+    The postgresql fixture is provided by the pytest-postgresql plugin, and
+    points to a fresh, temporary database.
+    """
+    engine = get_engine()
+    assert engine.url.username == postgresql.info.user
+    assert engine.url.host == postgresql.info.host
+    assert engine.url.port == postgresql.info.port
+    assert engine.url.database == postgresql.info.dbname
+
+
+def test_execute_sql_fetchall():
+    """Make sure the execute_sql_fetchall function works as expected."""
+    res = execute_sql_fetchall("select 1 as a union select 2 as a")
+    assert res == [{"a": 1}, {"a": 2}]
+    assert isinstance(res, list)
+    assert isinstance(res[0], dict)
+    assert isinstance(res[0]["a"], int)
+    assert isinstance(list(res[0].keys())[0], str)
+
+    # params
+    res = execute_sql_fetchall("select :a as a", params=dict(a=1))
+    assert res == [{"a": 1}]
+
+    # conn
+    with get_session() as session:
+        execute_sql_fetchall("create temp table t (a int)", session=session)
+        execute_sql_fetchall("insert into t values (1), (2)", session=session)
+        res = execute_sql_fetchall("select * from t order by a", session=session)
+        assert res == [{"a": 1}, {"a": 2}]
+
+
+def test_check_table_exists():
+    """Make sure the check_table_exists function works as expected."""
+    with get_session() as session:
+        execute_sql_fetchall("create table test.t (a int)", session=session)
+        session.commit()
+
+    assert check_table_exists("test", "t")
+    assert not check_table_exists("test", "nonexistent_table")
+
+
+@pytest.mark.parametrize("table", TABLES)
+def test_create_drop_exists(table: BaseTable):
+    """Make sure all tables can be created, dropped, and checked for existence."""
+
+    # silently do nothing if the table doesn't exist
+    assert not table.exists()
+    table.drop(if_exists=True)
+
+    # should error since the table doesn't exist
+    with pytest.raises(ProgrammingError):
+        table.drop()
+
+    # create the table
+    table.create()
+    assert table.exists()
+
+    # silently do nothing if the table already exists
+    table.create(if_not_exists=True)
+
+    # drop the table
+    table.drop()
+    assert not table.exists()
+
+
+def test_table_insert():
+    """Make sure the insert method works as expected."""
+    FakeTable.create()
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.full_name()}") == [
+        {"count": 0}
+    ]
+
+    FakeTable(a=1, b="a").insert()
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.full_name()}") == [
+        {"count": 1}
+    ]
+
+    # error if primary key is violated
+    with pytest.raises(IntegrityError):
+        FakeTable(a=1, b="b").insert()
+
+    # error if not nullable is violated
+    with pytest.raises(IntegrityError):
+        FakeTable(a=2).insert()
+
+    FakeTable(a=2, b="b").insert()
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.full_name()}") == [
+        {"count": 2}
+    ]
+
+
+def test_table_upsert():
+    """Make sure the upsert method works as expected."""
+    FakeTable.create()
+    sql = f"select b from {FakeTable.full_name()} where a = 1"
+    assert execute_sql_fetchall(sql) == []
+
+    FakeTable(a=1, b="a").insert()
+    assert execute_sql_fetchall(sql) == [{"b": "a"}]
+
+    with pytest.raises(IntegrityError):
+        FakeTable(a=1, b="a").insert()
+
+    # updates the row if primary key is violated
+    FakeTable(a=1, b="b").upsert()
+    assert execute_sql_fetchall(sql) == [{"b": "b"}]
+
+    # adds a new row if primary key is not violated
+    FakeTable(a=2, b="c").upsert(update_cols=["b"])
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.full_name()}") == [
+        {"count": 2}
+    ]
+
+
+def test_ListenBrainzListen__last_listen_for_user():
+    ListenBrainzListen.create()
+
+    # none if no listens
+    assert ListenBrainzListen.last_listen_for_user("a") is None
+
+    # insert some listens
+    tz = datetime.timezone.utc
+    for year in 2021, 2022:
+        listen = ListenBrainzListen(
+            listen_md5=f"abc_{year}",
+            username="a",
+            json_data={"a": 1},
+            listen_at_ts_utc=datetime.datetime(year, 1, 1, tzinfo=tz),
+        )
+        listen.insert()
+
+    listen.insert()
+
+    # correct last listen if listens
+    assert ListenBrainzListen.last_listen_for_user("a") == datetime.datetime(
+        2022, 1, 1, tzinfo=tz
+    )
+
+
+def test_cli__ddl():
+    runner = CliRunner()
+    valid_table = TABLES[0].__tablename__
+    invalid_table = "nonexistent_table"
+
+    # error if all and table_name are both specified
+    res = runner.invoke(db_cli, ["ddl", "--all", valid_table])
+    assert res.exit_code != 0
+    assert "Must specify either --all or a table name, not both." in res.stdout
+
+    # error if neither all nor table_name are specified
+    res = runner.invoke(db_cli, ["ddl"])
+    assert res.exit_code != 0
+    assert "Must specify either --all or a table name." in res.stdout
+
+    # error if table_name is not a valid table name
+    res = runner.invoke(db_cli, ["ddl", invalid_table])
+    assert res.exit_code != 0
+    assert "Error: Invalid value for " in res.stdout
+    assert "'nonexistent_table' is not one of" in res.stdout
+
+    # print ddl for all tables
+    res = runner.invoke(db_cli, ["ddl", "--all"])
+    assert res.exit_code == 0
+    assert res.stdout.count("CREATE TABLE") == len(TABLES)
+
+    # print ddl for one table
+    res = runner.invoke(db_cli, ["ddl", valid_table])
+    assert res.exit_code == 0
+    assert res.stdout.count("CREATE TABLE") == 1
+
+
+def test_cli__create():
+    runner = CliRunner()
+    table = TABLES[0]
+    table_name = table.__tablename__
+    invalid_table_name = "nonexistent_table"
+
+    # error if table exists and if_not_exists/drop are not specified
+    table.create()
+    assert table.exists()
+
+    res = runner.invoke(db_cli, ["create", table_name])
+    assert res.exit_code != 0
+    assert isinstance(res.exception, ProgrammingError)
+    assert "already exists" in str(res.exception)
+
+    # silently do nothing if table exists and if_not_exists is specified
+    assert table.exists()
+    res = runner.invoke(db_cli, ["create", table_name, "--if-not-exists"])
+    assert res.exit_code == 0
+
+    # drop the table
+    assert table.exists()
+    res = runner.invoke(db_cli, ["create", table_name, "--drop"])
+    assert res.exit_code == 0
+
+    # silently do nothing if table does not exist and drop is specified
+    table.drop()
+    assert not table.exists()
+    res = runner.invoke(db_cli, ["create", table_name, "--drop"])
+    assert res.exit_code == 0
+
+    # error if invalid table name is specified
+    res = runner.invoke(db_cli, ["create", invalid_table_name])
+    assert res.exit_code != 0
+    assert "Error: Invalid value for " in res.stdout
+    assert "'nonexistent_table' is not one of" in res.stdout

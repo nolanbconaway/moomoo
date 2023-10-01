@@ -29,11 +29,23 @@ def playlist():
 @click.argument(
     "paths", type=click.Path(exists=True, path_type=Path), nargs=-1, required=True
 )
+@click.option("-u", "--username", required=True)
 @click.option("--n", default=20, type=int)
 @click.option("--seed", default=1, type=int)
 @click.option("--shuffle", default=True, type=bool)
 @click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
-def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
+@click.option(
+    "--storage/--no-storage", "storage", is_flag=True, default=False, hidden=True
+)
+def from_path(
+    paths: list[Path],
+    username: str,
+    n: int,
+    seed: int,
+    shuffle: bool,
+    out: str,
+    storage: bool,
+):
     """Get a playlist from a path."""
     host = os.environ["MOOMOO_HOST"]
     media_library = Path(os.environ["MOOMOO_MEDIA_LIBRARY"])
@@ -58,7 +70,14 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
             + "Otherwise a single parent path should be provided."
         )
 
-    resp = requests.get(f"{host}/playlist/from-files", params=args)
+    resp = requests.get(
+        f"{host}/playlist/from-files",
+        params=args,
+        headers={
+            "listenbrainz-username": username,
+            "moomoo-storage": str(int(storage)),
+        },
+    )
 
     if resp.status_code != 200:
         try:

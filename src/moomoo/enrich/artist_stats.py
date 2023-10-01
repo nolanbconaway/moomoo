@@ -5,43 +5,20 @@ API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/statistics.htm
 """
 import datetime
 import json
+import os
 import random
 import sys
 import uuid
 from typing import Optional
 
 import click
-from psycopg import Connection
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
 from .. import utils_
-
-DDL = [
-    """
-    create table {schema}.{table} (
-        mbid uuid not null primary key,
-        payload_json jsonb,
-        ts_utc timestamp with time zone default current_timestamp not null
-    )
-    """,
-    "create index {schema}_{table}_ingest_ts_idx on {schema}.{table} (ts_utc)",
-]
-
-
-def insert(conn: Connection, schema: str, table: str, data: dict):
-    sql = f"""
-        insert into {schema}.{table} (mbid, payload_json) 
-        values (%(mbid)s, %(payload_json)s)
-        on conflict (mbid) do update set
-            mbid = excluded.mbid
-            , ts_utc = current_timestamp
-            , payload_json = excluded.payload_json
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, params=data)
+from ..db import ListenBrainzArtistStats, execute_sql_fetchall, get_session
 
 
 @retry(
@@ -77,45 +54,35 @@ def get_artist_stats(mbid: uuid.UUID) -> dict:
     return dict(success=error is None, error=error, data=data)
 
 
-def get_new_mbids(schema: str, table: str, dbt_schema: str) -> list[uuid.UUID]:
+def get_new_mbids() -> list[uuid.UUID]:
     """Get mbids that have nostats from the mbids table."""
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         select mbids.mbid as mbid
         from {dbt_schema}.mbids
-        left join {schema}.{table} as src on mbids.mbid = src.mbid
+        left join {ListenBrainzArtistStats.full_name()} as src on mbids.mbid = src.mbid
         where src.mbid is null
           and mbids.entity = 'artist'
     """
-    return [i["mbid"] for i in utils_.execute_sql_fetchall(sql)]
+    return [i["mbid"] for i in execute_sql_fetchall(sql)]
 
 
-def get_old_mbids(
-    schema: str, table: str, dbt_schema: str, before: datetime.datetime
-) -> list[uuid.UUID]:
+def get_old_mbids(before: datetime.datetime) -> list[uuid.UUID]:
     """Get mbids with stats between from_dt and to_dt."""
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         select mbids.mbid
         from {dbt_schema}.mbids
-        inner join {schema}.{table} as src
+        inner join {ListenBrainzArtistStats.full_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
         where src.ts_utc < %(before)s and mbids.entity = 'artist'
         order by src.ts_utc
     """
     params = dict(before=before)
-    return [i["mbid"] for i in utils_.execute_sql_fetchall(sql, params=params)]
+    return [i["mbid"] for i in execute_sql_fetchall(sql, params=params)]
 
 
 @click.command(help=__doc__)
-@click.option("--table", required=True, help="Table to store the annotated data.")
-@click.option("--schema", required=True, help="Schema to store the annotated data.")
-@click.option(
-    "--dbt-schema",
-    required=True,
-    help="Schema where the dbt target is stored. Used to access the mbids table.",
-)
-@click.option(
-    "--create", is_flag=True, help="Option to teardown and recreate the table"
-)
 @click.option(
     "--new",
     "new_",
@@ -134,60 +101,50 @@ def get_old_mbids(
     help="Limit the number of mbids to annotate.",
     default=None,
 )
-def main(
-    table: str,
-    schema: str,
-    dbt_schema: str,
-    create: bool,
-    new_: bool,
-    before: Optional[datetime.datetime],
-    limit: Optional[int],
-):
+def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     """Run the main CLI."""
-    if create:
-        utils_.create_table(schema, table, DDL)
-    elif not utils_.check_table_exists(schema=schema, table=table):
-        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+    if not ListenBrainzArtistStats.exists():
+        name = ListenBrainzArtistStats.table_name()
+        click.echo(
+            f"Table {name} does not exist. "
+            + f"Use `moomoo db create {name}` to create."
+        )
         sys.exit(1)
 
-    get_artist_stats("509b8a09-e1cb-4ace-bbaf-296ee9701abd")
     # get list of mbids to annotate
     to_ingest: list[str] = []
     if new_:
         click.echo("Getting mbids with no stats...")
-        to_ingest += get_new_mbids(schema=schema, table=table, dbt_schema=dbt_schema)
+        to_ingest += get_new_mbids()
     if before:
         click.echo(f"Getting mbids to re-ingest (before {before})...")
-        to_ingest += get_old_mbids(
-            schema=schema, table=table, dbt_schema=dbt_schema, before=before
-        )
+        to_ingest += get_old_mbids(before)
 
     # exit if there is nothing to do
-    click.echo(f"Found {len(to_ingest)} mbids to ingest.")
+    click.echo(f"Found {len(to_ingest)} mbid(s) to ingest.")
     if not to_ingest:
         click.echo("Nothing to do.")
         sys.exit(0)
 
     # limit if needed
     if limit and len(to_ingest) > limit:
-        click.echo(f"Limiting to {limit} mbids randomly.")
-        to_ingest = random.choices(to_ingest, k=limit)
+        click.echo(f"Limiting to {limit} mbid(s) randomly.")
+        to_ingest = random.sample(to_ingest, k=limit)
 
     # annotate and insert
     click.echo("ingesting...")
-    with utils_.pg_connect() as conn:
+    with get_session() as session:
         for mbid, res in tqdm(
             zip(to_ingest, map(get_artist_stats, to_ingest)),
             disable=None,
             total=len(to_ingest),
         ):
-            insert(
-                conn=conn,
-                schema=schema,
-                table=table,
-                data=dict(mbid=mbid, payload_json=json.dumps(res)),
-            )
-            conn.commit()
+            ListenBrainzArtistStats(
+                mbid=mbid,
+                payload_json=json.dumps(res),
+                ts_utc=utils_.utcnow(),
+            ).upsert(session=session)
+
     click.echo("Done.")
 
 

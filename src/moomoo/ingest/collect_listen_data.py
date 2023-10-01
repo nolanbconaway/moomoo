@@ -12,6 +12,7 @@ import hashlib
 import json
 import sys
 from typing import Optional
+
 import click
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
@@ -19,28 +20,12 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fi
 from tqdm import tqdm
 
 from .. import utils_
-
-DDL = [
-    """
-    create table {schema}.{table} (
-        listen_md5 varchar(32) not null primary key
-        , username text not null
-        , json_data jsonb not null
-        , listen_at_ts_utc timestamp with time zone not null
-        , insert_ts_utc timestamp with time zone default current_timestamp not null
-    )
-    """,
-    """create index {schema}_{table}_username_idx on {schema}.{table} (username)""",
-    """
-    create index {schema}_{table}_listen_at_idx on {schema}.{table} (
-        listen_at_ts_utc
-    )""",
-]
+from ..db import ListenBrainzListen, get_session
 
 
 def get_listens_in_period(
     username: str, from_dt: datetime.datetime, to_dt: datetime.datetime
-) -> list:
+) -> list[dict]:
     """Get recent tracks for a user in a given period."""
     client = ListenBrainz()
     endpoint = "/1/user/{username}/listens".format(username=username)
@@ -73,68 +58,16 @@ def get_listens_in_period(
     return listens
 
 
-def get_db_last_listen(username: str, schema: str, table: str) -> datetime.datetime:
-    """Get the last listen timestamp from the user in the db."""
-    with utils_.pg_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                select max(listen_at_ts_utc) from {schema}.{table}
-                where username = %(username)s
-                """,
-                dict(username=username),
-            )
-            return cur.fetchone()[0]
-
-
 def listen_hash(username: str, data: dict) -> str:
     """Get the hash of a listen using only immutable fields."""
     immutable = [username, data["recording_msid"], data["listened_at"]]
     return hashlib.md5(json.dumps(immutable).encode("utf-8")).hexdigest()
 
 
-def check_user_in_table(schema: str, table: str, username: str) -> bool:
-    with utils_.pg_connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"select 1 from {schema}.{table} where username = %(username)s limit 1",
-                dict(username=username),
-            )
-            res = cur.fetchall()
-    return any(res)
-
-
-def insert(conn, schema: str, table: str, username: str, listen_data: dict):
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            insert into {schema}.{table} (listen_md5, username, json_data, listen_at_ts_utc)
-            values (%(listen_md5)s, %(username)s, %(json_data)s, %(listen_at_ts_utc)s)
-            on conflict (listen_md5) do update
-            set username = excluded.username
-              , json_data = excluded.json_data
-              , listen_at_ts_utc = excluded.listen_at_ts_utc
-              , insert_ts_utc = current_timestamp
-            """,
-            dict(
-                listen_md5=listen_hash(username, listen_data),
-                username=username,
-                json_data=json.dumps(listen_data),
-                listen_at_ts_utc=utils_.utcfromunixtime(listen_data["listened_at"]),
-            ),
-        )
-
-
-def run_ingest(
-    username: str,
-    table: str,
-    schema: str,
-    from_dt: datetime.datetime,
-    to_dt: datetime.datetime,
-):
+def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.datetime):
     """Ingest data from listenbrainz."""
     if from_dt >= to_dt:
-        raise ValueError(f"from date ({from_dt}) is after to date ({to_dt})")
+        raise ValueError("from_dt must be before to_dt.")
 
     click.echo(f"Getting {username} listens from {from_dt} to {to_dt}")
     data = get_listens_in_period(username, from_dt, to_dt)
@@ -143,17 +76,24 @@ def run_ingest(
         click.echo("No listens found")
         return
 
-    with utils_.pg_connect() as conn:
-        click.echo(f"""Inserting {len(data)} listens into {schema}.{table}""")
+    with get_session() as session:
+        click.echo(f"Inserting {len(data)} listen(s).")
         for row in tqdm(data):
-            insert(conn, schema, table, username=username, listen_data=row)
-        conn.commit()
+            listen = ListenBrainzListen(
+                listen_md5=listen_hash(username, row),
+                username=username,
+                json_data=row,
+                listen_at_ts_utc=utils_.utcfromunixtime(row["listened_at"]),
+                insert_ts_utc=utils_.utcnow(),
+            )
+            listen.upsert(
+                session=session,
+                update_cols=["json_data", "listen_at_ts_utc", "insert_ts_utc"],
+            )
 
 
 @click.command()
 @click.argument("username")
-@click.option("--table", required=True)
-@click.option("--schema", required=True)
 @click.option(
     "--since-last",
     is_flag=True,
@@ -173,9 +113,6 @@ def run_ingest(
     help="End date in iso-format. Defaults to now.",
 )
 @click.option(
-    "--create", is_flag=True, help="Option to teardown and recreate the table"
-)
-@click.option(
     "--buffer-days",
     type=int,
     default=0,
@@ -186,9 +123,6 @@ def run_ingest(
 )
 def main(
     username: str,
-    table: str,
-    schema: str,
-    create: bool,
     since_last: bool,
     from_dt: Optional[datetime.datetime],
     to_dt: datetime.datetime,
@@ -196,40 +130,41 @@ def main(
 ):
     """Query the ListenBrainz listens api and store it in the db.
 
-    This script is meant to be run periodically to update the db with recent tracks. It uses
-    an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a
-    listen event. A postgres on conflict clause is used to update the listen if it already
-    exists and ensure uniqueness.
+    This script is meant to be run periodically to update the db with recent tracks. It
+    uses an md5 hash of the (listen user, timestamp, recording_msid) to uniquely
+    identify a listen event. A postgres on conflict clause is used to update the listen
+    if it already exists and ensure uniqueness.
     """
-    if create:
-        utils_.create_table(schema, table, DDL)
-    elif not utils_.check_table_exists(schema=schema, table=table):
-        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
-        sys.exit(1)
-
-    if since_last and from_dt:
+    if not ListenBrainzListen.exists():
         click.echo(
-            "--since-last and --from are mutually exclusive. Use --since-last instead."
+            f"Table {ListenBrainzListen.table_name()} does not exist. "
+            + f"Use `moomoo db create {ListenBrainzListen.table_name()}` to create it."
         )
         sys.exit(1)
 
+    if since_last and from_dt:
+        click.echo("--since-last and --from are mutually exclusive.")
+        sys.exit(1)
+
+    if buffer_days and not since_last:
+        click.echo("warn: --buffer-days is only used with --since-last.")
+
     # get from date
     if since_last:
-        if not check_user_in_table(schema=schema, table=table, username=username):
+        from_dt = ListenBrainzListen.last_listen_for_user(username)
+        if from_dt is None:
             click.echo(
-                f"No data found for {username} in {schema}.{table}. "
+                f"No data found for {username} in {ListenBrainzListen.table_name()}."
                 + "Cannot use --since-last"
             )
             sys.exit(1)
-        from_dt = get_db_last_listen(schema=schema, table=table, username=username)
         from_dt -= datetime.timedelta(days=buffer_days)
     elif not from_dt:
         click.echo("Must specify either --since-last or --from")
         sys.exit(1)
 
-    run_ingest(
-        username=username, table=table, schema=schema, from_dt=from_dt, to_dt=to_dt
-    )
+    run_ingest(username=username, from_dt=from_dt, to_dt=to_dt)
+    click.echo("Done.")
 
 
 if __name__ == "__main__":

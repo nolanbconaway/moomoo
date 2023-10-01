@@ -10,7 +10,7 @@ We want to periodically re-check old data in case annotations have arrived in th
 we need to keep track of when we checked as well as the status of the check.
 """
 import datetime
-import json
+import os
 import random
 import sys
 from typing import Optional
@@ -19,79 +19,37 @@ import click
 from tqdm import tqdm
 
 from .. import utils_
+from ..db import MusicBrainzAnnotation, execute_sql_fetchall, get_session
 from . import mbz_utils
 
-DDL = [
-    """
-    create table {schema}.{table} (
-        mbid uuid not null primary key,
-        entity varchar not null,
-        ts_utc timestamp with time zone default current_timestamp not null,
-        payload_json jsonb
-    )
-    """,
-    """create index {schema}_{table}_entity_idx on {schema}.{table} (entity)""",
-    """create index {schema}_{table}_ingest_ts_idx on {schema}.{table} (ts_utc)""",
-]
 
-
-def insert(conn, schema: str, table: str, mbid: str, entity: str, payload: dict):
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            insert into {schema}.{table} (mbid, entity, payload_json)
-            values (%(mbid)s, %(entity)s, %(payload_json)s)
-            on conflict (mbid) do update
-            set entity = excluded.entity
-              , ts_utc = current_timestamp
-              , payload_json = excluded.payload_json
-            """,
-            dict(
-                mbid=mbid,
-                entity=entity,
-                payload_json=json.dumps(payload, cls=utils_.UUIDEncoder),
-            ),
-        )
-        conn.commit()
-
-
-def get_unannotated_mbids(schema: str, table: str, dbt_schema: str) -> list[dict]:
+def get_unannotated_mbids() -> list[dict]:
     """Get mbids that have not been annotated from the mbids table."""
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         select mbids.mbid as mbid, mbids.entity
         from {dbt_schema}.mbids
-        left join {schema}.{table} as src on mbids.mbid = src.mbid
+        left join {MusicBrainzAnnotation.full_name()} as src on mbids.mbid = src.mbid
         where src.mbid is null
     """
-    return utils_.execute_sql_fetchall(sql)
+    return execute_sql_fetchall(sql)
 
 
-def get_re_annotate_mbids(
-    schema: str, table: str, dbt_schema: str, before: datetime.datetime
-) -> list[dict]:
+def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
     """Get mbids that were annotated between from_dt and to_dt."""
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         select mbids.mbid, mbids.entity
         from {dbt_schema}.mbids
-        inner join {schema}.{table} as src
+        inner join {MusicBrainzAnnotation.full_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
         where src.ts_utc < %(before)s
         order by src.ts_utc
     """
-    return utils_.execute_sql_fetchall(sql, params=dict(before=before))
+    return execute_sql_fetchall(sql, params=dict(before=before))
 
 
 @click.command(help=__doc__)
-@click.option("--table", required=True, help="Table to store the annotated data.")
-@click.option("--schema", required=True, help="Schema to store the annotated data.")
-@click.option(
-    "--dbt-schema",
-    required=True,
-    help="Schema where the dbt target is stored. Used to access the mbids table.",
-)
-@click.option(
-    "--create", is_flag=True, help="Option to teardown and recreate the table"
-)
 @click.option(
     "--new",
     "new_",
@@ -110,61 +68,54 @@ def get_re_annotate_mbids(
     help="Limit the number of mbids to annotate.",
     default=None,
 )
-def main(
-    table: str,
-    schema: str,
-    dbt_schema: str,
-    create: bool,
-    new_: bool,
-    before: Optional[datetime.datetime],
-    limit: Optional[int],
-):
+def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     """Run the main CLI."""
-    if create:
-        utils_.create_table(schema, table, DDL)
-    elif not utils_.check_table_exists(schema=schema, table=table):
-        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+    if not MusicBrainzAnnotation.exists():
+        click.echo(
+            f"Table {MusicBrainzAnnotation.table_name()} does not exist. "
+            + f"Use `moomoo db create {MusicBrainzAnnotation.table_name()}` to create."
+        )
         sys.exit(1)
 
     # get list of mbids to annotate
     to_ingest: list[dict] = []
     if new_:
         click.echo("Getting unannotated mbids...")
-        to_ingest += get_unannotated_mbids(
-            schema=schema, table=table, dbt_schema=dbt_schema
-        )
+        unannotated = get_unannotated_mbids()
+        to_ingest += unannotated
+        click.echo(f"Found {len(unannotated)} unannotated mbid(s).")
+
     if before:
         click.echo(f"Getting mbids to re-annotate (before {before})...")
-        to_ingest += get_re_annotate_mbids(
-            schema=schema, table=table, dbt_schema=dbt_schema, before=before
-        )
+        reannotate = get_re_annotate_mbids(before)
+        to_ingest += reannotate
+        click.echo(f"Found {len(reannotate)} mbid(s) to re-annotate.")
 
     # exit if there is nothing to do
-    click.echo(f"Found {len(to_ingest)} mbids to annotate.")
+    click.echo(f"Found {len(to_ingest)} total mbid(s) to annotate.")
     if not to_ingest:
         click.echo("Nothing to do.")
         sys.exit(0)
 
     # limit if needed
     if limit and len(to_ingest) > limit:
-        click.echo(f"Limiting to {limit} mbids randomly.")
-        to_ingest = random.choices(to_ingest, k=limit)
+        click.echo(f"Limiting to {limit} mbid(s) randomly.")
+        to_ingest = random.sample(to_ingest, k=limit)
 
     # annotate and insert
-    click.echo("annotating...")
+    click.echo("Annotating...")
     annotated = mbz_utils.annotate_mbid_batch(to_ingest)
-    with utils_.pg_connect() as conn:
+    with get_session() as session:
         for args, res in tqdm(
             zip(to_ingest, annotated), disable=None, total=len(to_ingest)
         ):
-            insert(
-                conn=conn,
-                schema=schema,
-                table=table,
+            MusicBrainzAnnotation(
                 mbid=args["mbid"],
                 entity=args["entity"],
-                payload=res,
-            )
+                payload_json=res,
+                ts_utc=utils_.utcnow(),
+            ).upsert(session=session)
+
     click.echo("Done.")
 
 
