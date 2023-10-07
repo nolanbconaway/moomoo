@@ -75,7 +75,7 @@ def get_old_mbids(before: datetime.datetime) -> list[uuid.UUID]:
         from {dbt_schema}.mbids
         inner join {ListenBrainzArtistStats.full_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
-        where src.ts_utc < %(before)s and mbids.entity = 'artist'
+        where src.ts_utc < :before and mbids.entity = 'artist'
         order by src.ts_utc
     """
     params = dict(before=before)
