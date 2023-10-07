@@ -25,7 +25,13 @@ def json_dumps(*args, **kw):
 
 def get_engine() -> Engine:
     """Get a sqlalchemy engine for the db."""
-    return create_engine(os.environ["MOOMOO_POSTGRES_URI"], json_serializer=json_dumps)
+    ingest_schema = os.environ["MOOMOO_INGEST_SCHEMA"]
+    # set the search path to the ingest schema
+    return create_engine(
+        os.environ["MOOMOO_POSTGRES_URI"],
+        json_serializer=json_dumps,
+        connect_args=dict(options=f"""-c search_path={ingest_schema}"""),
+    )
 
 
 def get_session() -> Session:

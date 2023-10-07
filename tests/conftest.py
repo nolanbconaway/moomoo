@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy import text
 
 from moomoo.db import get_session
-import moomoo.utils_
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -54,9 +53,9 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
 
     # make sure the test schema exists and the vector extension is loaded
     cur = postgresql.cursor()
-    cur.execute("create extension if not exists vector")
     cur.execute("create schema if not exists test")
     cur.execute("create schema if not exists dbt")
+    cur.execute("create extension if not exists vector schema test")
 
     # set utc timezone
     cur.execute(f"ALTER USER {postgresql.info.user} SET timezone='UTC'")

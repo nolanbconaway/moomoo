@@ -18,7 +18,6 @@ from .connection import execute_sql_fetchall, get_engine, get_session
 class BaseTable(DeclarativeBase):
     """Base class for all database models."""
 
-    __table_args__ = {"schema": os.environ["MOOMOO_INGEST_SCHEMA"]}
     type_annotation_map = {
         dict[str, Any]: postgresql.JSONB(none_as_null=True),
         str: postgresql.VARCHAR,
@@ -31,7 +30,7 @@ class BaseTable(DeclarativeBase):
     @classmethod
     def schema_name(cls) -> str:
         """Return the schema name."""
-        return cls.__table_args__["schema"]
+        return os.environ["MOOMOO_INGEST_SCHEMA"]
 
     @classmethod
     def table_name(cls) -> str:
@@ -77,7 +76,7 @@ class BaseTable(DeclarativeBase):
     def exists(cls) -> bool:
         """Return True if the table exists."""
         return inspect(get_engine()).has_table(
-            cls.__tablename__, schema=cls.__table_args__["schema"]
+            cls.table_name(), schema=cls.schema_name()
         )
 
     def insert(self, session: Session = None) -> None:

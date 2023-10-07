@@ -26,12 +26,19 @@ def http_server(xprocess, monkeypatch, mock_db):
     """Create a client for the cli to connect to, setting the host envvar correctly."""
     port = get_free_port()
     monkeypatch.setenv("MOOMOO_HOST", f"http://127.0.0.1:{port}")
+    ingest_schema = os.environ["MOOMOO_INGEST_SCHEMA"]
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
 
     class Starter(ProcessStarter):
         pattern = "Starting moomoo http server"
         terminate_on_interrupt = True
         args = ["python", "-m", "moomoo.http.app", f"--port={port}"]
-        env = dict(os.environ) | {"MOOMOO_POSTGRES_URI": mock_db}
+        env = {
+            "MOOMOO_POSTGRES_URI": mock_db,
+            "MOOMOO_INGEST_SCHEMA": ingest_schema,
+            "MOOMOO_DBT_SCHEMA": dbt_schema,
+            "PATH": os.environ["PATH"],
+        }
 
     xprocess.ensure("http_server", Starter)
     yield f"http://127.0.0.1:{port}"
