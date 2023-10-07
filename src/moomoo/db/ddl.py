@@ -93,6 +93,23 @@ class BaseTable(DeclarativeBase):
         else:
             f(session)
 
+    @classmethod
+    def bulk_insert(cls, rows: list[dict], session: Session = None) -> None:
+        """Bulk insert rows into the table.
+
+        Is MUCH faster than inserting one row at a time.
+        """
+
+        def f(s: Session):
+            s.execute(insert(cls), rows)
+            s.commit()
+
+        if session is None:
+            with get_session() as session:
+                f(session)
+        else:
+            f(session)
+
     def upsert(self, update_cols: list[str] = None, session: Session = None) -> None:
         """Upsert a row into the table.
 

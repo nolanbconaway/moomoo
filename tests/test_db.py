@@ -118,6 +118,34 @@ def test_table_insert():
     ]
 
 
+def test_table_bulk_insert():
+    """Make sure the bulk_insert method works as expected."""
+    FakeTable.create()
+    assert len(FakeTable.select_star()) == 0
+
+    FakeTable.bulk_insert([dict(a=1, b="a"), dict(a=2, b="b")])
+    assert len(FakeTable.select_star()) == 2
+
+    # error if primary key is violated
+    with pytest.raises(IntegrityError):
+        FakeTable.bulk_insert([dict(a=1, b="b")])
+
+    # add two with the same key should raise an error, not insert either
+    with pytest.raises(IntegrityError):
+        FakeTable.bulk_insert([dict(a=8, b="b"), dict(a=8, b="c")])
+    assert len(FakeTable.select_star()) == 2
+
+    # error if not nullable is violated
+    with pytest.raises(IntegrityError):
+        FakeTable.bulk_insert([dict(a=4), dict(a=5)])
+
+    assert len(FakeTable.select_star()) == 2
+
+    # add some more
+    FakeTable.bulk_insert([dict(a=6, b="d"), dict(a=7, b="e")])
+    assert len(FakeTable.select_star()) == 4
+
+
 def test_table_upsert():
     """Make sure the upsert method works as expected."""
     FakeTable.create()

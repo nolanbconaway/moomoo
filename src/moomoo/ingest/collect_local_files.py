@@ -5,7 +5,6 @@ from pathlib import Path
 
 import click
 import mutagen
-from sqlalchemy import insert as sqa_insert
 from tqdm.auto import tqdm
 
 from .. import utils_
@@ -128,7 +127,7 @@ def main(
         click.echo(f"Deleted {deleted} rows")
 
         click.echo(f"Inserting {len(files)} files into {LocalFile.full_name()}")
-        localfiles = [
+        rows = [
             dict(
                 filepath=str(path.relative_to(src_dir)),
                 insert_ts_utc=utils_.utcnow(),
@@ -136,8 +135,7 @@ def main(
             )
             for path, data in zip(files, parsed)
         ]
-        session.execute(sqa_insert(LocalFile), localfiles)
-        session.commit()
+        LocalFile.bulk_insert(rows, session=session)
 
     click.echo("Done.")
 
