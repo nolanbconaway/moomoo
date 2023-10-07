@@ -18,7 +18,7 @@ def remove_env_variables(monkeypatch):
     monkeypatch.setenv("MOOMOO_INGEST_SCHEMA", "test")
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
     monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
-    monkeypatch.setenv("CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
+    monkeypatch.setenv("MOOMOO_CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
 
 
 @pytest.fixture(autouse=True)
