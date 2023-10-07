@@ -31,7 +31,7 @@ def http_server(xprocess, monkeypatch, mock_db):
         pattern = "Starting moomoo http server"
         terminate_on_interrupt = True
         args = ["python", "-m", "moomoo.http.app", f"--port={port}"]
-        env = dict(os.environ) | {"POSTGRES_URI": mock_db}
+        env = dict(os.environ) | {"MOOMOO_POSTGRES_URI": mock_db}
 
     xprocess.ensure("http_server", Starter)
     yield f"http://127.0.0.1:{port}"

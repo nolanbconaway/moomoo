@@ -50,7 +50,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
         postgresql.info.port,
         postgresql.info.dbname,
     )
-    monkeypatch.setenv("POSTGRES_URI", uri)
+    monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
 
     # make sure the test schema exists and the vector extension is loaded
     cur = postgresql.cursor()

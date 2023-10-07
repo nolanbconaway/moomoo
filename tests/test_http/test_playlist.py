@@ -134,7 +134,7 @@ def test_playlist_storage(http_app: FlaskClient):
     resp = http_app.get(
         "/playlist/from-files",
         query_string=dict(path="test/5", n=3, shuffle=False),
-        headers={"listenbrainz-username": "a", "moomoo-storage": "1"},
+        headers={"listenbrainz-username": "a"},
     )
 
     assert resp.status_code == 200
@@ -150,14 +150,6 @@ def test_playlist_storage(http_app: FlaskClient):
     resp = http_app.get(
         "/playlist/from-files",
         query_string=dict(path="test/5", n=3, shuffle=False),
-        headers={"listenbrainz-username": "a", "moomoo-storage": "1"},
-    )
-    assert len(MoomooPlaylist.select_star()) == 2
-
-    # no storage
-    resp = http_app.get(
-        "/playlist/from-files",
-        query_string=dict(path="test/5", n=3, shuffle=False),
-        headers={"listenbrainz-username": "a", "moomoo-storage": "0"},
+        headers={"listenbrainz-username": "a"},
     )
     assert len(MoomooPlaylist.select_star()) == 2

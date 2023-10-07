@@ -34,17 +34,8 @@ def playlist():
 @click.option("--seed", default=1, type=int)
 @click.option("--shuffle", default=True, type=bool)
 @click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
-@click.option(
-    "--storage/--no-storage", "storage", is_flag=True, default=False, hidden=True
-)
 def from_path(
-    paths: list[Path],
-    username: str,
-    n: int,
-    seed: int,
-    shuffle: bool,
-    out: str,
-    storage: bool,
+    paths: list[Path], username: str, n: int, seed: int, shuffle: bool, out: str
 ):
     """Get a playlist from a path."""
     host = os.environ["MOOMOO_HOST"]
@@ -73,10 +64,7 @@ def from_path(
     resp = requests.get(
         f"{host}/playlist/from-files",
         params=args,
-        headers={
-            "listenbrainz-username": username,
-            "moomoo-storage": str(int(storage)),
-        },
+        headers={"listenbrainz-username": username},
     )
 
     if resp.status_code != 200:

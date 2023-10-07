@@ -25,7 +25,7 @@ def json_dumps(*args, **kw):
 
 def get_engine() -> Engine:
     """Get a sqlalchemy engine for the db."""
-    return create_engine(os.environ["POSTGRES_URI"], json_serializer=json_dumps)
+    return create_engine(os.environ["MOOMOO_POSTGRES_URI"], json_serializer=json_dumps)
 
 
 def get_session() -> Session:

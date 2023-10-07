@@ -61,7 +61,6 @@ def from_files():
     args = PlaylistArgs.from_request(request)
     paths = request.args.getlist("path", type=Path)
     username = request.headers.get("listenbrainz-username")
-    storage = request.headers.get("moomoo-storage", type=boolean_type, default=False)
 
     if username is None:
         return (
@@ -89,13 +88,10 @@ def from_files():
             return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
         # exit early if we don't want to store the playlist
-        if storage:
-            db_plist = MoomooPlaylist.from_playlist_result(
-                plist, username=username, generator="from-files", ts_utc=utcnow()
-            )
-            try_insert(db_plist, session=session)
-        else:
-            logger.info("Not inserting playlist (moomoo-storage=0).")
+        db_plist = MoomooPlaylist.from_playlist_result(
+            plist, username=username, generator="from-files", ts_utc=utcnow()
+        )
+        try_insert(db_plist, session=session)
 
     return {
         "success": True,
