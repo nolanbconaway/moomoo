@@ -1,5 +1,4 @@
 """Scan local files and add the metadata to the database."""
-import json
 import multiprocessing
 import sys
 from pathlib import Path
@@ -9,18 +8,7 @@ import mutagen
 from tqdm.auto import tqdm
 
 from .. import utils_
-
-DDL = [
-    """
-    create table {schema}.{table} (
-        filepath varchar not null primary key
-        , json_data jsonb not null
-        , file_created_at timestamp with time zone not null
-        , file_modified_at timestamp with time zone not null
-        , insert_ts_utc timestamp with time zone default current_timestamp not null
-    )
-    """,
-]
+from ..db import LocalFile, get_session
 
 EXTENSIONS: set[str] = set([".mp3", ".flac", ".ogg", ".opus", ".wav"])
 
@@ -84,56 +72,25 @@ def parse_audio_file(path: Path) -> dict:
     return dict(
         file_created_at=file_created_at,
         file_modified_at=file_modified_at,
-        json_data=json.dumps(data),
+        json_data=data,
     )
-
-
-def insert(conn, schema: str, table: str, filepath: Path, data: dict) -> None:
-    with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            insert into {schema}.{table} (
-                filepath, json_data, file_created_at, file_modified_at
-            )
-            values (
-                %(filepath)s, %(json_data)s, %(file_created_at)s, %(file_modified_at)s
-            )
-            on conflict (filepath) do update set
-                json_data = excluded.json_data
-                , file_created_at = excluded.file_created_at
-                , file_modified_at = excluded.file_modified_at
-            """,
-            dict(filepath=str(filepath), **data),
-        )
 
 
 @click.command()
 @click.argument(
     "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
-@click.option("--table", required=True)
-@click.option("--schema", required=True)
 @click.option("--procs", help="Number of processes to use", default=1, type=int)
-@click.option(
-    "--append-only",
-    is_flag=True,
-    help="Option to not drop all rows prior to ingest. Default is to drop all rows.",
-)
-@click.option(
-    "--create", is_flag=True, help="Option to teardown and recreate the table"
-)
 def main(
     src_dir: list[Path],
-    table: str,
-    schema: str,
     procs: int,
-    append_only: bool,
-    create: bool,
 ):
-    if create:
-        utils_.create_table(schema, table, DDL)
-    elif not utils_.check_table_exists(schema=schema, table=table):
-        click.echo(f"Table {schema}.{table} does not exist. Use --create to create it.")
+    """Ingest data from local files."""
+    if not LocalFile.exists():
+        click.echo(
+            f"Table {LocalFile.table_name()} does not exist. "
+            + f"Use `moomoo db create {LocalFile.table_name()}` to create it."
+        )
         sys.exit(1)
 
     # get the list of files
@@ -164,25 +121,23 @@ def main(
             )
 
     # insert the files
-    with utils_.pg_connect() as conn:
-        if append_only:
-            click.echo("Running insert in append-only mode.")
-        else:
-            click.echo(f"Dropping all rows in {schema}.{table}")
-            with conn.cursor() as cur:
-                cur.execute(f"delete from {schema}.{table} where true")
+    with get_session() as session:
+        click.echo(f"Deleting all rows in {LocalFile.full_name()}")
+        deleted = session.query(LocalFile).delete()
+        click.echo(f"Deleted {deleted} rows")
 
-        click.echo(f"Inserting {len(files)} files into {schema}.{table}")
-        for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
-            insert(
-                conn=conn,
-                schema=schema,
-                table=table,
-                filepath=path.relative_to(src_dir),
-                data=data,
+        click.echo(f"Inserting {len(files)} files into {LocalFile.full_name()}")
+        rows = [
+            dict(
+                filepath=str(path.relative_to(src_dir)),
+                insert_ts_utc=utils_.utcnow(),
+                **data,
             )
+            for path, data in zip(files, parsed)
+        ]
+        LocalFile.bulk_insert(rows, session=session)
 
-        conn.commit()
+    click.echo("Done.")
 
 
 if __name__ == "__main__":

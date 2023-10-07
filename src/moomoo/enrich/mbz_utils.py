@@ -10,7 +10,7 @@ from .. import utils_
 musicbrainzngs.set_useragent(
     app="moomoo",
     version=utils_.moomoo_version(),
-    contact=os.environ.get("CONTACT_EMAIL"),
+    contact=os.environ.get("MOOMOO_CONTACT_EMAIL"),
 )
 
 
@@ -88,8 +88,8 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
     - data: the data returned from MusicBrainz if the request was successful
     """
     # check contact email set
-    if not os.environ.get("CONTACT_EMAIL"):
-        raise ValueError("CONTACT_EMAIL environment variable not set.")
+    if not os.environ.get("MOOMOO_CONTACT_EMAIL"):
+        raise ValueError("MOOMOO_CONTACT_EMAIL environment variable not set.")
 
     args = dict(mbid=mbid, entity=entity)
     fn = {

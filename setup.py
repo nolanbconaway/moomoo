@@ -45,6 +45,7 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         "psycopg[binary]==3.1.*",
+        "sqlalchemy==2.0.*",
         "tqdm==4.65.0",
         "click==8.1.3",
         "xspf-lib==0.3.*",

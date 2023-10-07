@@ -1,17 +1,13 @@
+import os
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
-from moomoo import utils_
 from moomoo.playlist.playlist_generator import NoFilesRequestedError, PlaylistGenerator
 
 from ..conftest import load_local_files_table
-
-# tests to write:
-#     get_playlist
-#         playlists
-#         errors
 
 
 def test_sql_errors():
@@ -48,9 +44,9 @@ def test_from_files(paths, expect):
         for p in paths
     ]
 
-    load_local_files_table(schema="test", data=rows)
+    load_local_files_table(rows)
     ps = PlaylistGenerator.from_files(
-        [Path("test1"), Path("test2")], schema="test"
+        [Path("test1"), Path("test2")]
     ).list_requested_paths()
 
     assert set(ps) == set(expect)
@@ -77,20 +73,19 @@ def test_from_parent_path(paths, expect):
         for p in paths
     ]
 
-    load_local_files_table(schema="test", data=rows)
-    ps = PlaylistGenerator.from_parent_path(
-        Path("test"), schema="test"
-    ).list_requested_paths()
+    load_local_files_table(data=rows)
+    ps = PlaylistGenerator.from_parent_path(Path("test")).list_requested_paths()
     assert set(ps) == set(expect)
 
 
 def test_get_playlist__no_files_error():
     """Test that get_playlist errors when no files are requested."""
-    load_local_files_table(schema="test", data=[])
+    load_local_files_table(data=[])
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
     with pytest.raises(NoFilesRequestedError):
-        PlaylistGenerator("select filepath from test.local_files_flat").get_playlist(
-            schema="test"
-        )
+        PlaylistGenerator(
+            f"select filepath from {schema}.local_files_flat"
+        ).get_playlist()
 
 
 def test_get_playlist__artist_limit():
@@ -106,25 +101,29 @@ def test_get_playlist__artist_limit():
         )
         for i in range(10)
     ]
-    load_local_files_table(schema="test", data=rows)
-    pg = PlaylistGenerator.from_files([Path("test/5")], schema="test")
+    load_local_files_table(data=rows)
+    pg = PlaylistGenerator.from_files([Path("test/5")])
 
     # should only get 2 songs from the same artist even though 5 songs are requested
-    playlist = pg.get_playlist(
-        schema="test", limit=5, shuffle=False, limit_per_artist=2
-    )
+    playlist = pg.get_playlist(limit=5, shuffle=False, limit_per_artist=2)
     assert playlist.playlist == [Path("test/4"), Path("test/6")]
 
     # should only get 4 songs not from the same artist even though 5 songs are requested
-    playlist = pg.get_playlist(
-        schema="test", limit=5, shuffle=False, limit_per_artist=4
-    )
+    playlist = pg.get_playlist(limit=5, shuffle=False, limit_per_artist=4)
     assert playlist.playlist == [
         Path("test/4"),
         Path("test/6"),
         Path("test/3"),
         Path("test/7"),
     ]
+
+
+def test_from_files_pass_to_parent():
+    """Test that we pass from from_files to from_parent_path if one path is provided."""
+    with patch("moomoo.playlist.PlaylistGenerator.from_parent_path") as mock:
+        PlaylistGenerator.from_files([Path("test/5")])
+        assert mock.call_count == 1
+        assert mock.call_args[0][0] == Path("test/5")
 
 
 def test_get_playlist():
@@ -139,20 +138,20 @@ def test_get_playlist():
         )
         for i in range(10)
     ]
-    load_local_files_table(schema="test", data=rows)
-    pg = PlaylistGenerator.from_files([Path("test/5")], schema="test")
+    load_local_files_table(data=rows)
+    pg = PlaylistGenerator.from_files([Path("test/5")])
 
-    playlist = pg.get_playlist(schema="test", limit=2, shuffle=False)
+    playlist = pg.get_playlist(limit=2, shuffle=False)
     assert playlist.playlist == [Path("test/4"), Path("test/6")]
     assert playlist.source_paths == [Path("test/5")]
 
-    playlist = pg.get_playlist(schema="test", limit=2, shuffle=False, seed_count=1)
+    playlist = pg.get_playlist(limit=2, shuffle=False, seed_count=1)
     assert playlist.playlist == [Path("test/5"), Path("test/4"), Path("test/6")]
     assert playlist.source_paths == [Path("test/5")]
 
     # multiple files requested
-    pg = PlaylistGenerator.from_files([Path("test/5"), Path("test/6")], schema="test")
+    pg = PlaylistGenerator.from_files([Path("test/5"), Path("test/6")])
     assert pg.list_requested_paths() == [Path("test/5"), Path("test/6")]
-    playlist = pg.get_playlist(schema="test", limit=2, shuffle=False)
+    playlist = pg.get_playlist(limit=2, shuffle=False)
     assert playlist.playlist == [Path("test/4"), Path("test/7")]
     assert playlist.source_paths == [Path("test/5"), Path("test/6")]

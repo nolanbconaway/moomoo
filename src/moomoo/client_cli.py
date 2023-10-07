@@ -29,11 +29,14 @@ def playlist():
 @click.argument(
     "paths", type=click.Path(exists=True, path_type=Path), nargs=-1, required=True
 )
+@click.option("-u", "--username", required=True)
 @click.option("--n", default=20, type=int)
 @click.option("--seed", default=1, type=int)
 @click.option("--shuffle", default=True, type=bool)
 @click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
-def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
+def from_path(
+    paths: list[Path], username: str, n: int, seed: int, shuffle: bool, out: str
+):
     """Get a playlist from a path."""
     host = os.environ["MOOMOO_HOST"]
     media_library = Path(os.environ["MOOMOO_MEDIA_LIBRARY"])
@@ -52,17 +55,17 @@ def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
 
     # from parent path allows files or folders but only one path.
     # from files only allows files but multiple paths.
-    if len(paths) == 1:
-        endpoint = "from-parent-path"
-    else:
-        if not all(p.is_file() for p in paths):
-            raise ValueError(
-                "Multiple paths must be files. "
-                + "Otherwise a single parent path should be provided."
-            )
-        endpoint = "from-files"
+    if len(paths) > 1 and not all(p.is_file() for p in paths):
+        raise ValueError(
+            "Multiple paths must be files. "
+            + "Otherwise a single parent path should be provided."
+        )
 
-    resp = requests.get(f"{host}/playlist/{endpoint}", params=args)
+    resp = requests.get(
+        f"{host}/playlist/from-files",
+        params=args,
+        headers={"listenbrainz-username": username},
+    )
 
     if resp.status_code != 200:
         try:

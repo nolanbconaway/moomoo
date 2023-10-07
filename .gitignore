@@ -4,6 +4,7 @@ __pycache__
 .python-version
 .vscode
 artifacts
+.ruff_cache/
 
 dbt/target/**/*
 dbt/dbt_packages/**/*

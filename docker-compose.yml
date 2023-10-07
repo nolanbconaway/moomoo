@@ -5,30 +5,32 @@ services:
       context: .
       dockerfile: Dockerfile
     environment: 
-      - POSTGRES_DSN=${DOCKER_POSTGRES_DSN:-default}
-      - MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
+      - MOOMOO_POSTGRES_URI=${MOOMOO_DOCKER_POSTGRES_URI:-default}
+      - MOOMOO_DBT_SCHEMA=${MOOMOO_DBT_SCHEMA:-default}
+      - MOOMOO_INGEST_SCHEMA=${MOOMOO_INGEST_SCHEMA}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "5000:8080"
+      - "5000:8080" ## TODO: expose this somehow?
 
   moomoo:
     build:
       context: .
       dockerfile: Dockerfile
     environment: 
-      - POSTGRES_DSN=${DOCKER_POSTGRES_DSN:-default}
-      - DBT_PG_HOST=${DOCKER_DBT_PG_HOST:-default}
-      - DBT_PG_PORT=${DOCKER_DBT_PG_PORT:-default}
-      - DBT_PG_USER=${DOCKER_DBT_PG_USER:-default}
-      - DBT_PG_DBNAME=${DOCKER_DBT_PG_DBNAME:-default}
-      - DBT_PG_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}
-      - DBT_PG_PASSWORD=${DOCKER_DBT_PG_PASSWORD:-default}
-      - CONTACT_EMAIL=${CONTACT_EMAIL:-default}
-      - MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA:-default}  # for http
+      - MOOMOO_POSTGRES_URI=${MOOMOO_DOCKER_POSTGRES_URI:-default}
+      - MOOMOO_DBT_PG_HOST=${MOOMOO_DBT_PG_HOST:-default}
+      - MOOMOO_DBT_PG_PORT=${MOOMOO_DBT_PG_PORT:-default}
+      - MOOMOO_DBT_PG_USER=${MOOMOO_DBT_PG_USER:-default}
+      - MOOMOO_DBT_PG_DBNAME=${MOOMOO_DBT_PG_DBNAME:-default}
+      - MOOMOO_DBT_PG_SCHEMA=${MOOMOO_DBT_PG_SCHEMA:-default}
+      - MOOMOO_DBT_PG_PASSWORD=${MOOMOO_DBT_PG_PASSWORD:-default}
+      - MOOMOO_CONTACT_EMAIL=${MOOMOO_CONTACT_EMAIL:-default}
+      - MOOMOO_DBT_SCHEMA=${MOOMOO_DBT_SCHEMA:-default}
+      - MOOMOO_INGEST_SCHEMA=${MOOMOO_INGEST_SCHEMA:-default}
 
     volumes:
-    - ${DOCKER_MOUNT_LOCAL_MUSIC_DIR:-default}:/mnt/moomoo/music
+    - ${MOOMOO_MOUNT_LOCAL_MUSIC_DIR:-default}:/mnt/moomoo/music
 
     extra_hosts:
       - "host.docker.internal:host-gateway"

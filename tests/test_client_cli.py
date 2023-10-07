@@ -9,6 +9,7 @@ from click.testing import CliRunner
 from xprocess import ProcessStarter
 
 from moomoo import client_cli
+from moomoo.db import MoomooPlaylist
 
 from .conftest import load_local_files_table
 
@@ -25,12 +26,19 @@ def http_server(xprocess, monkeypatch, mock_db):
     """Create a client for the cli to connect to, setting the host envvar correctly."""
     port = get_free_port()
     monkeypatch.setenv("MOOMOO_HOST", f"http://127.0.0.1:{port}")
+    ingest_schema = os.environ["MOOMOO_INGEST_SCHEMA"]
+    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
 
     class Starter(ProcessStarter):
         pattern = "Starting moomoo http server"
         terminate_on_interrupt = True
         args = ["python", "-m", "moomoo.http.app", f"--port={port}"]
-        env = dict(os.environ) | {"POSTGRES_DSN": mock_db, "MOOMOO_DBT_SCHEMA": "test"}
+        env = {
+            "MOOMOO_POSTGRES_URI": mock_db,
+            "MOOMOO_INGEST_SCHEMA": ingest_schema,
+            "MOOMOO_DBT_SCHEMA": dbt_schema,
+            "PATH": os.environ["PATH"],
+        }
 
     xprocess.ensure("http_server", Starter)
     yield f"http://127.0.0.1:{port}"
@@ -45,6 +53,11 @@ def local_files(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def empty_playlist_storage():
+    MoomooPlaylist.create()
+
+
+@pytest.fixture(autouse=True)
 def load_fixed_local_files(local_files):
     """Preload each test with a local files table.
 
@@ -52,7 +65,7 @@ def load_fixed_local_files(local_files):
     test/1.mp3, etc.)
     """
     real_file = dict(
-        filepath=f"test.mp3", embedding=str([1, 2] * 5), artist_mbid=uuid.uuid4()
+        filepath="test.mp3", embedding=str([1, 2] * 5), artist_mbid=uuid.uuid4()
     )
     data = [
         dict(
@@ -60,7 +73,7 @@ def load_fixed_local_files(local_files):
         )
         for i in range(10)
     ]
-    load_local_files_table(data=[real_file] + data, schema="test")
+    load_local_files_table(data=[real_file] + data)
 
     # create the files
     (local_files / "test").mkdir()
@@ -70,55 +83,31 @@ def load_fixed_local_files(local_files):
 
 def test_playlist_from_path__media_library_exists_check(monkeypatch, local_files):
     runner = CliRunner()
-    result = runner.invoke(client_cli.from_path, [str(local_files / "test.mp3")])
+    result = runner.invoke(
+        client_cli.from_path, [str(local_files / "test.mp3"), "--username=a"]
+    )
     assert result.exit_code == 0
 
     monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(local_files) + "fakeeee")
-    result = runner.invoke(client_cli.from_path, [str(local_files / "test.mp3")])
+    result = runner.invoke(
+        client_cli.from_path, [str(local_files / "test.mp3"), "--username=a"]
+    )
     assert result.exit_code != 0
     assert str(local_files) + "fakeeee" + " does not exist" in str(result.exception)
 
 
-def test_playlist_from_path__files_vs_parent_handler(xprocess, local_files):
-    """Test that we switch between the two endpoints correctly."""
-    logfile = Path(xprocess.getinfo("http_server").logpath)
-    runner = CliRunner()
-
-    # should be from parent path because only one path is provided and it is a folder
-    result = runner.invoke(client_cli.from_path, [str(local_files / "test")])
-    assert result.exit_code == 0
-    assert "INFO - from-parent request" in logfile.read_text()
-    assert "INFO - from-files request" not in logfile.read_text()
-
-    logfile.write_text("")
-
-    # should be from files because multiple paths are provided
-    result = runner.invoke(
-        client_cli.from_path,
-        [str(local_files / "test.mp3"), str(local_files / "test.mp3")],
-    )
-    assert result.exit_code == 0
-    assert "INFO - from-parent request" not in logfile.read_text()
-    assert "INFO - from-files request" in logfile.read_text()
-
-    # should invoke an error because multiple paths are provided but one is a folder
-    result = runner.invoke(
-        client_cli.from_path, [str(local_files / "test"), str(local_files / "test.mp3")]
-    )
-    assert result.exit_code != 0
-    assert "Multiple paths must be files" in str(result.exception)
-
-
 def test_playlist_from_path__json_parsable(local_files):
     runner = CliRunner()
-    result = runner.invoke(client_cli.from_path, [str(local_files / "test.mp3")])
+    result = runner.invoke(
+        client_cli.from_path, [str(local_files / "test.mp3"), "--username=a"]
+    )
     assert result.exit_code == 0
     assert len(result.output) > 0
     assert json.loads(result.output)  # good as long as it parses
 
     result = runner.invoke(
         client_cli.from_path,
-        [str(local_files / "test.mp3"), str(local_files / "test.mp3")],
+        [str(local_files / "test.mp3"), str(local_files / "test.mp3"), "--username=a"],
     )
     assert result.exit_code == 0
     assert len(result.output) > 0
@@ -132,7 +121,9 @@ def test_playlist_from_path__error_handling(local_files):
 
     (local_files / "fake.mp3").touch()
 
-    result = runner.invoke(client_cli.from_path, [str(local_files / "fake.mp3")])
+    result = runner.invoke(
+        client_cli.from_path, [str(local_files / "fake.mp3"), "--username=a"]
+    )
     assert result.exit_code != 0
 
     # should still be json parsable

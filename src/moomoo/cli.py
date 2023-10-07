@@ -3,6 +3,7 @@
 import click
 
 from .client_cli import cli as client_cli
+from .db.cli import cli as db_cli
 
 try:
     # needs ingest deps
@@ -37,6 +38,7 @@ def version():
     click.echo(moomoo_version())
 
 
+cli.add_command(db_cli, "db")
 cli.add_command(client_cli, "client")
 
 if ingest_cli is not None:

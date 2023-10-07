@@ -1,21 +1,24 @@
 """Common fixtures for all tests."""
+import os
 import time
 from pathlib import Path
 
 import musicbrainzngs
 import psycopg
 import pytest
+from sqlalchemy import text
 
-import moomoo.utils_
+from moomoo.db import get_session
 
 RESOURCES = Path(__file__).parent / "resources"
 
 
 @pytest.fixture(autouse=True)
 def remove_env_variables(monkeypatch):
-    monkeypatch.setenv("POSTGRES_DSN", "dbname=fake user=fake password=fake host=fake")
+    monkeypatch.setenv("MOOMOO_INGEST_SCHEMA", "test")
+    monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
     monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
-    monkeypatch.setenv("CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
+    monkeypatch.setenv("MOOMOO_CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
 
 
 @pytest.fixture(autouse=True)
@@ -39,22 +42,33 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
 
     Returns an endless supply of connections to the test db.
     """
+    # convert the dsn into a sqlalchemy uri
+    uri = "postgresql+psycopg://{0}@{1}:{2}/{3}".format(
+        postgresql.info.user,
+        postgresql.info.host,
+        postgresql.info.port,
+        postgresql.info.dbname,
+    )
+    monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
 
-    def f(*_, **__):
-        conn = psycopg.connect(postgresql.info.dsn)
-        with conn.cursor() as cursor:
-            cursor.execute("create extension if not exists vector")
-            cursor.execute("create schema if not exists test")
+    # make sure the test schema exists and the vector extension is loaded
+    cur = postgresql.cursor()
+    cur.execute("create schema if not exists test")
+    cur.execute("create schema if not exists dbt")
+    cur.execute("create extension if not exists vector schema test")
 
-        conn.commit()
-        return conn
+    # set utc timezone
+    cur.execute(f"ALTER USER {postgresql.info.user} SET timezone='UTC'")
 
-    monkeypatch.setattr(moomoo.utils_, "_pg_connect", f)
-    return postgresql.info.dsn
+    postgresql.commit()
+
+    return uri
 
 
-def load_local_files_table(data: list[dict], schema: str = "test"):
+def load_local_files_table(data: list[dict]):
     """Load a fresh version of the local files table.
+
+    This is managed by dbt in prod, but needed for tests.
 
     Input rows are dicts with keys:
 
@@ -64,8 +78,9 @@ def load_local_files_table(data: list[dict], schema: str = "test"):
         - artist_mbid: uuid
         - embedding_duration_seconds: int
     """
-    with moomoo.utils_.pg_connect() as conn:
-        cur = conn.cursor()
+    with get_session() as session:
+        schema = os.environ["MOOMOO_DBT_SCHEMA"]
+
         sql = f"""
             create table {schema}.local_files_flat (
                 filepath text primary key
@@ -75,16 +90,20 @@ def load_local_files_table(data: list[dict], schema: str = "test"):
                 , embedding_duration_seconds int
             )
         """
-        cur.execute(sql)
+        session.execute(text(sql))
 
         sql = f"""
             insert into {schema}.local_files_flat (
-                filepath, embedding_success, embedding, artist_mbid, embedding_duration_seconds
+                filepath
+                , embedding_success
+                , embedding
+                , artist_mbid
+                , embedding_duration_seconds
             )
             values (
-                %(filepath)s, true, %(embedding)s , %(artist_mbid)s, 90
+                :filepath, true, :embedding , :artist_mbid, 90
             )
         """
         for i in data:
-            cur.execute(sql, i)
-        conn.commit()
+            session.execute(text(sql), i)
+        session.commit()

@@ -64,8 +64,9 @@ docker-http-serve:
 	  	$${RUNOPT:---rm} \
 		--publish=$$PORT:8080 \
 		--add-host=host.docker.internal:host-gateway \
-		--env POSTGRES_DSN="$(DOCKER_POSTGRES_DSN)" \
-		--env MOOMOO_DBT_SCHEMA=${DOCKER_DBT_PG_SCHEMA} \
+		--env MOOMOO_POSTGRES_URI="$(MOOMOO_DOCKER_POSTGRES_URI)" \
+		--env MOOMOO_DBT_SCHEMA=${MOOMOO_DBT_SCHEMA} \
+		--env MOOMOO_INGEST_SCHEMA=${MOOMOO_INGEST_SCHEMA} \
 		moomoo-v$$(moomoo version) \
 		make http
 
