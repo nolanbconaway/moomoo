@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 from click.testing import CliRunner
 
 from moomoo.db import LocalFile
@@ -54,22 +57,21 @@ def test_cli_main__insert_serial():
     assert rows[0]["json_data"]["title"] == "fake"
 
 
-def test_cli_main__insert_mp(monkeypatch):
-    n, filepath = 4, RESOURCES / "test.mp3"
+def test_cli_main__insert_mp(tmpdir):
+    # make a bunch of copies of the test file
+    tmp_path = Path(tmpdir) / "media"
+    tmp_path.mkdir()
+    for i in range(10):
+        shutil.copy(RESOURCES / "test.mp3", tmp_path / f"{i}.mp3")
 
     runner = CliRunner()
     LocalFile.create()
 
-    # just copy the existing file
-    monkeypatch.setattr(
-        collect_local_files, "list_audio_files", lambda *a: [filepath] * n
-    )
-
-    result = runner.invoke(collect_local_files.main, [str(RESOURCES), "--procs=2"])
+    result = runner.invoke(collect_local_files.main, [str(tmp_path), "--procs=2"])
     assert result.exit_code == 0
     assert "Parsing audio files in 2 processes" in result.output
     assert "Inserting" in result.output
 
     rows = LocalFile.select_star()
-    assert len(rows) == 1  # upsert!
+    assert len(rows) == 10
     assert rows[0]["json_data"]["title"] == "fake"

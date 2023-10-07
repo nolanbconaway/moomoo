@@ -11,7 +11,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "5000:8080"
+      - "5000:8080" ## TODO: expose this somehow?
 
   moomoo:
     build:

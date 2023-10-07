@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 import mutagen
+from sqlalchemy import insert as sqa_insert
 from tqdm.auto import tqdm
 
 from .. import utils_
@@ -81,12 +82,10 @@ def parse_audio_file(path: Path) -> dict:
     "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
 @click.option("--procs", help="Number of processes to use", default=1, type=int)
-@click.option(
-    "--append-only",
-    is_flag=True,
-    help="Option to not drop all rows prior to ingest. Default is to drop all rows.",
-)
-def main(src_dir: list[Path], procs: int, append_only: bool):
+def main(
+    src_dir: list[Path],
+    procs: int,
+):
     """Ingest data from local files."""
     if not LocalFile.exists():
         click.echo(
@@ -124,20 +123,21 @@ def main(src_dir: list[Path], procs: int, append_only: bool):
 
     # insert the files
     with get_session() as session:
-        if append_only:
-            click.echo("Running insert in append-only mode.")
-        else:
-            click.echo(f"Deleting all rows in {LocalFile.full_name()}")
-            deleted = session.query(LocalFile).delete()
-            click.echo(f"Deleted {deleted} rows")
+        click.echo(f"Deleting all rows in {LocalFile.full_name()}")
+        deleted = session.query(LocalFile).delete()
+        click.echo(f"Deleted {deleted} rows")
 
         click.echo(f"Inserting {len(files)} files into {LocalFile.full_name()}")
-        for path, data in tqdm(zip(files, parsed), disable=None, total=len(files)):
-            LocalFile(
+        localfiles = [
+            dict(
                 filepath=str(path.relative_to(src_dir)),
                 insert_ts_utc=utils_.utcnow(),
                 **data,
-            ).upsert(session=session)
+            )
+            for path, data in zip(files, parsed)
+        ]
+        session.execute(sqa_insert(LocalFile), localfiles)
+        session.commit()
 
     click.echo("Done.")
 

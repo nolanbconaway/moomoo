@@ -43,7 +43,7 @@ def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
         from {dbt_schema}.mbids
         inner join {MusicBrainzAnnotation.full_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
-        where src.ts_utc < %(before)s
+        where src.ts_utc < :before
         order by src.ts_utc
     """
     return execute_sql_fetchall(sql, params=dict(before=before))
