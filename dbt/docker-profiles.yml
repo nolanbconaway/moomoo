@@ -13,5 +13,6 @@ moomoo:
       pass: "{{ env_var('DBT_PASSWORD') }}"
       dbname: "{{ env_var('DBT_DBNAME') }}"
       schema: "{{ env_var('DBT_SCHEMA') }}"
+      sslmode: "{{ env_var('DBT_SSLMODE', 'prefer') }}"
 
   target: prod
