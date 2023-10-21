@@ -12,7 +12,7 @@ with spikes_unconstrained as (
     , {{ 
         dbt_utils.generate_surrogate_key(['min(t0.username)', 'min(t0.recording_mbid::varchar)'])
       }} as user_recording_mbid
-    , count(*) as next_24h_listen_count
+    , count(1) as next_24h_listen_count
 
   from {{ ref('listens_flat') }} as t0
   inner join {{ ref('listens_flat') }} as tn
@@ -23,7 +23,7 @@ with spikes_unconstrained as (
       and tn.listen_at_ts_utc > t0.listen_at_ts_utc
 
   group by t0.listen_md5
-  having count(*) >= 5
+  having count(1) >= 5
 )
 
 -- make a list of listen md5s to EXCLUDE; (e.g., duplicates).
@@ -35,7 +35,7 @@ with spikes_unconstrained as (
   select tx.listen_md5
   from spikes_unconstrained as t0
   inner join spikes_unconstrained as tx
-    on tx.user_recording_mbid = t0.user_recording_mbid
+    on t0.user_recording_mbid = tx.user_recording_mbid
       and abs(extract(hour from tx.period_start_at_utc - t0.period_start_at_utc)) < 24
 
   where

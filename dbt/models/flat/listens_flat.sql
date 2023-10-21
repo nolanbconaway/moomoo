@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['listen_md5'], 'unique': True},

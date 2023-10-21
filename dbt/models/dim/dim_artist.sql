@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['artist_mbid'], 'unique': True},
@@ -40,7 +39,7 @@ with dim as (
 )
 
 select
-    dim.artist_mbid
+  dim.artist_mbid
   , dim.artist_name
   , dim.artist_type
   , dim.alias_list

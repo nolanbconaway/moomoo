@@ -6,7 +6,7 @@ with by_year as (
   select
     listens.username
     , recording.release_year
-    , count(*) as listens
+    , count(1) as listens
 
   from {{ ref('listens_flat') }} as listens
   inner join {{ ref('dim_recording') }} as recording

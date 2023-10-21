@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['recording_mbid'], 'unique': True},
@@ -54,4 +53,4 @@ select
   , t."_ingest_insert_ts_utc"
 
 from t
-left join first_year on first_year.recording_mbid = t.recording_mbid
+left join first_year on t.recording_mbid = first_year.recording_mbid

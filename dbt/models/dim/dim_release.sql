@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['release_mbid'], 'unique': True},
@@ -33,32 +32,32 @@ with t as (
 
 , artist_array as (
   select
-    release_mbid
+    t.release_mbid
     , array_agg({{ json_get('artist_credit', ['artist', 'id']) }}::uuid) as "artist_mbids_list"
 
   from t
-    , jsonb_array_elements("artist_credit_list") as artist_credit
+  , jsonb_array_elements("artist_credit_list") as artist_credit -- noqa: AL05
 
-  where "artist_credit" is not null
+  where artist_credit."artist_credit" is not null
   group by 1
 )
 
 select
   t."release_mbid"
-  , "release_title"
-  , "artist_credit_phrase"
-  , substring("release_date" from 1 for 4)::int as "release_year"
+  , t."release_title"
+  , t."artist_credit_phrase"
+  , substring(t."release_date" from 1 for 4)::int as "release_year"
   , {{ json_get('artist_credit_list', [0,  'artist', 'id']) }}::uuid as "artist_mbid"
-  , "release_status"
-  , "release_barcode"
-  , "release_country"
-  , "release_asin"
-  , "release_date"
-  , "artist_credit_list"
+  , t."release_status"
+  , t."release_barcode"
+  , t."release_country"
+  , t."release_asin"
+  , t."release_date"
+  , t."artist_credit_list"
   , artist_array."artist_mbids_list" as "artist_mbids_list"
-  , "label_info_list"
-  , "url_relation_list"
-  , "_ingest_insert_ts_utc"
+  , t."label_info_list"
+  , t."url_relation_list"
+  , t."_ingest_insert_ts_utc"
 
 from t
-left join artist_array on artist_array.release_mbid = t.release_mbid
+left join artist_array on t.release_mbid = artist_array.release_mbid
