@@ -11,7 +11,6 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.schema import CreateIndex, CreateTable
 
-from ..utils_ import PlaylistResult
 from .connection import execute_sql_fetchall, get_engine, get_session
 
 
@@ -257,40 +256,6 @@ class FileEmbedding(BaseTable):
     )
 
 
-class MoomooPlaylist(BaseTable):
-    """Model for moomoo_playlists table."""
-
-    __tablename__ = "moomoo_playlists"
-
-    id: Mapped[int] = mapped_column(
-        primary_key=True, nullable=False, autoincrement=True
-    )
-    username: Mapped[str] = mapped_column(nullable=False, index=True)
-    generator: Mapped[str] = mapped_column(nullable=False, index=True)
-    source_paths: Mapped[list[str]] = mapped_column(nullable=False)
-    playlist: Mapped[list[str]] = mapped_column(nullable=False)
-    ts_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp(), index=True
-    )
-
-    @classmethod
-    def from_playlist_result(
-        cls,
-        result: PlaylistResult,
-        username: str,
-        generator: str,
-        ts_utc: datetime.datetime,
-    ) -> "MoomooPlaylist":
-        """Create a MoomooPlaylist from a PlaylistResult."""
-        return cls(
-            username=username,
-            generator=generator,
-            source_paths=[str(p) for p in result.source_paths],
-            playlist=[str(p) for p in result.playlist],
-            ts_utc=ts_utc,
-        )
-
-
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
@@ -298,5 +263,4 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzSimilarUserActivity,
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,
-    MoomooPlaylist,
 )

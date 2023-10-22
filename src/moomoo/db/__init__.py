@@ -14,7 +14,6 @@ from .ddl import (
     ListenBrainzListen,
     ListenBrainzSimilarUserActivity,
     LocalFile,
-    MoomooPlaylist,
     MusicBrainzAnnotation,
 )
 
@@ -31,5 +30,4 @@ __all__ = [
     "ListenBrainzSimilarUserActivity",
     "MusicBrainzAnnotation",
     "ListenBrainzArtistStats",
-    "MoomooPlaylist",
 ]
