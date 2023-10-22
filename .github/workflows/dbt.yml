@@ -82,13 +82,17 @@ jobs:
           cmd: yq .version dbt/dbt_project.yml
 
       - name: Store as a text file
-        run: echo ${{ steps.version.outputs.stdout }}  > version.txt
+        # runs in the dbt directory, so is stored as dbt/version.txt
+        run: |
+          echo "Production version: ${{ steps.version.outputs.stdout }}"
+          echo ${{ steps.version.outputs.stdout }}  > version.txt
+          echo "Stored version in $pwd/version.txt"
 
       - name: Upload to github artifacts
         uses: actions/upload-artifact@v3
         with:
           name: version
-          path: version.txt
+          path: dbt/version.txt
 
   # run not on main, in pull request
   check-version-changed:
@@ -109,9 +113,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: version
-          path: version.txt
+          path: dbt/version.txt
 
       - name: Compare versions
+        # runs in dbt/, so can reference version.txt instead of dbt/version.txt
         run: |
           # check if the artifact exists, if not exit 0.
           if [ ! -f version.txt ]; then
