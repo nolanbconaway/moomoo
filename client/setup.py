@@ -30,5 +30,5 @@ setup(
         ]
     ),
     entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli:cli"]},
-    package_data={"moomoo-client": ["version"]},
+    package_data={"moomoo_client": ["version"]},
 )
