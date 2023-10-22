@@ -4,10 +4,8 @@ from unittest.mock import patch
 
 import pytest
 from flask.testing import FlaskClient
-
-from moomoo.db import MoomooPlaylist
-from moomoo.http.app import create_app
-from moomoo.utils_ import PlaylistResult
+from moomoo_http.app import create_app
+from moomoo_http.db import Base, MoomooPlaylist, db, execute_sql_fetchall
 
 from ..conftest import load_local_files_table
 
@@ -20,8 +18,17 @@ def http_app() -> FlaskClient:
 
 
 @pytest.fixture(autouse=True)
+def app_context(http_app):
+    """Make sure the app context is created for each test."""
+    with http_app.application.app_context():
+        yield
+
+
+@pytest.fixture(autouse=True)
 def create_storage():
-    MoomooPlaylist.create()
+    """Create the storage table."""
+    # request the http app fixture so we have a context
+    Base.metadata.create_all(db.engine)
 
 
 @pytest.fixture(autouse=True)
@@ -73,7 +80,7 @@ def test_invalid_filepaths(http_app: FlaskClient):
     assert "No paths requested (or found via request)." in resp.json["error"]
 
     with patch(
-        "moomoo.playlist.PlaylistGenerator.get_playlist",
+        "moomoo_http.playlist_generator.PlaylistGenerator.get_playlist",
         side_effect=Exception("test exception message"),
     ) as mock:
         resp = http_app.get(
@@ -87,8 +94,8 @@ def test_invalid_filepaths(http_app: FlaskClient):
         assert mock.call_count == 1
 
     with patch(
-        "moomoo.playlist.PlaylistGenerator.get_playlist",
-        return_value=PlaylistResult(playlist=[], source_paths=[Path("test/3949")]),
+        "moomoo_http.playlist_generator.PlaylistGenerator.get_playlist",
+        return_value=([], [Path("test/3949")]),
     ) as mock:
         resp = http_app.get(
             "/playlist/from-files",
@@ -141,7 +148,13 @@ def test_playlist_storage(http_app: FlaskClient):
     assert resp.json["success"] is True
     assert len(resp.json["playlist"]) == 3
 
-    res = MoomooPlaylist.select_star()
+    def select_star():
+        return execute_sql_fetchall(
+            sql=f"select * from {MoomooPlaylist.__tablename__}",
+            session=db.session,
+        )
+
+    res = select_star()
     assert len(res) == 1
     assert res[0]["username"] == "a"
     assert res[0]["playlist"] == resp.json["playlist"]
@@ -152,4 +165,4 @@ def test_playlist_storage(http_app: FlaskClient):
         query_string=dict(path="test/5", n=3, shuffle=False),
         headers={"listenbrainz-username": "a"},
     )
-    assert len(MoomooPlaylist.select_star()) == 2
+    assert len(select_star()) == 2

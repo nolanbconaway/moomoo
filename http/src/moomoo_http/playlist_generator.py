@@ -6,8 +6,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from ..db import execute_sql_fetchall
-from ..utils_ import PlaylistResult
+from .db import execute_sql_fetchall
 
 # maximum number of source paths to use when generating a playlist. this is to avoid
 # doing a huge number of pairwise distance calculations in the database.
@@ -119,12 +118,12 @@ class PlaylistGenerator:
         """
         return cls(request_sql, sql_params={"path": f"{path}%"})
 
-    def list_requested_paths(self, session: Optional[Session] = None) -> list[Path]:
+    def list_requested_paths(self, session: Session) -> list[Path]:
         """List the paths requested by the user."""
         return [
             Path(row["filepath"])
             for row in execute_sql_fetchall(
-                self.request_sql, params=self.sql_params, session=session
+                session=session, sql=self.request_sql, params=self.sql_params
             )
         ]
 
@@ -134,8 +133,8 @@ class PlaylistGenerator:
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-        session: Optional[Session] = None,
-    ) -> PlaylistResult:
+        session: Session = None,
+    ) -> tuple[list[Path], list[Path]]:
         """Get a playlist of similar songs.
 
         Args:
@@ -149,8 +148,7 @@ class PlaylistGenerator:
             session: Optional sqlalchemy session to use.
 
         Returns:
-            List of Path objects, local to the database. As such, they must be resolved
-            to system paths on the client side.
+            A tuple of (playlist, source_paths).
         """
         sql = SQL_TEMPLATE.format(
             limit=limit,
@@ -168,11 +166,13 @@ class PlaylistGenerator:
         tracks = [
             Path(row["filepath"])
             for row in execute_sql_fetchall(
-                sql, params={"filepaths": list(map(str, filepaths))}, session=session
+                sql=sql,
+                params={"filepaths": list(map(str, filepaths))},
+                session=session,
             )
         ]
 
         if shuffle:
             random.shuffle(tracks)
 
-        return PlaylistResult(playlist=seed_files + tracks, source_paths=filepaths)
+        return seed_files + tracks, filepaths

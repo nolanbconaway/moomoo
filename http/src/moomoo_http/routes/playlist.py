@@ -9,11 +9,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Blueprint, Request, request
-
-from ..db import MoomooPlaylist, get_session
 from sqlalchemy.orm import Session
-from ..playlist import PlaylistGenerator
-from ..utils_ import utcnow
+
+from ..db import MoomooPlaylist, db
+from ..playlist_generator import PlaylistGenerator
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -48,7 +47,8 @@ class PlaylistArgs:
 def try_insert(plist: MoomooPlaylist, session: Session) -> None:
     """Try to insert a playlist and log on error (not raising)."""
     try:
-        plist.insert(session=session)
+        session.add(plist)
+        session.commit()
         logger.info("Inserted playlist.")
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
@@ -74,27 +74,28 @@ def from_files():
 
     logger.info(f"playlist request: {username} / {paths} ({args})")
 
-    with get_session() as session:
-        try:
-            generator = PlaylistGenerator.from_files(paths)
-            plist = generator.get_playlist(
-                limit=args.n,
-                shuffle=args.shuffle,
-                seed_count=args.seed,
-                session=session,
-            )
-        except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
-
-        # exit early if we don't want to store the playlist
-        db_plist = MoomooPlaylist.from_playlist_result(
-            plist, username=username, generator="from-files", ts_utc=utcnow()
+    try:
+        generator = PlaylistGenerator.from_files(paths)
+        plist_paths, source_paths = generator.get_playlist(
+            limit=args.n,
+            shuffle=args.shuffle,
+            seed_count=args.seed,
+            session=db.session,
         )
-        try_insert(db_plist, session=session)
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
-    return {
-        "success": True,
-        "playlist": [str(f) for f in plist.playlist],
-        "source_paths": [str(f) for f in plist.source_paths],
-    }
+    # exit early if we don't want to store the playlist
+    plist_strs = list(map(str, plist_paths))
+    source_strs = list(map(str, source_paths))
+
+    db_plist = MoomooPlaylist(
+        username=username,
+        generator="from-files",
+        playlist=plist_strs,
+        source_paths=source_strs,
+    )
+    try_insert(db_plist, session=db.session)
+
+    return {"success": True, "playlist": plist_strs, "source_paths": source_strs}

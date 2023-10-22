@@ -6,6 +6,7 @@ on:
       - dbt/**
       - .github/workflows/**
       - client/**
+      - http/**
 
 jobs:
   build-cache:

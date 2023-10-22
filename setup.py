@@ -29,7 +29,6 @@ extras_require = dict(
         "pylistenbrainz==0.5.1",
         "musicbrainzngs==0.7.1",
     ],
-    http=["flask==2.3.*", "waitress==2.1.*"],
 )
 
 extras_require["all"] = sum(extras_require.values(), [])

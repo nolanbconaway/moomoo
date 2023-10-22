@@ -1,18 +1,5 @@
 version: '3'
 services:
-  http:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment: 
-      - MOOMOO_POSTGRES_URI=${MOOMOO_DOCKER_POSTGRES_URI:-default}
-      - MOOMOO_DBT_SCHEMA=${MOOMOO_DBT_SCHEMA:-default}
-      - MOOMOO_INGEST_SCHEMA=${MOOMOO_INGEST_SCHEMA}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "5000:8080" ## TODO: expose this somehow?
-
   moomoo:
     build:
       context: .
