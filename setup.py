@@ -13,7 +13,6 @@ extras_require = dict(
         "black==23.1.0",
         "pytest==7.2.2",
         "pytest-postgresql==5.0.0",
-        "pytest-xprocess==0.22.2",
     ],
     ml=[
         # heavy deps for ml inference
