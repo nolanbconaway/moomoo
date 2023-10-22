@@ -1,4 +1,4 @@
-name: DBT
+name: dbt
 
 on:
   push:

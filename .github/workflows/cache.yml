@@ -5,6 +5,7 @@ on:
     paths-ignore: # ignore while unbundling
       - dbt/**
       - .github/workflows/**
+      - client/**
 
 jobs:
   build-cache:
