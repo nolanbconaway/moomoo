@@ -1,0 +1,3 @@
+pip==23.*
+dbt-core==1.6.6
+dbt-postgres==1.6.6

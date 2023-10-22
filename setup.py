@@ -9,12 +9,9 @@ version = (
 )
 
 extras_require = dict(
-    dbt=["dbt-postgres==1.4.4"],
     test=[
         "black==23.1.0",
         "pytest==7.2.2",
-        "sqlfluff==1.4.5",
-        "sqlfluff-templater-dbt==1.4.5",
         "pytest-postgresql==5.0.0",
         "pytest-xprocess==0.22.2",
     ],
@@ -55,7 +52,6 @@ setup(
     extras_require=extras_require,
     entry_points={"console_scripts": ["moomoo=moomoo.cli:cli"]},
     package_data={
-        "moomoo": ["version"],
-        "moomoo": ["ml/model-info.json"],
+        "moomoo": ["version", "ml/model-info.json"],
     },
 )

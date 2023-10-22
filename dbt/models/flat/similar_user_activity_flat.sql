@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['similar_user_activity_id'], 'unique': True},
@@ -46,16 +45,17 @@ with exploded as (
       when 'artists' then {{ json_get('rows_.value', ['artist_mbid']) }}
       when 'releases' then {{ json_get('rows_.value', ['release_mbid']) }}
       when 'recordings' then {{ json_get('rows_.value', ['recording_mbid']) }}
-      end as "mbid"
+    end as "mbid"
     , sum({{ json_get('rows_.value', ['listen_count']) }}::int) as "listen_count"
 
 
   from {{ source('pyingest', 'listenbrainz_similar_user_activity') }} as base
-    , jsonb_array_elements(
+  ,
+    jsonb_array_elements(
       case base.entity
-      when 'artists' then {{ json_get('base.json_data', ['artists'], as_json=True) }}
-      when 'releases' then {{ json_get('base.json_data', ['releases'], as_json=True) }}
-      when 'recordings' then {{ json_get('base.json_data', ['recordings'], as_json=True) }}
+        when 'artists' then {{ json_get('base.json_data', ['artists'], as_json=True) }}
+        when 'releases' then {{ json_get('base.json_data', ['releases'], as_json=True) }}
+        when 'recordings' then {{ json_get('base.json_data', ['recordings'], as_json=True) }}
       end
     ) as rows_
 
@@ -82,7 +82,7 @@ select
     when 'artists' then 'artist'
     when 'releases' then 'release'
     when 'recordings' then 'recording'
-    end as "entity"
+  end as "entity"
 
   , base."payload_id" as "ingest_payload_id"
   , base."insert_ts_utc" as "insert_ts_utc"

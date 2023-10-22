@@ -15,37 +15,6 @@ py-test:
 py-lint-test: py-lint py-test
 
 .PHONY:
-dbt-deps:
-	@ cd dbt && dbt deps
-
-.PHONY:
-dbt-build:
-	@ if [ ! -z "$(select)" ]; \
-		then dbt build --project-dir dbt/ --select "$(select)"; \
-		else echo "ERROR: select=... is required."; exit 1; \
-	  fi
-
-.PHONY:
-dbt-run:
-	@ if [ ! -z "$(select)" ]; \
-		then dbt run --project-dir dbt/ --select "$(select)"; \
-		else echo "ERROR: select=... is required."; exit 1; \
-	  fi
-
-.PHONY:
-dbt-test:
-	@ if [ ! -z "$(select)" ]; \
-		then dbt test --project-dir dbt/ --select "$(select)"; \
-		else echo "ERROR: select=... is required."; exit 1; \
-	  fi
-
-.PHONY:
-sql-lint:
-	@ cd dbt && sqlfluff lint models \
-		--config ../.sqlfluff \
-		--disable-progress-bar
-
-.PHONY:
 http:
 	@ PORT=$${port:-8080} HOST=$${host:-0.0.0.0} \
 		&& python -m moomoo.http.app --port=$$PORT --host=$$HOST
@@ -80,11 +49,6 @@ docker-build:
 	@ if [ ! -z "$(TEST)" ]; \
 		then make py-lint-test; \
 		else echo "Skipping tests."; \
-	  fi
-
-	@ if [ ! -z "$(TEST)" ]; \
-		then dbt build --project-dir dbt/; \
-		else echo "Skipping dbt build."; \
 	  fi
 
 	@ echo "\n\nBuilding docker image..."

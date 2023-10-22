@@ -1,0 +1,129 @@
+name: DBT
+
+on:
+  push:
+    paths:
+      - dbt/**
+      - .github/workflows/dbt.yml
+
+defaults:
+  run:
+    working-directory: ./dbt
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      DBT_HOST: localhost
+      DBT_PORT: 5432
+      DBT_USER: postgres
+      DBT_PASSWORD: postgres
+      DBT_DBNAME: postgres
+      DBT_SCHEMA: public
+      DBT_SSLMODE: disable
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: pip cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-dbt-${{ hashFiles('dbt/requirements.txt', 'dbt/requirements-dev.txt') }}
+
+      - name: dbt deps cache
+        uses: actions/cache@v3
+        id: dbt_deps_cache
+        with:
+          path: dbt/dbt_packages
+          key: dbt-${{ hashFiles('dbt/packages.yml') }}
+
+      - name: pip install
+        run: pip install -r requirements-dev.txt
+
+      - name: dbt deps
+        run: dbt deps
+        if: ${{ steps.dbt_deps_cache.outputs.cache-hit != 'true' }}
+
+      - name: dbt compile
+        run: |
+          cp docker-profiles.yml profiles.yml
+          dbt compile
+
+      - name: sqlfluff lint
+        run: make lint
+
+  # run only on main branch
+  store-production-version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the DBT project version
+        id: version
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq .version dbt/dbt_project.yml
+
+      - name: Store as a text file
+        run: echo ${{ steps.version.outputs.stdout }}  > version.txt
+
+      - name: Upload to github artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: version
+          path: version.txt
+
+  # run not on main, in pull request
+  check-version-changed:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the DBT project version
+        id: version
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq .version dbt/dbt_project.yml
+
+      - name: Download the production version
+        continue-on-error: true # if the artifact does not exist
+        id: download-version
+        uses: actions/download-artifact@v3
+        with:
+          name: version
+          path: version.txt
+
+      - name: Compare versions
+        run: |
+          # check if the artifact exists, if not exit 0.
+          if [ ! -f version.txt ]; then
+            echo "Production version not found"
+            exit 0
+          fi
+
+          echo "Production version: $(cat version.txt )"
+          echo "Pull request version: ${{ steps.version.outputs.stdout }}"
+          if [ "$(cat version.txt )" == "${{ steps.version.outputs.stdout }}" ]; then
+            echo "Version has not changed"
+            exit 1
+          else
+            echo "Version has changed"
+          fi

@@ -1,6 +1,10 @@
 name: Unit Tests
 
-on: push
+on:
+  push:
+    paths-ignore: # ignore while unbundling
+      - dbt/**
+      - .github/workflows/**
 
 jobs:
   lint-test:

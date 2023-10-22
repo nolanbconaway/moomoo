@@ -16,13 +16,15 @@ with similars as (
 
 , selfs as (
   select distinct
-    username, 'artist' as entity, artist_mbid.value::uuid as mbid
+    listens_flat.username
+    , 'artist' as entity
+    , artist_mbid.value::uuid as mbid
 
-  from {{ ref('listens_flat') }}
-    , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
+  from {{ ref('listens_flat') }} as listens_flat
+  , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
 
-  where artist_mbids is not null
-    and jsonb_array_length(artist_mbids) > 0
+  where listens_flat.artist_mbids is not null
+    and jsonb_array_length(listens_flat.artist_mbids) > 0
 
   union all
 
@@ -49,9 +51,9 @@ select
 
 from similars
 left join selfs
-  on selfs.username = similars.from_username
-  and selfs.entity = similars.entity
-  and selfs.mbid = similars.mbid
+  on similars.from_username = selfs.username
+    and similars.entity = selfs.entity
+    and similars.mbid = selfs.mbid
 
 where selfs.username is null
 

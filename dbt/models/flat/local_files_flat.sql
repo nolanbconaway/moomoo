@@ -1,4 +1,3 @@
-
 {{ config(
   indexes=[
     {'columns': ['filepath'], 'unique': True},
