@@ -15,18 +15,7 @@ COPY src/moomoo ./src/moomoo
 COPY setup.py .
 RUN pip install -e .[all] --no-cache-dir
 
-# setup dbt
-COPY dbt/docker-profiles.yml /root/.dbt/profiles.yml 
-COPY dbt/dbt_project.yml ./dbt/dbt_project.yml
-COPY dbt/macros ./dbt/macros
-COPY dbt/tests ./dbt/tests
-COPY dbt/models ./dbt/models
-COPY dbt/packages.yml ./dbt/packages.yml
-
 COPY Makefile .
-
-# download artifacts
-RUN make dbt-deps
 
 # if not here, run moomoo ml save-artifacts
 COPY artifacts ./artifacts
