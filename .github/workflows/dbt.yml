@@ -84,8 +84,8 @@ jobs:
       - name: Store as a text file
         # runs in the dbt directory, so is stored as dbt/version.txt
         run: |
-          echo "Production version: ${{ steps.version.outputs.stdout }}"
-          echo ${{ steps.version.outputs.stdout }}  > version.txt
+          echo "Production version: ${{ steps.version.outputs.result }}"
+          echo ${{ steps.version.outputs.result }}  > version.txt
           echo "Stored version in $(pwd)/version.txt"
 
       - name: Upload to github artifacts
@@ -125,8 +125,8 @@ jobs:
           fi
 
           echo "Production version: $(cat version.txt )"
-          echo "Pull request version: ${{ steps.version.outputs.stdout }}"
-          if [ "$(cat version.txt )" == "${{ steps.version.outputs.stdout }}" ]; then
+          echo "Pull request version: ${{ steps.version.outputs.result }}"
+          if [ "$(cat version.txt )" == "${{ steps.version.outputs.result }}" ]; then
             echo "Version has not changed"
             exit 1
           else
