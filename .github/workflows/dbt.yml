@@ -83,7 +83,10 @@ jobs:
 
       - name: Store as a text file
         # runs in the dbt directory, so is stored as dbt/version.txt
-        run: echo ${{ steps.version.outputs.stdout }}  > version.txt
+        run: |
+          echo "Production version: ${{ steps.version.outputs.stdout }}"
+          echo ${{ steps.version.outputs.stdout }}  > version.txt
+          echo "Stored version in $pwd/version.txt"
 
       - name: Upload to github artifacts
         uses: actions/upload-artifact@v3
