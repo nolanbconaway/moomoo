@@ -19,6 +19,27 @@ jobs:
         with:
           python-version: "3.9"
 
+      - uses: ankane/setup-postgres@v1
+        with:
+          postgres-version: 14
+
+      - name: install pgvector
+        run: |
+          sudo apt install curl ca-certificates gnupg
+
+          curl https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | gpg --dearmor \
+            | sudo tee /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg \
+            >/dev/null
+
+          sudo sh -c \
+            'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            > /etc/apt/sources.list.d/pgdg.list'
+          
+          sudo apt update
+          sudo apt install postgresql-server-dev-14
+          sudo apt install postgresql-14-pgvector
+
       - name: pip cache
         uses: actions/cache@v3
         with:
