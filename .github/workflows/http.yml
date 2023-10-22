@@ -1,0 +1,88 @@
+name: http
+
+on:
+  push:
+    paths:
+      - http/**
+      - .github/workflows/http.yml
+
+defaults:
+  run:
+    working-directory: ./http
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: pip cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-http-${{ hashFiles('http/setup.py') }}
+
+      - name: pip install
+        run: |
+          pip install pip==23.*
+          pip install .[test]
+
+      - name: lint
+        run: make lint
+      
+      - name: test
+        run: make test
+
+  # run only on main branch
+  store-production-version:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Print the current version
+        run: cat src/moomoo_http/version
+
+      - name: Upload to github artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: version
+          path: client/src/moomoo_http/version
+
+  # run not on main, in pull request
+  check-version-changed:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the production version artifact
+        continue-on-error: true # if the artifact does not exist
+        id: download-version
+        uses: actions/download-artifact@v3
+        with:
+          name: version
+          path: http/version.txt
+
+      - name: Compare versions
+        # runs in http/, so can reference version.txt instead of http/version.txt
+        run: |
+          # check if the artifact exists, if not exit 0.
+          if [ ! -f version.txt ]; then
+            echo "Production version not found"
+            exit 0
+          fi
+
+          pr_version=$(cat src/moomoo_http/version)
+
+          echo "Production version: $(cat version.txt)"
+          echo "Pull request version: $pr_version"
+          if [ "$(cat version.txt)" == "$pr_version" ]; then
+            echo "Version has not changed"
+            exit 1
+          else
+            echo "Version has changed"
+          fi
