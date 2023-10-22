@@ -86,7 +86,7 @@ jobs:
         run: |
           echo "Production version: ${{ steps.version.outputs.stdout }}"
           echo ${{ steps.version.outputs.stdout }}  > version.txt
-          echo "Stored version in $pwd/version.txt"
+          echo "Stored version in $(pwd)/version.txt"
 
       - name: Upload to github artifacts
         uses: actions/upload-artifact@v3
