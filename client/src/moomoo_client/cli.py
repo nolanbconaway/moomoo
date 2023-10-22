@@ -1,7 +1,7 @@
-"""A thin client for moomoo.
+"""A CLI for moomoo client.
 
-Eventually this should be split out into a separate package but for now it's
-easier to keep it here.
+Currently contains only an interface to the playlist generation endpoint, but eventaully
+will contain all the functionality of the moomoo client.
 """
 import json
 import os
@@ -10,13 +10,19 @@ from pathlib import Path
 import click
 import requests
 
-from .utils_ import PlaylistResult
+from .utils_ import PlaylistResult, moomoo_version
 
 
 @click.group()
 def cli():
     """Cli group for moomoo client."""
     pass
+
+
+@cli.command()
+def version():
+    """Get the version of moomoo-client."""
+    click.echo(moomoo_version())
 
 
 @cli.group()
