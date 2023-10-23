@@ -62,9 +62,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check version changed.
-        uses: brettcannon/check-for-changed-files@v1
-        with:
-          file-pattern: "http/src/moomoo_http/version"
-          skip-label: "skip-version"
-          failure-message: "Missing a version change in ${file-pattern}. Add one or apply ${skip-label}."
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v39
+      - name: check version changed
+        run: |
+          if [[ "${{ steps.changed-files.outputs.all_changed_files }}" =~ "http/src/moomoo_http/version" ]]; then
+            echo "Version changed"
+          else
+            echo "Version not changed"
+            exit 1
+          fi
