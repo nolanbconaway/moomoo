@@ -38,6 +38,6 @@ setup(
 ),
     entry_points={"console_scripts": ["moomoo-ml=moomoo_ml.cli:cli"]},
     package_data={
-        "moomoo_ml": ["model-info.json"],
+        "moomoo_ml": ["model-info.json", "version"],
     },
 )
