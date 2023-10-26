@@ -3,7 +3,7 @@ import datetime
 import os
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import create_engine, func, text
+from sqlalchemy import create_engine, func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
