@@ -13,7 +13,7 @@ docker-build:
 docker-run:
 	@ if [ -z "$(cmd)" ]; \
 		then echo "ERROR: cmd=... (debug, deps, etc) is required."; exit 1; \
-		else docker run --interactive --tty \
+		else docker run --interactive --tty --rm \
 				--add-host=host.docker.internal:host-gateway \
 				--env DBT_HOST="$(DBT_HOST)" \
 				--env DBT_PORT="$(DBT_PORT)" \
