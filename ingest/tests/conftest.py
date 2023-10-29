@@ -23,6 +23,7 @@ def remove_env_variables(monkeypatch):
 @pytest.fixture(autouse=True)
 def disable_musicbrainzngs_calls(monkeypatch):
     """Disable all calls to musicbrainzngs."""
+
     def f(*_, **__):
         raise RuntimeError("musicbrainzngs called unexpectedly")
 

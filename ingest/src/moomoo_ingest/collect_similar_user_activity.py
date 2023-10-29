@@ -1,8 +1,11 @@
 """Query the ListenBrainz user statistics api and store similar user top activity.
 
-This script is meant to be run periodically and upload whatever data is available to the
-database. It will not overwrite existing data. So DBT will be needed to merge latest,
-over time, etc.
+Gets similar users for a given user, then gets the top activity for each of those users
+in each of the entities (artists, releases, recordings) and time ranges (month, year,
+all_time). Stores all combinations of these in the db. This takes serveral minutes to
+run given the number of HTTP requests.
+
+
 """
 import hashlib
 import json
@@ -67,14 +70,10 @@ def get_user_top_activity(
         raise e
 
 
-@click.command()
+@click.command(help=__doc__)
 @click.argument("username")
 def main(username: str):
-    """Get the top releases for a user's similar users.
-
-    Ranks the releases by the number of listens and the similarity score of the similar
-    user. Returns a dict of {mbid: score} pairs, in descending order of score.
-    """
+    """Run the main CLI."""
     similar_users = get_similar_users(username)
     records = []
     for user, entity, time_range in product(similar_users, ENTITIES, TIME_RANGES):
@@ -123,6 +122,7 @@ def main(username: str):
                 **row, insert_ts_utc=utils_.utcnow()
             ).upsert(session=session)
 
+        click.echo("Insert complete.")
     click.echo("Done.")
 
 

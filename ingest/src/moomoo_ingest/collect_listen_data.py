@@ -1,9 +1,8 @@
-"""Query the ListenBrainz listens api and store it in the db.
+"""Query the ListenBrainz listens api and store listen data in the db.
 
 This script is meant to be run periodically to update the db with recent tracks. It uses
 an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a 
-listen event. A postgres on conflict clause is used to update the listen if it already
-exists and ensure uniqueness.
+listen event; with duplicates being upserted.
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/core.html#get--1-user-(user_name)-listens
 """
@@ -92,7 +91,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
             )
 
 
-@click.command()
+@click.command(help=__doc__)
 @click.argument("username")
 @click.option(
     "--since-last",
@@ -103,7 +102,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
     "--from",
     "from_dt",
     type=utils_.utcfromisodate,
-    help="Start date in iso-format. Irrelevant if --since-* is used.",
+    help="Start date in iso-format. Irrelevant if --since-last is used.",
 )
 @click.option(
     "--to",
@@ -128,13 +127,7 @@ def main(
     to_dt: datetime.datetime,
     buffer_days: int,
 ):
-    """Query the ListenBrainz listens api and store it in the db.
-
-    This script is meant to be run periodically to update the db with recent tracks. It
-    uses an md5 hash of the (listen user, timestamp, recording_msid) to uniquely
-    identify a listen event. A postgres on conflict clause is used to update the listen
-    if it already exists and ensure uniqueness.
-    """
+    """CLI entrypoint."""
     if since_last and from_dt:
         click.echo("--since-last and --from are mutually exclusive.")
         sys.exit(1)

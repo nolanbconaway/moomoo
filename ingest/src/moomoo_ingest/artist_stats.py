@@ -1,7 +1,16 @@
-"""Query the ListenBrainz listens api for alltime stats per artist.
+"""Query the ListenBrainz listens api for all-time stats per artist.
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/statistics.html#get--1-stats-artist-(artist_mbid)-listeners
 
+Requires that the dbt models have been run to populate the mbids table, as we need to
+collect all mbids from listens, local files, etc.
+
+This tool has logic to detect new mbids that have not been annotated yet, as well as
+mbids that have been annotated but may need refreshing. The latter is useful for mbids
+that were enriched long ago, but may have new data available in MusicBrainz.
+
+In practice, it takes roughly ~0.5s to annotate a single mbid. Use this with the --limit
+option to limit the total run time.
 """
 import datetime
 import json

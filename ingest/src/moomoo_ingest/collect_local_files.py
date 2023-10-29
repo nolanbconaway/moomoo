@@ -1,4 +1,8 @@
-"""Scan local files and add the metadata to the database."""
+"""Scan local files and add the metadata to the database.
+
+Parses each audio file and extracts the metadata with mutagen. The metadata is then
+inserted into the database ast a JSON blob.
+"""
 import multiprocessing
 import sys
 from pathlib import Path
@@ -76,11 +80,16 @@ def parse_audio_file(path: Path) -> dict:
     )
 
 
-@click.command()
+@click.command(help=__doc__)
 @click.argument(
     "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
 )
-@click.option("--procs", help="Number of processes to use", default=1, type=int)
+@click.option(
+    "--procs",
+    help="Number of processes to use (metadata read only)",
+    default=1,
+    type=int,
+)
 def main(
     src_dir: list[Path],
     procs: int,

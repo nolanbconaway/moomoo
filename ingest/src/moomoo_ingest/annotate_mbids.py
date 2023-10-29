@@ -1,13 +1,14 @@
-"""Annotate known mbids with existing data from MusicBrainz.
+"""Enrich the database with metadata about mbids with data from MusicBrainz.
 
-The status of an mbid falls into three categories:
+Requires that the dbt models have been run to populate the mbids table, as we need to
+collect all mbids from listens, local files, etc.
 
-1. New unannotated data.
-2. Old data that is not annotated because the process failed earlier.
-3. Old data that is already annotated.
+This tool has logic to detect new mbids that have not been annotated yet, as well as
+mbids that have been annotated but may need refreshing. The latter is useful for mbids
+that were enriched long ago, but may have new data available in MusicBrainz.
 
-We want to periodically re-check old data in case annotations have arrived in the db. So
-we need to keep track of when we checked as well as the status of the check.
+In practice, it takes roughly ~1s to annotate a single mbid. Use this with the --limit
+option to limit the total run time.
 """
 import datetime
 import os

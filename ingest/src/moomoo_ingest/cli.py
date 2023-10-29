@@ -21,6 +21,7 @@ def version_cli():
     """Print the version."""
     click.echo(moomoo_version())
 
+
 cli.add_command(db_cli, "db")
 cli.add_command(annotate_mbids_main, "annotate-mbids")
 cli.add_command(artist_stats_main, "artist-stats")
