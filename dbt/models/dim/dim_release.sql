@@ -33,12 +33,12 @@ with t as (
 , artist_array as (
   select
     t.release_mbid
-    , array_agg({{ json_get('artist_credit', ['artist', 'id']) }}::uuid) as "artist_mbids_list"
+    , array_agg({{ json_get('ac.value', ['artist', 'id']) }}::uuid) as "artist_mbids_list"
 
   from t
-  , jsonb_array_elements("artist_credit_list") as artist_credit -- noqa: AL05
+  , jsonb_array_elements("artist_credit_list") as ac -- noqa: AL05
 
-  where artist_credit."artist_credit" is not null
+  where ac.value is not null
   group by 1
 )
 

@@ -41,4 +41,7 @@ Use the `cmd=` variable to pass instructions to docker run.
 
 ```sh
 make docker-run cmd='artist-stats --before=2023-10-20 --limit 20'
+
+# use the mounted dir for local music in docker
+make docker-run cmd='local-files /mnt/music --procs=5'
 ```
