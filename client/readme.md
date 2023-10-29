@@ -8,8 +8,6 @@ Use of the client requires something to ensure the same access to the media libr
 
 ## Install/usage
 
-> TODO: pip installable somehow?
-
 Point to the media library and the `moomoo/http` server with these envvars:
 
 ```sh

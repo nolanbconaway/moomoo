@@ -23,6 +23,7 @@ docker-build:
 .PHONY:
 docker-run:
 	@ docker run \
+		--interactive --tty --rm \
 		--env MOOMOO_POSTGRES_URI=$(MOOMOO_DOCKER_POSTGRES_URI) \
 		--env MOOMOO_ML_DEVICE=$(MOOMOO_ML_DEVICE) \
 		--add-host=host.docker.internal:host-gateway \
