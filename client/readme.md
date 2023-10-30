@@ -6,7 +6,19 @@ This package contains the client-centric application. It is designed to communic
 
 Use of the client requires something to ensure the same access to the media library as on the server. This could be a SFTP mount, or running the client directly on the server.
 
-## Install/usage
+## Install
+
+This is intended to be a lightweight pypackage, installed via [`pipx`](https://github.com/pypa/pipx) or similar.
+
+Install from git via:
+
+```sh
+pipx install git+https://github.com/nolanbconaway/moomoo.git#subdirectory=client
+```
+
+> NOTE: Only python 3.9 and 3.10 are tested, so use the `--python=/path/to/py3.9/bin/python` pipx option if needed.
+
+## Usage
 
 Point to the media library and the `moomoo/http` server with these envvars:
 
@@ -15,7 +27,7 @@ MOOMOO_HOST=host:port
 MOOMOO_MEDIA_LIBRARY=/files/where/music
 ```
 
-Create a strawberry playlist from a file
+Create a [strawberry](https://www.strawberrymusicplayer.org/) playlist from a file
 
 ```sh
 moomoo-client playlist from-path --username=... --out=strawberry /path/to/file.mp3

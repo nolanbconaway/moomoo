@@ -12,3 +12,6 @@ dbt/logs/**/*
 dbt/.dotdbt
 deploy.sh
 
+# Packaging
+**/dist
+**/build
