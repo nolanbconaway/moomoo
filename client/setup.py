@@ -10,10 +10,21 @@ version = (
     .strip()
 )
 
+readme = (Path(__file__).resolve().parent / "readme.md").read_text()
+
 
 setup(
     name="moomoo-client",
     version=version,
+    author_email="nolanbconaway@gmail.com",
+    url="https://github.com/nolanbconaway/moomoo/tree/main/client",
+    description="A command-line client installation for moomoo.",
+    long_description=readme,
+    long_description_content_type="text/markdown",
+    classifiers=[
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+    ],
     packages=find_packages("src"),
     package_dir={"": "src"},
     install_requires=[
