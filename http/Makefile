@@ -1,4 +1,10 @@
 
+VERSION := $(shell cat src/moomoo_http/version)
+
+.PHONY:
+version:
+	@ echo $(VERSION)
+
 .PHONY: 
 lint:
 	@ black tests src --check --verbose
@@ -36,14 +42,14 @@ docker-http-serve:
 		--add-host=host.docker.internal:host-gateway \
 		--env MOOMOO_POSTGRES_URI="$(MOOMOO_DOCKER_POSTGRES_URI)" \
 		--env MOOMOO_DBT_SCHEMA=${MOOMOO_DBT_SCHEMA} \
-		moomoo-http-v$$(moomoo-http version) \
+		moomoo-http-v$(VERSION) \
 		make http
 
 .PHONY:
 get-docker-logs:
-	@ docker logs $$(docker ps | grep moomoo-v$(moomoo version) |  cut -d' ' -f1)
+	@ docker logs $$(docker ps | grep moomoo-http-v$(VERSION) |  cut -d' ' -f1)
 
 .PHONY:
 docker-build:
 	@ echo "\n\nBuilding docker image..."
-	@ docker build -t moomoo-http-v$$(moomoo-http version) .
+	@ docker build -t moomoo-http-v$(VERSION) .

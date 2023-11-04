@@ -1,24 +1,30 @@
 
-.PHONY: 
+VERSION := $(shell cat src/moomoo_ingest/version)
+
+.PHONY:
+version:
+	@ echo $(VERSION)
+
+.PHONY:
 lint:
 	@ black tests src --check --verbose
 	@ ruff .
 
-.PHONY: 
+.PHONY:
 format:
 	@ black tests src --verbose
 
-.PHONY: 
+.PHONY:
 test:
 	@ CONTACT_EMAIL=FAKE pytest tests --verbose
 
-.PHONY: 
+.PHONY:
 lint-test: lint test
 
 .PHONY:
 docker-build:
 	@ echo "\n\nBuilding docker image..."
-	@ docker build -t moomoo-ingest-v$$(moomoo-ingest version) .
+	@ docker build -t moomoo-ingest-v$(VERSION) .
 
 
 .PHONY:
@@ -31,6 +37,6 @@ docker-run:
 			--env MOOMOO_CONTACT_EMAIL=$(MOOMOO_CONTACT_EMAIL) \
 			--add-host=host.docker.internal:host-gateway \
 			--mount=type=bind,source=$(MOOMOO_MEDIA_LIBRARY),target=/mnt/music,readonly \
-			moomoo-ingest-v$$(moomoo-ingest version) \
+			moomoo-ingest-v$(VERSION) \
 			moomoo-ingest $(cmd); \
 		fi
