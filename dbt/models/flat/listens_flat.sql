@@ -113,7 +113,6 @@ select
   , release_name
   , release_mbid
   , recording_mbid
-  , {{ recording_md5( 'track_name', 'artist_name', 'release_name') }} as recording_md5
   , artist_mbids
   , caa_release_mbid
   , duration_ms

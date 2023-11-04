@@ -1,6 +1,10 @@
 VERSION := $(shell yq .version dbt_project.yml)
 
 .PHONY:
+version:
+	@ echo $(VERSION)
+
+.PHONY:
 lint:
 	@ sqlfluff lint models --config .sqlfluff --disable-progress-bar
 
