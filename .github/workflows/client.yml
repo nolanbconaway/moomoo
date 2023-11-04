@@ -18,7 +18,7 @@ jobs:
         pyv: ['3.9', '3.10']
 
     concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}-lint-test
+      group: ${{ github.workflow }}-${{ github.ref }}-${{matrix.pyv}}-lint-test
       cancel-in-progress: true
 
     steps:
