@@ -34,6 +34,10 @@ jobs:
       DBT_SCHEMA: public
       DBT_SSLMODE: disable
 
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-lint-test
+      cancel-in-progress: true
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
