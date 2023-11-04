@@ -1,12 +1,15 @@
 VERSION := $(shell yq .version dbt_project.yml)
 
 .PHONY:
+version:
+	@ echo $(VERSION)
+
+.PHONY:
 lint:
 	@ sqlfluff lint models --config .sqlfluff --disable-progress-bar
 
 .PHONY:
 docker-build:
-# run tests if TEST=1
 	@ docker build -t moomoo-dbt-v$(VERSION) .
 
 .PHONY:

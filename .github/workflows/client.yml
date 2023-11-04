@@ -16,6 +16,11 @@ jobs:
     strategy:
       matrix:
         pyv: ['3.9', '3.10']
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{matrix.pyv}}-lint-test
+      cancel-in-progress: true
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -35,7 +40,7 @@ jobs:
 
       - name: lint
         run: make lint
-      
+
       - name: test
         run: make test
 
@@ -56,4 +61,3 @@ jobs:
             exit 1
           fi
 
-        

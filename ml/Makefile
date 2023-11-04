@@ -1,24 +1,30 @@
 
-.PHONY: 
+VERSION := $(shell cat src/moomoo_ml/version)
+
+.PHONY:
+version:
+	@ echo $(VERSION)
+
+.PHONY:
 lint:
 	@ black tests src --check --verbose
 	@ ruff tests src
 
-.PHONY: 
+.PHONY:
 format:
 	@ black tests src --verbose
 
-.PHONY: 
+.PHONY:
 test:
 	@ CONTACT_EMAIL=FAKE pytest tests --verbose
 
-.PHONY: 
+.PHONY:
 lint-test: lint test
 
 .PHONY:
 docker-build:
 	@ echo "\n\nBuilding docker image..."
-	@ docker build -t moomoo-ml-v$$(moomoo-ml version) .
+	@ docker build -t moomoo-ml-v$(VERSION) .
 
 .PHONY:
 docker-run:
@@ -29,5 +35,5 @@ docker-run:
 		--add-host=host.docker.internal:host-gateway \
 		--mount=type=bind,source=$(MOOMOO_MEDIA_LIBRARY),target=/mnt/music,readonly \
 		--gpus all \
-		moomoo-ml-v$$(moomoo-ml version) \
+		moomoo-ml-v$(VERSION)
 		moomoo-ml score /mnt/music
