@@ -10,7 +10,6 @@ lint:
 
 .PHONY:
 docker-build:
-# run tests if TEST=1
 	@ docker build -t moomoo-dbt-v$(VERSION) .
 
 .PHONY:
