@@ -1,70 +1,79 @@
 {{ config(materialized='view') }}
 
+{# Mega model with many deps, containing all known mbids. #}
+
 with release_mbids as (
   select distinct release_mbid as mbid
-  from {{ ref('listens_flat') }}
+  from {{ ref('listens') }}
   where release_mbid is not null
 
   union distinct
 
   select distinct release_mbid as mbid
-  from {{ ref('local_files_flat') }}
+  from {{ ref('local_files') }}
   where release_mbid is not null
 
   union distinct
 
   select distinct mbid
-  from {{ ref('similar_user_activity_flat') }}
+  from {{ ref('similar_user_activity') }}
   where entity = 'release'
 )
 
 , release_group_mbids as (
   select distinct release_group_mbid as mbid
-  from {{ ref('local_files_flat') }}
+  from {{ ref('local_files') }}
+  where release_group_mbid is not null
+
+  union distinct
+
+  {# NOTE: weird here but we only know the release group for listen data AFTER querying musicbrainz. #}
+  select distinct release_group_mbid as mbid
+  from {{ ref('releases') }}
   where release_group_mbid is not null
 )
 
 , recording_mbids as (
   select distinct recording_mbid as mbid
-  from {{ ref('listens_flat') }}
+  from {{ ref('listens') }}
   where recording_mbid is not null
 
   union distinct
 
   select distinct recording_mbid as mbid
-  from {{ ref('local_files_flat') }}
+  from {{ ref('local_files') }}
   where recording_mbid is not null
 
   union distinct
 
   select distinct mbid
-  from {{ ref('similar_user_activity_flat') }}
+  from {{ ref('similar_user_activity') }}
   where entity = 'recording'
 )
 
 , artist_mbids as (
   select distinct artist_mbid.value::uuid as mbid
-  from {{ ref('listens_flat') }} as listens_flat
-  , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
-  where listens_flat.artist_mbids is not null
-    and jsonb_array_length(listens_flat.artist_mbids) > 0
+  from {{ ref('listens') }} as listens
+  , jsonb_array_elements_text(listens.artist_mbids) as artist_mbid
+  where listens.artist_mbids is not null
+    and jsonb_array_length(listens.artist_mbids) > 0
 
   union distinct
 
   select distinct artist_mbid as mbid
-  from {{ ref('local_files_flat') }}
+  from {{ ref('local_files') }}
   where artist_mbid is not null
 
   union distinct
 
   select distinct album_artist_mbid as mbid
-  from {{ ref('local_files_flat') }}
+  from {{ ref('local_files') }}
   where album_artist_mbid is not null
 
   union distinct
 
   select distinct mbid
-  from {{ ref('similar_user_activity_flat') }}
+  from {{ ref('similar_user_activity') }}
   where entity = 'artist'
 )
 

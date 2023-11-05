@@ -101,9 +101,9 @@ def test_get_playlist__no_files_error():
     load_local_files_table(data=[])
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     with pytest.raises(NoFilesRequestedError):
-        PlaylistGenerator(
-            f"select filepath from {schema}.local_files_flat"
-        ).get_playlist(session=db.session)
+        PlaylistGenerator(f"select filepath from {schema}.local_files").get_playlist(
+            session=db.session
+        )
 
 
 def test_get_playlist__artist_limit():

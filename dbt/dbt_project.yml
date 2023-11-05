@@ -1,5 +1,5 @@
 name: 'moomoo'
-version: '1.0.4'
+version: '1.0.5'
 config-version: 2
 profile: 'moomoo'
 
@@ -11,11 +11,17 @@ macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
 target-path: "target"
 
-clean-targets:       
+clean-targets:
   - "target"
   - "dbt_packages"
 
 models:
-  +materialized: table
-  +grants:
+  materialized: table
+  grants:
     select: ['ro']
+  moomoo:
+    local_files:
+      stg:
+        +schema: stg
+    analytic:
+      materialized: view

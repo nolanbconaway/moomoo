@@ -3,6 +3,52 @@ version: 2
 
 
 models:
+  - name: release_artists_long
+    description: A long format table mapping releases to artists.
+    columns:
+      - name: release_group_artist_key
+        tests:
+          - unique
+          - not_null
+      - name: release_group_mbid
+        tests:
+          - not_null
+      - name: artist_mbid
+        tests:
+          - not_null
+
+  - name: artist_listen_counts
+    description: Analytic table of artist listen data for each user.
+    columns:
+      - name: user_artist_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: artist_mbid
+        tests:
+          - not_null
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: lifetime_recording_count
+        tests:
+          - not_null
+      - name: lifetime_release_group_count
+        tests:
+          - not_null
+      - name: last30_listen_count
+        tests:
+          - not_null
+      - name: last30_recording_count
+        tests:
+          - not_null
+      - name: last30_release_group_count
+        tests:
+          - not_null
+
   - name: track_play_spikes
     description: Records of play spikes (cases where one track was played >=5 times in 24h).
     columns:
@@ -11,24 +57,6 @@ models:
           - not_null
           - unique
 
-  - name: listens_by_year
-    description: Listening statistics by recording year.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - release_year
-
-  - name: similar_user_recommends
-    description: Top mbids listened to by similar users but not by the user themselves.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - time_range
-            - entity
-            - mbid
-
   - name: fresh_releases
     description: Albums from artists without a lot of listens, ranked by similar user score.
     tests:
@@ -36,16 +64,3 @@ models:
           combination_of_columns:
             - username
             - rank
-
-  - name: top_releases_by_release_year
-    description: Top 5 most listened to releases for each release year.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - release_year
-            - rank
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - release_mbid
