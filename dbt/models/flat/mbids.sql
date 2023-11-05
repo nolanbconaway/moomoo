@@ -18,6 +18,12 @@ with release_mbids as (
   where entity = 'release'
 )
 
+, release_group_mbids as (
+  select distinct release_group_mbid as mbid
+  from {{ ref('local_files_flat') }}
+  where release_group_mbid is not null
+)
+
 , recording_mbids as (
   select distinct recording_mbid as mbid
   from {{ ref('listens_flat') }}
@@ -51,6 +57,12 @@ with release_mbids as (
 
   union distinct
 
+  select distinct album_artist_mbid as mbid
+  from {{ ref('local_files_flat') }}
+  where album_artist_mbid is not null
+
+  union distinct
+
   select distinct mbid
   from {{ ref('similar_user_activity_flat') }}
   where entity = 'artist'
@@ -60,6 +72,13 @@ select
   mbid
   , 'release'::varchar as entity
 from release_mbids
+
+union all
+
+select
+  mbid
+  , 'release-group'::varchar as entity
+from release_group_mbids
 
 union all
 

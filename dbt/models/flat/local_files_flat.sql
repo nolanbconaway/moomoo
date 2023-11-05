@@ -47,7 +47,9 @@ with extracted as (
     , {{ json_get('json_data', ['length']) }}::real as "track_length_seconds"
     , {{ json_get('json_data', ['musicbrainz_trackid']) }}::varchar as "recording_mbid"
     , {{ json_get('json_data', ['musicbrainz_albumid']) }}::varchar as "release_mbid"
+    , {{ json_get('json_data', ['musicbrainz_releasegroupid']) }}::varchar as "release_group_mbid"
     , {{ json_get('json_data', ['musicbrainz_artistid']) }}::varchar as "artist_mbid"
+    , {{ json_get('json_data', ['musicbrainz_albumartistid']) }}::varchar as "album_artist_mbid"
     , "insert_ts_utc"
 
   from {{ source('pyingest', 'local_music_files') }}
@@ -75,9 +77,10 @@ select
   , processed.track_length_seconds
   , {{ try_cast_uuid('processed.recording_mbid') }} as recording_mbid
   , {{ try_cast_uuid('processed.release_mbid') }} as release_mbid
+  , {{ try_cast_uuid('processed.release_group_mbid') }} as release_group_mbid
   , {{ try_cast_uuid('processed.artist_mbid') }} as artist_mbid
+  , {{ try_cast_uuid('processed.album_artist_mbid') }} as album_artist_mbid
   , processed.insert_ts_utc
-
 
   , embeds.success as embedding_success
   , embeds.duration_seconds as embedding_duration_seconds
