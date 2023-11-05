@@ -16,36 +16,36 @@ MAX_SOURCE_PATHS = 25
 SQL_TEMPLATE = """
 with base as (
     select filepath, embedding, artist_mbid
-    from {schema}.local_files_flat
+    from {schema}.local_files
     where filepath = any(:filepaths)
 )
 
 , distances as (
     select
-        local_files_flat.filepath as filepath
-        , avg(base.embedding <-> local_files_flat.embedding) as distance
+        local_files.filepath as filepath
+        , avg(base.embedding <-> local_files.embedding) as distance
 
     from base
-    cross join {schema}.local_files_flat
+    cross join {schema}.local_files
 
-    where local_files_flat.embedding_success
-      and local_files_flat.embedding_duration_seconds >= 60
-      and local_files_flat.artist_mbid is not null
-      and not local_files_flat.filepath = any(:filepaths)
+    where local_files.embedding_success
+      and local_files.embedding_duration_seconds >= 60
+      and local_files.artist_mbid is not null
+      and not local_files.filepath = any(:filepaths)
 
-    group by local_files_flat.filepath
+    group by local_files.filepath
 )
 
 , ranked as (
     select
-        local_files_flat.filepath
+        local_files.filepath
         , distances.distance
         , row_number() over (
-            partition by local_files_flat.artist_mbid order by distance
+            partition by local_files.artist_mbid order by distance
         ) as artist_rank
 
     from distances
-    inner join {schema}.local_files_flat using (filepath)
+    inner join {schema}.local_files using (filepath)
 )
 
 select filepath, distance
@@ -66,7 +66,7 @@ class PlaylistGenerator:
     """A playlist generator, wrapping simple database access.
 
     Users must provide a SQL query that returns a single column of filepaths.
-    This will be joined to the local_files_flat table to get the embedding distance
+    This will be joined to the local_files table to get the embedding distance
     between the requested song and all other songs in the database.
 
     Users may also supply additional parameters to the SQL query, which will be
@@ -100,7 +100,7 @@ class PlaylistGenerator:
 
         request_sql = f"""
             select filepath
-            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files_flat
+            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files
             where filepath = any(:filepaths)
         """
 
@@ -111,7 +111,7 @@ class PlaylistGenerator:
         """Create a playlist generator from a parent path."""
         request_sql = f"""
             select filepath
-            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files_flat
+            from {os.environ["MOOMOO_DBT_SCHEMA"]}.local_files
             where filepath like :path
             order by random()
             limit 25

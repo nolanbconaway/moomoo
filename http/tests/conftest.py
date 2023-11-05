@@ -60,7 +60,7 @@ def load_local_files_table(data: list[dict]):
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
 
         sql = f"""
-            create table {schema}.local_files_flat (
+            create table {schema}.local_files (
                 filepath text primary key
                 , embedding_success bool
                 , embedding vector
@@ -71,7 +71,7 @@ def load_local_files_table(data: list[dict]):
         db.session.execute(text(sql))
 
         sql = f"""
-            insert into {schema}.local_files_flat (
+            insert into {schema}.local_files (
                 filepath
                 , embedding_success
                 , embedding

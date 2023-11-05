@@ -102,7 +102,7 @@ def test_get_playlist__no_files_error():
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     with pytest.raises(NoFilesRequestedError):
         PlaylistGenerator(
-            f"select filepath from {schema}.local_files_flat"
+            f"select filepath from {schema}.local_files"
         ).get_playlist(session=db.session)
 
 
