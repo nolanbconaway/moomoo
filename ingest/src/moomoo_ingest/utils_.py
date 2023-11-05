@@ -67,10 +67,6 @@ def _get_release_group_data(release_group_mbid: str) -> dict:
         includes=[
             "artists",
             "releases",
-            "discids",
-            "media",
-            "artist-credits",
-            "annotation",
             "aliases",
             "tags",
             "area-rels",
@@ -95,6 +91,7 @@ def _get_release_data(release_mbid: str) -> dict:
             "artists",
             "labels",
             "recordings",
+            "release-groups",
             "aliases",
             "tags",
             "area-rels",
