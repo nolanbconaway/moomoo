@@ -2,7 +2,7 @@
 version: 2
 
 models:
-  - name: dim_artist
+  - name: artists
     description: Dimensional model containing information about artists.
     columns:
       - name: artist_mbid
@@ -16,21 +16,20 @@ models:
       - name: alias_list
       - name: url_relation_list
       - name: artist_relation_list
-      - name: stats_from_ts
-      - name: stats_to_ts
-      - name: total_listen_count
-      - name: listeners
-      - name: annotate_ingest_ts_utc
+      - name: _ingest_insert_ts_utc
         tests:
           - not_null
 
-  - name: dim_release
+  - name: releases
     description: Dimensional model containing information about releases.
     columns:
       - name: release_mbid
         tests:
           - not_null
           - unique
+      - name: release_group_mbid
+        tests:
+          - not_null
       - name: release_title
         tests:
           - not_null
@@ -38,19 +37,30 @@ models:
         tests:
           - not_null
       - name: release_year
-      - name: artist_mbid
-        description: mbid for the first artist credited in the artist_credit_list.
-        tests:
-          - not_null
-      - name: release_status
-      - name: release_barcode
-      - name: release_country
-      - name: release_asin
-      - name: release_date
       - name: artist_credit_list
-      - name: artist_mbids_list
       - name: label_info_list
       - name: url_relation_list
+      - name: _ingest_insert_ts_utc
+        tests:
+          - not_null
+
+  - name: release_groups
+    description: Dimensional model containing information about release groups.
+    columns:
+      - name: release_group_mbid
+        tests:
+          - not_null
+          - unique
+      - name: release_group_title
+        tests:
+          - not_null
+      - name: release_group_year
+      - name: artist_credit_list
+      - name: tag_list
+      - name: url_relation_list
+      - name: artist_credit_phrase
+        tests:
+          - not_null
       - name: _ingest_insert_ts_utc
         tests:
           - not_null
@@ -66,12 +76,6 @@ models:
         tests:
           - not_null
       - name: artist_credit_phrase
-        tests:
-          - not_null
-      - name: release_year
-        description: Fiirst year listed in the release_list.
-      - name: artist_mbid
-        description: mbid for the first artist credited in the artist_credit_list.
         tests:
           - not_null
       - name: recording_length

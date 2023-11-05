@@ -2,30 +2,30 @@
 
 {# Albums from artists without a lot of listens, ranked by similar user score. #}
 
-with artist_listen_counts as (
+with similar_users as (
   select
-    listens_flat.username
-    , artist_mbid.value::uuid as artist_mbid
-    , count(distinct listens_flat.recording_mbid) as listen_count
+    from_username as username
+    , time_range
+    , entity
+    , mbid
+    , sum(user_similarity * log(listen_count)) as score
 
-  from {{ ref('listens_flat') }} as listens_flat
-  , jsonb_array_elements_text(listens_flat.artist_mbids) as artist_mbid
+  from {{ ref('similar_user_activity') }}
 
-  where listens_flat.artist_mbids is not null
-    and jsonb_array_length(listens_flat.artist_mbids) > 0
-
-  group by 1, 2
+  group by 1, 2, 3, 4
 )
 
 , skip_releases as (
-  {# skip anything with an artist with > 5 listens #}
+  {# skip releases containing an artist with > 5 listens #}
   select alc.username, r.release_mbid
 
-  from {{ ref('dim_release') }} as r
-  inner join artist_listen_counts as alc on alc.artist_mbid = any(r.artist_mbids_list)
+  from {{ ref('releases') }} as r
+  inner join {{ ref('release_artists_long') }} as ra using (release_group_mbid)
+  inner join {{ ref('artist_listen_counts') }} as alc
+    on ra.artist_mbid = alc.artist_mbid
 
   group by 1, 2
-  having max(alc.listen_count) > 5
+  having max(alc.lifetime_listen_count) > 5
 )
 
 , release_scores as (
@@ -34,8 +34,8 @@ with artist_listen_counts as (
     , s.time_range
     , concat(r.release_title, ' - ', r.artist_credit_phrase) as description_text
     , row_number() over (partition by s.username, s.time_range order by s.score desc) as rank
-  from {{ ref('similar_user_recommends') }} as s
-  inner join {{ ref('dim_release') }} as r
+  from similar_users as s
+  inner join {{ ref('releases') }} as r
     on r.release_mbid = s.mbid
       and s.entity = 'release'
   left join skip_releases

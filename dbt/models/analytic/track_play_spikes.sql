@@ -14,8 +14,8 @@ with spikes_unconstrained as (
       }} as user_recording_mbid
     , count(1) as next_24h_listen_count
 
-  from {{ ref('listens_flat') }} as t0
-  inner join {{ ref('listens_flat') }} as tn
+  from {{ ref('listens') }} as t0
+  inner join {{ ref('listens') }} as tn
     on tn.recording_mbid = t0.recording_mbid
       and t0.recording_mbid is not null
       and tn.username = t0.username
@@ -48,17 +48,17 @@ with spikes_unconstrained as (
 
 select
   spikes_unconstrained.listen_md5 as start_listen_md5
-  , listens_flat.recording_mbid
+  , listens.recording_mbid
   , spikes_unconstrained.username
   , spikes_unconstrained.period_start_at_utc
   , spikes_unconstrained.next_24h_listen_count
-  , listens_flat.track_name
-  , listens_flat.release_name
-  , listens_flat.artist_name
+  , listens.track_name
+  , listens.release_name
+  , listens.artist_name
 
 from spikes_unconstrained
-inner join {{ ref('listens_flat') }} as listens_flat
-  on spikes_unconstrained.listen_md5 = listens_flat.listen_md5
+inner join {{ ref('listens') }} as listens
+  on spikes_unconstrained.listen_md5 = listens.listen_md5
 
 where spikes_unconstrained.listen_md5 not in (select * from exclude)
 

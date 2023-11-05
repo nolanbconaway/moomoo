@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: mbids
+    description: Long format list of every mbid in the system and the entity to which it applies.
+    columns:
+      - name: mbid
+        tests:
+          - not_null
+          - unique
+      - name: entity
+        tests:
+          - not_null
+
