@@ -29,6 +29,7 @@ def disable_musicbrainzngs_calls(monkeypatch):
 
     monkeypatch.setattr(musicbrainzngs, "get_recording_by_id", f)
     monkeypatch.setattr(musicbrainzngs, "get_release_by_id", f)
+    monkeypatch.setattr(musicbrainzngs, "get_release_group_by_id", f)
     monkeypatch.setattr(musicbrainzngs, "get_artist_by_id", f)
 
 
@@ -64,6 +65,31 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     postgresql.commit()
 
     return uri
+
+
+def load_mbids_table(data: list[dict]):
+    """Load the dbt schema mbids table with data.
+
+    This is managed by dbt in prod, but needed for tests.
+
+    Input rows are dicts with keys:
+
+        - mbid: str
+        - entity: str
+    """
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    with get_session() as session:
+        sql = f"""create table if not exists {schema}.mbids (
+            mbid uuid primary key, entity varchar
+        )
+        """
+        session.execute(text(sql))
+
+        sql = f"insert into {schema}.mbids (mbid, entity) values (:mbid, :entity)"
+        for i in data:
+            session.execute(text(sql), i)
+
+        session.commit()
 
 
 def load_local_files_table(data: list[dict]):

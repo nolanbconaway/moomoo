@@ -15,7 +15,7 @@ def moomoo_version() -> str:
 # set user agent for all musicbrainzngs requests
 musicbrainzngs.set_useragent(
     app="moomoo-ingest",
-    version=moomoo_version(),
+    version="moomoo_version()",
     contact=os.environ.get("MOOMOO_CONTACT_EMAIL"),
 )
 
@@ -60,6 +60,33 @@ def _get_recording_data(recording_mbid: str) -> dict:
     )
 
 
+def _get_release_group_data(release_group_mbid: str) -> dict:
+    """Get release group data from MusicBrainz."""
+    return musicbrainzngs.get_release_group_by_id(
+        release_group_mbid,
+        includes=[
+            "artists",
+            "releases",
+            "discids",
+            "media",
+            "artist-credits",
+            "annotation",
+            "aliases",
+            "tags",
+            "area-rels",
+            "artist-rels",
+            "label-rels",
+            "place-rels",
+            "event-rels",
+            "recording-rels",
+            "release-rels",
+            "release-group-rels",
+            "series-rels",
+            "url-rels",
+        ],
+    )
+
+
 def _get_release_data(release_mbid: str) -> dict:
     """Get release data from MusicBrainz."""
     return musicbrainzngs.get_release_by_id(
@@ -98,13 +125,16 @@ def _get_artist_data(artist_mbid: str) -> dict:
     )
 
 
+ENTITIES = ["recording", "release", "artist", "release-group"]
+
+
 def annotate_mbid(mbid: str, entity: str) -> dict:
     """Enrich a MusicBrainz IDs with data from MusicBrainz.
 
     Expected input:
 
     - mbid: the MusicBrainz ID
-    - entity: the type of entity, e.g. 'recording', 'release', 'artist'
+    - entity: the type of entity: 'recording', 'release', 'artist', 'release-group'
 
     Returns a dicts with the following keys:
 
@@ -122,6 +152,7 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
         "recording": _get_recording_data,
         "release": _get_release_data,
         "artist": _get_artist_data,
+        "release-group": _get_release_group_data,
     }.get(entity)
 
     if fn is None:

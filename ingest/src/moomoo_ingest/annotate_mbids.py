@@ -31,8 +31,9 @@ def get_unannotated_mbids() -> list[dict]:
         from {dbt_schema}.mbids
         left join {MusicBrainzAnnotation.table_name()} as src on mbids.mbid = src.mbid
         where src.mbid is null
+          and mbids.entity = any(:entities)
     """
-    return execute_sql_fetchall(sql)
+    return execute_sql_fetchall(sql, params=dict(entities=utils_.ENTITIES))
 
 
 def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
@@ -44,9 +45,12 @@ def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
         inner join {MusicBrainzAnnotation.table_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
         where src.ts_utc < :before
+            and mbids.entity = any(:entities)
         order by src.ts_utc
     """
-    return execute_sql_fetchall(sql, params=dict(before=before))
+    return execute_sql_fetchall(
+        sql, params=dict(before=before, entities=utils_.ENTITIES)
+    )
 
 
 @click.command(help=__doc__)
