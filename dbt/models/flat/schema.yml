@@ -64,6 +64,8 @@ models:
       - name: recording_mbid
       - name: release_mbid
       - name: artist_mbid
+      - name: release_group_mbid
+      - name: album_artist_mbid
       - name: insert_ts_utc
         tests:
           - not_null
