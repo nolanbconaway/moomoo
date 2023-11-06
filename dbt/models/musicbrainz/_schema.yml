@@ -65,7 +65,7 @@ models:
         tests:
           - not_null
 
-  - name: dim_recording
+  - name: recordings
     description: Dimensional model containing information about recordings.
     columns:
       - name: recording_mbid
@@ -78,7 +78,7 @@ models:
       - name: artist_credit_phrase
         tests:
           - not_null
-      - name: recording_length
+      - name: recording_length_ms
       - name: tag_list
       - name: release_list
       - name: artist_credit_list
