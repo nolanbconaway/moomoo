@@ -12,8 +12,7 @@ def get_mock_lb_http(similar_users, activity) -> mock.Mock:
     def side_effect(*args, **kwargs):
         yield similar_users
         if isinstance(activity, list):
-            for a in activity:
-                yield a
+            yield from activity
         else:
             while True:
                 yield activity

@@ -1,6 +1,6 @@
 """Define database ddl and dml operations."""
 import datetime
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
@@ -16,7 +16,7 @@ from .connection import execute_sql_fetchall, get_engine, get_session
 class BaseTable(DeclarativeBase):
     """Base class for all database models."""
 
-    type_annotation_map = {
+    type_annotation_map: ClassVar[dict] = {
         dict[str, Any]: postgresql.JSONB(none_as_null=True),
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
@@ -95,7 +95,9 @@ class BaseTable(DeclarativeBase):
         else:
             f(session)
 
-    def upsert(self, update_cols: list[str] = None, session: Session = None) -> None:
+    def upsert(
+        self, update_cols: list[str] | None = None, session: Session = None
+    ) -> None:
         """Upsert a row into the table.
 
         Set update_cols to a list of columns to update on conflict. Defaults to all
@@ -137,10 +139,10 @@ class BaseTable(DeclarativeBase):
         engine = get_engine()
         create = CreateTable(table).compile(engine)
         indexes = [CreateIndex(index).compile(engine) for index in table.indexes]
-        return [create] + indexes
+        return [create, *indexes]
 
     @classmethod
-    def select_star(cls, where: str = None, **kw) -> list[dict]:
+    def select_star(cls, where: str | None = None, **kw) -> list[dict]:
         """Return a select * query for the table, passing kw to execute_sql_fetchall.
 
         Optionally pass a where clause.

@@ -45,7 +45,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{0}@{1}:{2}/{3}".format(
+    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
