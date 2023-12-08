@@ -2,9 +2,8 @@ import shutil
 from pathlib import Path
 
 from click.testing import CliRunner
-
-from moomoo_ingest.db import LocalFile
 from moomoo_ingest import collect_local_files
+from moomoo_ingest.db import LocalFile
 
 from .conftest import RESOURCES
 

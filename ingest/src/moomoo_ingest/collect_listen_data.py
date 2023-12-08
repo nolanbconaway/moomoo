@@ -27,7 +27,7 @@ def get_listens_in_period(
 ) -> list[dict]:
     """Get recent tracks for a user in a given period."""
     client = ListenBrainz()
-    endpoint = "/1/user/{username}/listens".format(username=username)
+    endpoint = f"/1/user/{username}/listens"
     from_ts = int(from_dt.timestamp())
     to_ts = int(to_dt.timestamp())
 

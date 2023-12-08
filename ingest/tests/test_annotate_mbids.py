@@ -5,10 +5,9 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner, Result
-
 from moomoo_ingest import annotate_mbids
-from moomoo_ingest.utils_ import ENTITIES
 from moomoo_ingest.db import MusicBrainzAnnotation
+from moomoo_ingest.utils_ import ENTITIES
 
 from .conftest import load_mbids_table
 

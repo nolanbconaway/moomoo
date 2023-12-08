@@ -4,10 +4,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner, Result
-from pylistenbrainz.errors import ListenBrainzAPIException
-
-from moomoo_ingest.db import ListenBrainzArtistStats
 from moomoo_ingest import artist_stats
+from moomoo_ingest.db import ListenBrainzArtistStats
+from pylistenbrainz.errors import ListenBrainzAPIException
 
 
 @pytest.fixture

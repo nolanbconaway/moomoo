@@ -1,6 +1,6 @@
 """Test that the version command works."""
-from moomoo_ingest.cli import cli
 from click.testing import CliRunner
+from moomoo_ingest.cli import cli
 
 
 def test_cli_version():

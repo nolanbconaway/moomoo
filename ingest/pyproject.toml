@@ -1,0 +1,13 @@
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "I",   # isort
+    "RUF",  # ruff
+]
+ignore = [
+    "B017", # `pytest.raises(Exception)` should be considered evil. I dont think its evil sorry.
+]

@@ -3,12 +3,11 @@ import datetime
 import psycopg
 import pytest
 from click.testing import CliRunner
-from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy.orm import Mapped, mapped_column
-
 from moomoo_ingest.db.cli import cli as db_cli
 from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_session
 from moomoo_ingest.db.ddl import TABLES, BaseTable, ListenBrainzListen
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class FakeTable(BaseTable):
