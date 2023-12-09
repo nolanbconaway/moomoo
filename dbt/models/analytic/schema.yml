@@ -30,6 +30,9 @@ models:
       - name: artist_mbid
         tests:
           - not_null
+      - name: artist_name
+        tests:
+          - not_null
       - name: lifetime_listen_count
         tests:
           - not_null
@@ -64,3 +67,87 @@ models:
           combination_of_columns:
             - username
             - rank
+
+  - name: file_recording_map
+    description: |
+      Mapping local files to recording mbids. Each file can be mapped to up to 2 
+      recordings because we have the listenbrainz lookup as well as the file metadata.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - recording_mbid
+            - filepath
+      - groupby_having:
+          group: filepath
+          having_condition: count(1) <= 2
+    columns:
+      - name: recording_mbid
+        tests:
+          - not_null
+      - name: filepath
+        tests:
+          - not_null
+
+  - name: file_listen_counts
+    description: Analytic table of listen data for each file for each user.
+    columns:
+      - name: filepath_username_id
+        tests:
+          - unique
+          - not_null
+      - name: filepath
+        tests:
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: track_name
+        tests:
+          - not_null
+      - name: album_name
+        tests:
+          - not_null
+      - name: artist_name
+        tests:
+          - not_null
+      - name: album_artist_name
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: last07_listen_count
+        tests:
+          - not_null
+      - name: last30_listen_count
+        tests:
+          - not_null
+      - name: last90_listen_count
+        tests:
+          - not_null
+
+
+  - name: daily_user_listen_stats
+    description: Analytic table with listen stats for each user for each day.
+    columns:
+      - name: user_date_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: count_listens
+        tests:
+          - not_null
+      - name: pct_listens_mapped_to_file
+        tests:
+          - not_null
+      - name: count_recordings
+        tests:
+          - not_null
+      - name: count_releases
+        tests:
+          - not_null
+      - name: sum_listen_hours
