@@ -33,6 +33,12 @@ with release_mbids as (
 
   union distinct
 
+  select distinct release_group_mbid as mbid
+  from {{ ref('messybrainz_name_map') }}
+  where release_group_mbid is not null
+
+  union distinct
+
   {# NOTE: weird here but we only know the release group for listen data AFTER querying musicbrainz. #}
   select distinct release_group_mbid as mbid
   from {{ ref('releases') }}
