@@ -30,6 +30,14 @@ def test_utcfromunixtime(input, expected):
     assert utils_.utcfromunixtime(input) == expected
 
 
+def test_md5():
+    """Test basic md5 hashing."""
+    with pytest.raises(TypeError):
+        utils_.md5(None, "")
+
+    assert utils_.md5("foo", "bar") == "e5f9ec048d1dbe19c70f720e002f9cb1"
+
+
 def test_annotate_mbid(monkeypatch):
     monkeypatch.setattr(utils_, "_get_recording_data", lambda _: dict(a=1))
     monkeypatch.setattr(utils_, "_get_release_data", lambda _: dict(b=2))

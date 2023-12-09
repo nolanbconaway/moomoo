@@ -73,11 +73,19 @@ def parse_audio_file(path: Path) -> dict:
     except mutagen.MutagenError:
         data = dict()
 
-    return dict(
+    res = dict(
         file_created_at=file_created_at,
         file_modified_at=file_modified_at,
         json_data=data,
     )
+
+    # add recording_md5, recording_name, artist_name if available
+    if "title" in data and "artist" in data:
+        res["recording_md5"] = utils_.md5(data.get("title"), data.get("artist"))
+        res["recording_name"] = data.get("title")
+        res["artist_name"] = data.get("artist")
+
+    return res
 
 
 @click.command(help=__doc__)

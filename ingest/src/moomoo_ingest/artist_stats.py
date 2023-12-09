@@ -13,7 +13,6 @@ In practice, it takes roughly ~0.5s to annotate a single mbid. Use this with the
 option to limit the total run time.
 """
 import datetime
-import json
 import os
 import random
 import sys
@@ -141,9 +140,7 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
             total=len(to_ingest),
         ):
             ListenBrainzArtistStats(
-                mbid=mbid,
-                payload_json=json.dumps(res),
-                ts_utc=utils_.utcnow(),
+                mbid=mbid, payload_json=res, ts_utc=utils_.utcnow()
             ).upsert(session=session)
 
     click.echo("Done.")

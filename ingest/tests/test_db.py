@@ -38,7 +38,7 @@ def test_execute_sql_fetchall():
     assert isinstance(res, list)
     assert isinstance(res[0], dict)
     assert isinstance(res[0]["a"], int)
-    assert isinstance(next(res[0].keys()), str)
+    assert isinstance(next(iter(res[0].keys())), str)
 
     # params
     res = execute_sql_fetchall("select :a as a", params=dict(a=1))

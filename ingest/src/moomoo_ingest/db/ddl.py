@@ -222,10 +222,28 @@ class LocalFile(BaseTable):
     __tablename__ = "local_music_files"
 
     filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    recording_md5: Mapped[str] = mapped_column(nullable=True)
+    recording_name: Mapped[str] = mapped_column(nullable=True)
+    artist_name: Mapped[str] = mapped_column(nullable=True)
     json_data: Mapped[dict[str, Any]] = mapped_column(nullable=False)
     file_created_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
     file_modified_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+
+class MessyBrainzNameMap(BaseTable):
+    """Model for messybrainz_name_map table."""
+
+    __tablename__ = "messybrainz_name_map"
+
+    recording_md5: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    recording_name: Mapped[str] = mapped_column(nullable=False)
+    artist_name: Mapped[str] = mapped_column(nullable=False)
+    success: Mapped[bool] = mapped_column(nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(nullable=True)
+    ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
     )
 
@@ -236,4 +254,5 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzSimilarUserActivity,
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,
+    MessyBrainzNameMap,
 )
