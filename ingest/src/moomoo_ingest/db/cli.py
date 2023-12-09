@@ -10,7 +10,7 @@ TABLE_NAMES: tuple[str] = tuple([table.__tablename__ for table in ddl.TABLES])
 
 @click.group
 def cli() -> None:
-    """Define CLI group."""
+    """Database handlers."""
 
 
 @cli.command("ddl")

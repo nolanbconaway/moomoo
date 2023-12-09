@@ -6,9 +6,8 @@ from pathlib import Path
 import musicbrainzngs
 import psycopg
 import pytest
-from sqlalchemy import text
-
 from moomoo_ingest.db import get_session
+from sqlalchemy import text
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -46,7 +45,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{0}@{1}:{2}/{3}".format(
+    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
@@ -89,48 +88,4 @@ def load_mbids_table(data: list[dict]):
         for i in data:
             session.execute(text(sql), i)
 
-        session.commit()
-
-
-def load_local_files_table(data: list[dict]):
-    """Load a fresh version of the local files table.
-
-    This is managed by dbt in prod, but needed for tests.
-
-    Input rows are dicts with keys:
-
-        - filepath: str
-        - embedding_success: bool
-        - embedding: list[float]
-        - artist_mbid: uuid
-        - embedding_duration_seconds: int
-    """
-    with get_session() as session:
-        schema = os.environ["MOOMOO_DBT_SCHEMA"]
-
-        sql = f"""
-            create table {schema}.local_files_flat (
-                filepath text primary key
-                , embedding_success bool
-                , embedding vector
-                , artist_mbid uuid
-                , embedding_duration_seconds int
-            )
-        """
-        session.execute(text(sql))
-
-        sql = f"""
-            insert into {schema}.local_files_flat (
-                filepath
-                , embedding_success
-                , embedding
-                , artist_mbid
-                , embedding_duration_seconds
-            )
-            values (
-                :filepath, true, :embedding , :artist_mbid, 90
-            )
-        """
-        for i in data:
-            session.execute(text(sql), i)
         session.commit()

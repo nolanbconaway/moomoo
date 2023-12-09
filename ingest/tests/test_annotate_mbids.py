@@ -1,14 +1,12 @@
 """Test the annotate_mbids module."""
 import datetime
 import uuid
-from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner, Result
-
+from click.testing import CliRunner
 from moomoo_ingest import annotate_mbids
-from moomoo_ingest.utils_ import ENTITIES
 from moomoo_ingest.db import MusicBrainzAnnotation
+from moomoo_ingest.utils_ import ENTITIES
 
 from .conftest import load_mbids_table
 
@@ -119,24 +117,6 @@ def test_get_reannotate_mbids__invalid_entity(mbids: list[dict]):
     # should have all but the invalid entity
     res = annotate_mbids.get_re_annotate_mbids(before=datetime.datetime.now())
     assert len(res) == len(mbids) - 1
-
-
-def cli_run(
-    unannotated: list[dict], reannotated: list[dict], args: list[str]
-) -> Result:
-    """Run the cli with the given args and mocked data."""
-    runner = CliRunner()
-    patch_get_unannotated_mbids = patch.object(
-        annotate_mbids, "get_unannotated_mbids", return_value=unannotated
-    )
-    patch_get_re_annotate_mbids = patch.object(
-        annotate_mbids, "get_re_annotate_mbids", return_value=reannotated
-    )
-    patch_ann_mbid = patch.object(
-        annotate_mbids.utils_, "annotate_mbid", return_value=dict(a=uuid.uuid1())
-    )
-    with patch_get_unannotated_mbids, patch_get_re_annotate_mbids, patch_ann_mbid:
-        return runner.invoke(annotate_mbids.main, args)
 
 
 def test_cli_main__no_mbids():

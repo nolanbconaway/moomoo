@@ -4,9 +4,8 @@ from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
-
-from moomoo_ingest.db import ListenBrainzListen, execute_sql_fetchall
 from moomoo_ingest import collect_listen_data
+from moomoo_ingest.db import ListenBrainzListen, execute_sql_fetchall
 from moomoo_ingest.utils_ import utcnow
 
 from .conftest import RESOURCES

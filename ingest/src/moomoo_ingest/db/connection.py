@@ -34,7 +34,7 @@ def get_session() -> Session:
 
 
 def execute_sql_fetchall(
-    sql: str, params: dict = None, session: Session = None
+    sql: str, params: dict | None = None, session: Session = None
 ) -> list[dict]:
     """Execute a SQL statement and return all results via dict cursors."""
 

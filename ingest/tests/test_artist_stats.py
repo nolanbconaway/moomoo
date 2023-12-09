@@ -1,13 +1,12 @@
-"""Test the annotate_mbids module."""
+"""Test the artist_stats module."""
 import uuid
 from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner, Result
-from pylistenbrainz.errors import ListenBrainzAPIException
-
-from moomoo_ingest.db import ListenBrainzArtistStats
 from moomoo_ingest import artist_stats
+from moomoo_ingest.db import ListenBrainzArtistStats
+from pylistenbrainz.errors import ListenBrainzAPIException
 
 
 @pytest.fixture
@@ -103,7 +102,9 @@ def test_cli_main__new(mbids: list[dict]):
     result = cli_run(new_=mbids, old_=[], args=["--new"])
     assert "Found 10 mbid(s) to ingest." in result.output
     assert result.exit_code == 0
-    assert len(ListenBrainzArtistStats.select_star()) == 10
+    rows = ListenBrainzArtistStats.select_star()
+    assert len(rows) == 10
+    assert all(row["payload_json"]["data"] == {"a": "ok"} for row in rows)
 
 
 def test_cli_main__old(mbids: list[dict]):
@@ -112,7 +113,9 @@ def test_cli_main__old(mbids: list[dict]):
     result = cli_run(new_=[], old_=mbids, args=["--before=2021-01-01"])
     assert "Found 10 mbid(s) to ingest." in result.output
     assert result.exit_code == 0
-    assert len(ListenBrainzArtistStats.select_star()) == 10
+    rows = ListenBrainzArtistStats.select_star()
+    assert len(rows) == 10
+    assert all(row["payload_json"]["data"] == {"a": "ok"} for row in rows)
 
 
 def test_cli_main__limit(mbids: list[dict]):

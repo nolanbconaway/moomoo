@@ -2,9 +2,8 @@ import shutil
 from pathlib import Path
 
 from click.testing import CliRunner
-
-from moomoo_ingest.db import LocalFile
 from moomoo_ingest import collect_local_files
+from moomoo_ingest.db import LocalFile
 
 from .conftest import RESOURCES
 
@@ -52,7 +51,7 @@ def test_cli_main__insert_serial():
 
     rows = LocalFile.select_star()
     assert len(rows) == 1
-    assert rows[0]["json_data"]["title"] == "fake"
+    assert rows[0]["json_data"]["title"] == rows[0]["recording_name"] == "fake"
 
 
 def test_cli_main__insert_mp(tmpdir):
@@ -72,4 +71,4 @@ def test_cli_main__insert_mp(tmpdir):
 
     rows = LocalFile.select_star()
     assert len(rows) == 10
-    assert rows[0]["json_data"]["title"] == "fake"
+    assert rows[0]["json_data"]["title"] == rows[0]["recording_name"] == "fake"

@@ -2,7 +2,6 @@
 import datetime
 
 import pytest
-
 from moomoo_ingest import utils_
 
 UTC = datetime.timezone.utc
@@ -29,6 +28,14 @@ def test_utcfromisodate(input, expected):
 )
 def test_utcfromunixtime(input, expected):
     assert utils_.utcfromunixtime(input) == expected
+
+
+def test_md5():
+    """Test basic md5 hashing."""
+    with pytest.raises(TypeError):
+        utils_.md5(None, "")
+
+    assert utils_.md5("foo", "bar") == "e5f9ec048d1dbe19c70f720e002f9cb1"
 
 
 def test_annotate_mbid(monkeypatch):

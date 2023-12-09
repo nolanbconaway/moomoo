@@ -1,10 +1,9 @@
 from unittest import mock
 
 from click.testing import CliRunner
-from pylistenbrainz.errors import ListenBrainzAPIException
-
-from moomoo_ingest.db import ListenBrainzSimilarUserActivity
 from moomoo_ingest import collect_similar_user_activity
+from moomoo_ingest.db import ListenBrainzSimilarUserActivity
+from pylistenbrainz.errors import ListenBrainzAPIException
 
 
 def get_mock_lb_http(similar_users, activity) -> mock.Mock:
@@ -13,8 +12,7 @@ def get_mock_lb_http(similar_users, activity) -> mock.Mock:
     def side_effect(*args, **kwargs):
         yield similar_users
         if isinstance(activity, list):
-            for a in activity:
-                yield a
+            yield from activity
         else:
             while True:
                 yield activity

@@ -3,12 +3,11 @@ import datetime
 import psycopg
 import pytest
 from click.testing import CliRunner
-from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy.orm import Mapped, mapped_column
-
 from moomoo_ingest.db.cli import cli as db_cli
 from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_session
 from moomoo_ingest.db.ddl import TABLES, BaseTable, ListenBrainzListen
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.orm import Mapped, mapped_column
 
 
 class FakeTable(BaseTable):
@@ -39,7 +38,7 @@ def test_execute_sql_fetchall():
     assert isinstance(res, list)
     assert isinstance(res[0], dict)
     assert isinstance(res[0]["a"], int)
-    assert isinstance(list(res[0].keys())[0], str)
+    assert isinstance(next(iter(res[0].keys())), str)
 
     # params
     res = execute_sql_fetchall("select :a as a", params=dict(a=1))

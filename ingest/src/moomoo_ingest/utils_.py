@@ -1,5 +1,6 @@
 """Utility functions for the good of all."""
 import datetime
+import hashlib
 import os
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -38,6 +39,11 @@ def utcfromunixtime(unixtime: int) -> datetime.datetime:
 def utcnow() -> datetime.datetime:
     """Get the current UTC datetime."""
     return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+
+
+def md5(*args: str) -> str:
+    """Get the md5 hash of the given strings."""
+    return hashlib.md5("-".join(args).encode()).hexdigest()
 
 
 def _get_recording_data(recording_mbid: str) -> dict:
