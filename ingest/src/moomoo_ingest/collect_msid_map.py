@@ -72,7 +72,12 @@ def lookup_msid(recording_name: str, artist_name: str) -> dict:
 
     return client._get(
         endpoint,
-        params={"artist_name": artist_name, "recording_name": recording_name},
+        params={
+            "artist_name": artist_name,
+            "recording_name": recording_name,
+            "metadata": True,
+            "inc": "release",  # to get release group
+        },
     )
 
 
