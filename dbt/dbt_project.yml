@@ -17,7 +17,7 @@ clean-targets:
 
 models:
   materialized: table
-  grants:
+  +grants:
     select: ['ro']
   moomoo:
     local_files:

@@ -15,6 +15,12 @@ with release_mbids as (
 
   union distinct
 
+  select distinct release_mbid as mbid
+  from {{ ref('messybrainz_name_map') }}
+  where release_mbid is not null
+
+  union distinct
+
   select distinct mbid
   from {{ ref('similar_user_activity') }}
   where entity = 'release'
@@ -36,6 +42,12 @@ with release_mbids as (
 , recording_mbids as (
   select distinct recording_mbid as mbid
   from {{ ref('listens') }}
+  where recording_mbid is not null
+
+  union distinct
+
+  select distinct recording_mbid as mbid
+  from {{ ref('messybrainz_name_map') }}
   where recording_mbid is not null
 
   union distinct
@@ -69,6 +81,14 @@ with release_mbids as (
   select distinct album_artist_mbid as mbid
   from {{ ref('local_files') }}
   where album_artist_mbid is not null
+
+  union distinct
+
+  select distinct artist_mbid.value::uuid as mbid
+  from {{ ref('messybrainz_name_map') }} as _map
+  , jsonb_array_elements_text(_map.artist_mbids) as artist_mbid
+  where _map.artist_mbids is not null
+    and jsonb_array_length(_map.artist_mbids) > 0
 
   union distinct
 

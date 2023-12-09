@@ -38,6 +38,7 @@
 with t as (
   select
     "filepath"
+    , "recording_md5"
     , least("file_created_at", "file_modified_at") as "file_created_at"
     , {{ json_get('json_data', ['title']) }}::varchar as "track_name"
     , {{ json_get('json_data', ['album']) }}::varchar as "album_name"
@@ -58,6 +59,7 @@ with t as (
 
 select
   filepath
+  , recording_md5
   , file_created_at
   , track_name
   , album_name
