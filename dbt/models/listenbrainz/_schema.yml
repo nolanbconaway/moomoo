@@ -93,6 +93,7 @@ models:
       - name: artist_mbids
       - name: recording_mbid
       - name: release_mbid
+      - name: release_group_mbid
       - name: mapped_release_name
       - name: mapped_recording_name
       - name: mapped_artist_name
