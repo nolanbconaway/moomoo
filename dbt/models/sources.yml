@@ -29,6 +29,14 @@ sources:
               - not_null
               - unique 
 
+      - name: messybrainz_name_map
+        description: Mapped local file data to musicbrainz data.
+        columns:
+          - name: recording_md5
+            tests:
+              - not_null
+              - unique 
+
       - name: musicbrainz_annotations
         description: Annotated data from musicbrainz. Long format, uniqe on mbid.
         columns:

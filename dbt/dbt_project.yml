@@ -1,5 +1,5 @@
 name: 'moomoo'
-version: '1.0.6'
+version: '1.0.7'
 config-version: 2
 profile: 'moomoo'
 
@@ -17,7 +17,7 @@ clean-targets:
 
 models:
   materialized: table
-  grants:
+  +grants:
     select: ['ro']
   moomoo:
     local_files:

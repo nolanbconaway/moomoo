@@ -14,6 +14,7 @@ with metadata as (
 
 select
   metadata.filepath
+  , metadata.recording_md5
   , metadata.file_created_at
   , metadata.track_name
   , metadata.album_name

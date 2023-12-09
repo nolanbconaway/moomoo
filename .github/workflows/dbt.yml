@@ -79,6 +79,8 @@ jobs:
     # TODO: make this check the actual version number changed, not just the file
     steps:
       - uses: actions/checkout@v4
+      - name: wait 10s  # in case the pr is very new
+        run: sleep 10
       - name: Get changed files
         env:
           GH_TOKEN: ${{ github.token }}
