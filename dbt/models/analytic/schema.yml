@@ -135,7 +135,7 @@ models:
       - name: username
         tests:
           - not_null
-      - name: date
+      - name: listen_date
         tests:
           - not_null
       - name: count_listens

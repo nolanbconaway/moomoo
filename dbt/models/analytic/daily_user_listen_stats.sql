@@ -5,7 +5,7 @@
 with t as (
   select
     listens.username
-    , listens.listen_at_ts_utc::date as date
+    , listens.listen_at_ts_utc::date as listen_date
     , count(distinct listens.listen_md5) as count_listens
     , (
       count(distinct case when map_.filepath is not null then listens.listen_md5 end)::real
@@ -26,8 +26,8 @@ with t as (
   group by 1, 2
 )
 
-select 
-  {{ dbt_utils.generate_surrogate_key(['username', 'date']) }} as user_date_key
+select
+  {{ dbt_utils.generate_surrogate_key(['username', 'listen_date']) }} as user_date_key
   , *
 
 from t
