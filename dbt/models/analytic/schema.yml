@@ -17,6 +17,20 @@ models:
         tests:
           - not_null
 
+  - name: recording_release_long
+    description: A long format table mapping recordings to releases.
+    columns:
+      - name: recording_release_key
+        tests:
+          - unique
+          - not_null
+      - name: recording_mbid
+        tests:
+          - not_null
+      - name: release_group_mbid
+        tests:
+          - not_null
+
   - name: artist_listen_counts
     description: Analytic table of artist listen data for each user.
     columns:
