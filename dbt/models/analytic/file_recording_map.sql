@@ -1,4 +1,8 @@
-{{ config(materialized='view') }}
+{{ config(
+    materialized='table',
+    indexes=[{'columns': ['filepath', 'recording_mbid']}]
+  )
+}}
 
 {# Map files to potential recording mbids. #}
 

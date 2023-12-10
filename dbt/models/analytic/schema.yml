@@ -82,6 +82,14 @@ models:
             - username
             - rank
 
+  - name: revisit_releases
+    description: Ablums with historically high listens but not many recent listens.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - release_group_mbid
+            - username
+
   - name: file_recording_map
     description: |
       Mapping local files to recording mbids. Each file can be mapped to up to 2 
@@ -165,3 +173,4 @@ models:
         tests:
           - not_null
       - name: sum_listen_hours
+
