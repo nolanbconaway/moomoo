@@ -20,7 +20,7 @@ with similar_users as (
   select alc.username, r.release_mbid
 
   from {{ ref('releases') }} as r
-  inner join {{ ref('release_artists_long') }} as ra using (release_group_mbid)
+  inner join {{ ref('map__release_group_artist') }} as ra using (release_group_mbid)
   inner join {{ ref('artist_listen_counts') }} as alc
     on ra.artist_mbid = alc.artist_mbid
 

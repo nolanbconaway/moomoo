@@ -13,7 +13,7 @@ with listen_mapped_prop as (
     ) as pct_listens_mapped_to_file
 
   from {{ ref('listens') }} as listens
-  left join {{ ref('file_recording_map') }} as map_ using (recording_mbid)
+  left join {{ ref('map__file_recording') }} as map_ using (recording_mbid)
 
   where listens.recording_mbid is not null
 
