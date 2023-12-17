@@ -2,6 +2,7 @@ import psycopg
 import pytest
 from moomoo_http.app import create_app
 from moomoo_http.db import Base, db, execute_sql_fetchall
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -41,7 +42,7 @@ def test_execute_sql_fetchall():
     assert isinstance(res, list)
     assert isinstance(res[0], dict)
     assert isinstance(res[0]["a"], int)
-    assert isinstance(list(res[0].keys())[0], str)
+    assert isinstance(next(iter(res[0].keys())), str)
 
     # params
     res = execute_sql_fetchall(
@@ -53,7 +54,7 @@ def test_execute_sql_fetchall():
 def test_can_create_tables():
     """Make sure we can create tables."""
     # does not exist
-    with pytest.raises(Exception):
+    with pytest.raises(ProgrammingError):
         execute_sql_fetchall(sql="select * from fake_table", session=db.session)
 
     # create

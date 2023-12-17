@@ -1,5 +1,7 @@
 """Common fixtures for all tests."""
 import os
+from copy import deepcopy
+from uuid import uuid4
 
 import psycopg
 import pytest
@@ -21,7 +23,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{0}@{1}:{2}/{3}".format(
+    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
@@ -51,10 +53,11 @@ def load_local_files_table(data: list[dict]):
     Input rows are dicts with keys:
 
         - filepath: str
-        - embedding_success: bool
         - embedding: list[float]
-        - artist_mbid: uuid
-        - embedding_duration_seconds: int
+        - artist_mbid: uuid (optional)
+        - album_artist_mbid: uuid (optional)
+        - embedding_success: bool (optional)
+        - embedding_duration_seconds: int (optional)
     """
     with create_app().app_context():
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
@@ -64,7 +67,9 @@ def load_local_files_table(data: list[dict]):
                 filepath text primary key
                 , embedding_success bool
                 , embedding vector
+                , recording_mbid uuid
                 , artist_mbid uuid
+                , album_artist_mbid uuid
                 , embedding_duration_seconds int
             )
         """
@@ -75,13 +80,32 @@ def load_local_files_table(data: list[dict]):
                 filepath
                 , embedding_success
                 , embedding
+                , recording_mbid
                 , artist_mbid
+                , album_artist_mbid
                 , embedding_duration_seconds
             )
             values (
-                :filepath, true, :embedding , :artist_mbid, 90
+                :filepath
+                , true
+                , :embedding
+                , :recording_mbid
+                , :artist_mbid
+                , :album_artist_mbid
+                , :embedding_duration_seconds
             )
         """
         for i in data:
+            i = deepcopy(i)
+            if "embedding_success" not in i:
+                i["embedding_success"] = i["embedding"] is not None
+            if "recording_mbid" not in i:
+                i["recording_mbid"] = str(uuid4())
+            if "artist_mbid" not in i:
+                i["artist_mbid"] = str(uuid4())
+            if "album_artist_mbid" not in i:
+                i["album_artist_mbid"] = i["artist_mbid"]
+            if "embedding_duration_seconds" not in i:
+                i["embedding_duration_seconds"] = 90
             db.session.execute(text(sql), i)
         db.session.commit()
