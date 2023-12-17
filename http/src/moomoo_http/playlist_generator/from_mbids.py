@@ -39,7 +39,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         sql = f"""
             select distinct filepath
-            from {schema}.file_recording_map
+            from {schema}.map__file_recording
             where recording_mbid = any(:mbids)
         """
         res = [
@@ -52,74 +52,65 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
     def _files_for_release_mbids(
         cls, mbids: list[UUID], session: Session
     ) -> list[Path]:
-        """Get all files for a list of release mbids.
-
-        Does so by listing all the recording mbids, then getting those files.
-        """
+        """Get all files for a list of release mbids."""
         if not mbids:
             return []
 
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         sql = f"""
-            select distinct recording_mbid
-            from {schema}.recording_release_long
+            select distinct filepath
+            from {schema}.map__file_release
             where release_mbid = any(:mbids)
         """
-        recording_mbids = [
-            r["recording_mbid"]
+        res = [
+            Path(r["filepath"])
             for r in execute_sql_fetchall(session, sql, params=dict(mbids=mbids))
         ]
-        return cls._files_for_recording_mbids(recording_mbids, session)
+        return sorted(res)
 
     @classmethod
     def _files_for_release_group_mbids(
         cls, mbids: list[UUID], session: Session
     ) -> list[Path]:
-        """Get all files for a list of release group mbids.
-
-        Does so by listing all the recording mbids, then getting those files.
-        """
+        """Get all files for a list of release group mbids."""
         if not mbids:
             return []
 
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         sql = f"""
-            select distinct recording_mbid
-            from {schema}.recording_release_long
+            select distinct filepath
+            from {schema}.map__file_release_group
             where release_group_mbid = any(:mbids)
         """
-        recording_mbids = [
-            r["recording_mbid"]
+        res = [
+            Path(r["filepath"])
             for r in execute_sql_fetchall(session, sql, params=dict(mbids=mbids))
         ]
-        return cls._files_for_recording_mbids(recording_mbids, session)
+        return sorted(res)
 
     @classmethod
     def _files_for_artist_mbids(cls, mbids: list[UUID], session: Session) -> list[Path]:
-        """Get all files for a list of release group mbids.
-
-        Does so by listing all the release group mbids, then getting the files for those
-        release groups.
-        """
+        """Get all files for a list of release group mbids."""
         if not mbids:
             return []
 
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         sql = f"""
-            select distinct release_group_mbid
-            from {schema}.release_artists_long
+            select distinct filepath
+            from {schema}.map__file_artist
             where artist_mbid = any(:mbids)
         """
-        release_group_mbids = [
-            r["release_group_mbid"]
+        res = [
+            Path(r["filepath"])
             for r in execute_sql_fetchall(session, sql, params=dict(mbids=mbids))
         ]
-        return cls._files_for_release_group_mbids(release_group_mbids, session)
+        return sorted(res)
 
     def list_source_paths(self, session: Session) -> list[Path]:
         """Fetch the local files for the mbids.
 
-        Returns a list of files, which may be empty. It should not be considered sorted.
+        Returns a list of files, which may be empty. It should not be considered sorted,
+        but will be unique.
 
         If over the limit, a random sample will be returned.
         """
@@ -131,6 +122,10 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
                 session=session, sql=sql, params={"mbids": self.mbids}
             )
         }
+
+        # if no mbids were found, return empty
+        if not entity_types:
+            return []
 
         def getter(entity_type: str) -> list[UUID]:
             return [k for k, v in entity_types.items() if v == entity_type]

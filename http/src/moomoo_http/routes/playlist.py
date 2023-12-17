@@ -56,6 +56,8 @@ def get_playlist_result(
     Returns the result as needed for http, and inserts the playlist record into the
     database.
     """
+    logger.info(f"playlist request: {generator.name} / {username} / ({args})")
+
     try:
         plist_paths, source_paths = generator.get_playlist(
             limit=args.n,
@@ -106,7 +108,6 @@ def from_files():
     elif len(paths) > 500:
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
-    logger.info(f"playlist request: {username} / {paths} ({args})")
     generator = FromFilesPlaylistGenerator(*paths)
     return get_playlist_result(generator, args, username)
 
@@ -135,6 +136,5 @@ def from_mbids():
         except ValueError:
             return ({"success": False, "error": "Invalid mbid format provided."}, 400)
 
-    logger.info(f"playlist request: {username} / {mbids} ({args})")
     generator = FromMbidsPlaylistGenerator(*mbids)
     return get_playlist_result(generator, args, username)

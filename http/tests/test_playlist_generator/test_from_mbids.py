@@ -29,22 +29,17 @@ def execute_sql(sql: str, params: Optional[dict] = None):
 
 
 def test__files_for_recording_mbids():
-    """Test that _files_for_recording_mbids works.
-
-    This is the base function for all the other _files_for_* functions, so this is
-    really the only place we need to test file grabbing. The rest can be tested with
-    mocks to this function.
-    """
-    # populate {schema}.file_recording_map
+    """Test that _files_for_recording_mbids works."""
+    # populate {schema}.map__file_recording
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     records = [dict(filepath=f"test/{i}", recording_mbid=uuid4()) for i in range(10)]
 
     execute_sql(
-        f"create table {schema}.file_recording_map (filepath text, recording_mbid uuid)"
+        f"create table {schema}.map__file_recording (filepath text, recording_mbid uuid)"
     )
     execute_sql(
         f"""
-        insert into {schema}.file_recording_map (filepath, recording_mbid)
+        insert into {schema}.map__file_recording (filepath, recording_mbid)
         values (:filepath, :recording_mbid)
         """,
         records,
@@ -73,195 +68,206 @@ def test__files_for_recording_mbids():
         == []
     )
 
-    # test duplicate files don't get returned. add a duplicate mbid for the first file
-    # and test what gets returned when we request both mbids leading to the file
-    mbid = uuid4()
-    execute_sql(
-        f"""
-        insert into {schema}.file_recording_map (filepath, recording_mbid)
-        values (:filepath, :recording_mbid)
-        """,
-        dict(filepath=records[0]["filepath"], recording_mbid=mbid),
-    )
-    assert FromMbidsPlaylistGenerator._files_for_recording_mbids(
-        mbids=[mbid, records[0]["recording_mbid"]], session=db.session
-    ) == [Path(f"test/{0}")]
 
-
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
-)
-def test__files_for_release_mbids(mock_files_for_recording_mbids):
+def test__files_for_release_mbids():
     """Test that _files_for_release_mbids works."""
-    # mock files_for_recording_mbids
-    # no need to return anything. just testing this is called with the right params
-    mock_files_for_recording_mbids.return_value = []
-
-    # populate {schema}.recording_release_long
+    # populate {schema}.map__file_release
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    records = [dict(recording_mbid=uuid4(), release_mbid=uuid4()) for _ in range(10)]
+    records = [dict(filepath=f"test/{i}", release_mbid=uuid4()) for i in range(10)]
 
     execute_sql(
-        f"""
-        create table {schema}.recording_release_long (
-            recording_mbid uuid, release_mbid uuid
-        )
-        """
+        f"create table {schema}.map__file_release (filepath text, release_mbid uuid)"
     )
     execute_sql(
         f"""
-        insert into {schema}.recording_release_long (recording_mbid, release_mbid)
-        values (:recording_mbid, :release_mbid)
+        insert into {schema}.map__file_release (filepath, release_mbid)
+        values (:filepath, :release_mbid)
         """,
         records,
     )
 
-    # test none requested skips files_for_recording_mbids
-    FromMbidsPlaylistGenerator._files_for_release_mbids(mbids=[], session=db.session)
-    assert mock_files_for_recording_mbids.call_count == 0
+    # test none requested
+    assert (
+        FromMbidsPlaylistGenerator._files_for_release_mbids(
+            mbids=[], session=db.session
+        )
+        == []
+    )
 
     # test some matched
-    release_mbids = [records[0]["release_mbid"], records[1]["release_mbid"]]
-    recording_mbids = [records[0]["recording_mbid"], records[1]["recording_mbid"]]
-    FromMbidsPlaylistGenerator._files_for_release_mbids(
-        mbids=release_mbids, session=db.session
-    )
-
-    assert mock_files_for_recording_mbids.call_count == 1
-    assert set(mock_files_for_recording_mbids.call_args[0][0]) == set(recording_mbids)
+    mbids = [records[0]["release_mbid"], records[1]["release_mbid"]]
+    assert FromMbidsPlaylistGenerator._files_for_release_mbids(
+        mbids=mbids, session=db.session
+    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
 
     # test none matched
-    release_mbids = [uuid4()]
-    FromMbidsPlaylistGenerator._files_for_release_mbids(
-        mbids=release_mbids, session=db.session
+    mbids = [uuid4()]
+    assert (
+        FromMbidsPlaylistGenerator._files_for_release_mbids(
+            mbids=mbids, session=db.session
+        )
+        == []
     )
 
-    assert mock_files_for_recording_mbids.call_args[0][0] == []
 
-
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
-)
-def test__files_for_release_group_mbids(mock_files_for_recording_mbids):
+def test__files_for_release_group_mbids():
     """Test that _files_for_release_group_mbids works."""
-    # mock files_for_recording_mbids
-    # no need to return anything. just testing this is called with the right params
-    mock_files_for_recording_mbids.return_value = []
-
-    # populate {schema}.recording_release_long
+    # populate {schema}.map__file_release_group
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     records = [
-        dict(recording_mbid=uuid4(), release_group_mbid=uuid4()) for _ in range(10)
+        dict(filepath=f"test/{i}", release_group_mbid=uuid4()) for i in range(10)
     ]
 
     execute_sql(
         f"""
-        create table {schema}.recording_release_long (
-            recording_mbid uuid, release_group_mbid uuid
+        create table {schema}.map__file_release_group (
+            filepath text, release_group_mbid uuid
         )
         """
     )
     execute_sql(
         f"""
-        insert into {schema}.recording_release_long (recording_mbid, release_group_mbid)
-        values (:recording_mbid, :release_group_mbid)
+        insert into {schema}.map__file_release_group (filepath, release_group_mbid)
+        values (:filepath, :release_group_mbid)
         """,
         records,
     )
 
-    # test none requested skips files_for_recording_mbids
-
-    FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-        mbids=[], session=db.session
+    # test none requested
+    assert (
+        FromMbidsPlaylistGenerator._files_for_release_group_mbids(
+            mbids=[], session=db.session
+        )
+        == []
     )
-
-    assert mock_files_for_recording_mbids.call_count == 0
 
     # test some matched
-    release_group_mbids = [
-        records[0]["release_group_mbid"],
-        records[1]["release_group_mbid"],
-    ]
-    recording_mbids = [records[0]["recording_mbid"], records[1]["recording_mbid"]]
-
-    FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-        mbids=release_group_mbids, session=db.session
-    )
-
-    assert mock_files_for_recording_mbids.call_count == 1
-    assert set(mock_files_for_recording_mbids.call_args[0][0]) == set(recording_mbids)
+    mbids = [records[0]["release_group_mbid"], records[1]["release_group_mbid"]]
+    assert FromMbidsPlaylistGenerator._files_for_release_group_mbids(
+        mbids=mbids, session=db.session
+    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
 
     # test none matched
-    release_group_mbids = [uuid4()]
-    FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-        mbids=release_group_mbids, session=db.session
+    mbids = [uuid4()]
+    assert (
+        FromMbidsPlaylistGenerator._files_for_release_group_mbids(
+            mbids=mbids, session=db.session
+        )
+        == []
     )
 
-    assert mock_files_for_recording_mbids.call_args[0][0] == []
+
+def test__files_for_artist_mbids():
+    """Test that _files_for_artist_mbids works."""
+    # populate {schema}.map__file_artist
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    records = [dict(filepath=f"test/{i}", artist_mbid=uuid4()) for i in range(10)]
+
+    execute_sql(
+        f"create table {schema}.map__file_artist (filepath text, artist_mbid uuid)"
+    )
+    execute_sql(
+        f"""
+        insert into {schema}.map__file_artist (filepath, artist_mbid)
+        values (:filepath, :artist_mbid)
+        """,
+        records,
+    )
+
+    # test none requested
+    assert (
+        FromMbidsPlaylistGenerator._files_for_artist_mbids(mbids=[], session=db.session)
+        == []
+    )
+
+    # test some matched
+    mbids = [records[0]["artist_mbid"], records[1]["artist_mbid"]]
+    assert FromMbidsPlaylistGenerator._files_for_artist_mbids(
+        mbids=mbids, session=db.session
+    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
+
+    # test none matched
+    mbids = [uuid4()]
+    assert (
+        FromMbidsPlaylistGenerator._files_for_artist_mbids(
+            mbids=mbids, session=db.session
+        )
+        == []
+    )
 
 
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
+)
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_mbids"
+)
 @patch(
     "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids"
 )
-def test__files_for_artist_mbids(mock_files_for_release_group_mbids):
-    """Test that _files_for_artist_mbids works.
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_artist_mbids"
+)
+def test_list_source_paths(
+    patch_artist, patch_release_group, patch_release, patch_recording
+):
+    """Test that list_source_paths works."""
 
-    This currently works by getting all the release group mbids for the artist, then
-    getting the files for those release groups.
-    """
-    # mock files_for_release_group_mbids. no need to return anything.
-    # just testing this is called with the right params
-    mock_files_for_release_group_mbids.return_value = []
+    # reset mocks to default
+    def reset_mocks():
+        patch_artist.reset_mock()
+        patch_release_group.reset_mock()
+        patch_release.reset_mock()
+        patch_recording.reset_mock()
 
-    # populate {schema}.release_artists_long
+        patch_artist.return_value = []
+        patch_release_group.return_value = []
+        patch_release.return_value = []
+        patch_recording.return_value = []
+
+    reset_mocks()
+
+    # make an mbids table
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    records = [dict(release_group_mbid=uuid4(), artist_mbid=uuid4()) for _ in range(10)]
+    execute_sql(f"create table {schema}.mbids (mbid uuid, entity varchar)")
 
+    # test with mbids that dont map to entities
+    generator = FromMbidsPlaylistGenerator(uuid4())
+    assert generator.list_source_paths(session=db.session) == []
+    assert patch_recording.call_count == 0
+    assert patch_release.call_count == 0
+    assert patch_release_group.call_count == 0
+    assert patch_artist.call_count == 0
+
+    # test mbids with entities but no files
+    mbids = [uuid4()]
+    generator = FromMbidsPlaylistGenerator(*mbids)
     execute_sql(
-        f"""
-        create table {schema}.release_artists_long (
-            release_group_mbid uuid, artist_mbid uuid
-        )
-        """
+        f"insert into {schema}.mbids (mbid, entity) values (:mbid, 'recording')",
+        dict(mbid=mbids[0]),
     )
-    execute_sql(
-        f"""
-        insert into {schema}.release_artists_long (release_group_mbid, artist_mbid)
-        values (:release_group_mbid, :artist_mbid)
-        """,
-        records,
-    )
+    assert generator.list_source_paths(session=db.session) == []
+    assert patch_recording.call_count == 1
+    assert patch_recording.call_args[0][0] == mbids
+    assert patch_release.call_count == 1
+    assert patch_release.call_args[0][0] == []
+    assert patch_release_group.call_count == 1
+    assert patch_release_group.call_args[0][0] == []
+    assert patch_artist.call_count == 1
+    assert patch_artist.call_args[0][0] == []
+    reset_mocks()
 
-    # test none requested skips files_for_release_group_mbids
-    FromMbidsPlaylistGenerator._files_for_artist_mbids(mbids=[], session=db.session)
-    assert mock_files_for_release_group_mbids.call_count == 0
+    # test dedupe
+    patch_recording.return_value = patch_recording.return_value = [Path("test/0")]
+    assert generator.list_source_paths(session=db.session) == [Path("test/0")]
+    reset_mocks()
 
-    # test some matched
-    artist_mbids = [records[0]["artist_mbid"], records[1]["artist_mbid"]]
-    release_group_mbids = [
-        records[0]["release_group_mbid"],
-        records[1]["release_group_mbid"],
+    # test limit handler
+    n = generator.limit_source_paths
+    patch_recording.return_value = patch_recording.return_value = [
+        Path(f"test/{i}") for i in range(n * 2)
     ]
-
-    FromMbidsPlaylistGenerator._files_for_artist_mbids(
-        mbids=artist_mbids, session=db.session
-    )
-
-    assert mock_files_for_release_group_mbids.call_count == 1
-    assert set(mock_files_for_release_group_mbids.call_args[0][0]) == set(
-        release_group_mbids
-    )
-
-    # test none matched
-    artist_mbids = [uuid4()]
-    FromMbidsPlaylistGenerator._files_for_artist_mbids(
-        mbids=artist_mbids, session=db.session
-    )
-    assert mock_files_for_release_group_mbids.call_args[0][0] == []
-
-
-def test_list_source_paths():
-    raise NotImplementedError
+    assert len(generator.list_source_paths(session=db.session)) == n
 
 
 @patch("moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths")
@@ -305,7 +311,3 @@ def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
     )
     assert playlist == [Path("test/0"), Path("test/1")]
     assert source_paths == [Path("test/0")]
-
-
-def test_source_limit_handler():
-    raise NotImplementedError
