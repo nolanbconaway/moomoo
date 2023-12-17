@@ -3,34 +3,6 @@ version: 2
 
 
 models:
-  - name: release_artists_long
-    description: A long format table mapping releases to artists.
-    columns:
-      - name: release_group_artist_key
-        tests:
-          - unique
-          - not_null
-      - name: release_group_mbid
-        tests:
-          - not_null
-      - name: artist_mbid
-        tests:
-          - not_null
-
-  - name: recording_release_long
-    description: A long format table mapping recordings to releases.
-    columns:
-      - name: recording_release_key
-        tests:
-          - unique
-          - not_null
-      - name: recording_mbid
-        tests:
-          - not_null
-      - name: release_group_mbid
-        tests:
-          - not_null
-
   - name: artist_listen_counts
     description: Analytic table of artist listen data for each user.
     columns:
@@ -90,26 +62,6 @@ models:
             - release_group_mbid
             - username
 
-  - name: file_recording_map
-    description: |
-      Mapping local files to recording mbids. Each file can be mapped to up to 2 
-      recordings because we have the listenbrainz lookup as well as the file metadata.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - recording_mbid
-            - filepath
-      - groupby_having:
-          group: filepath
-          having_condition: count(1) <= 2
-    columns:
-      - name: recording_mbid
-        tests:
-          - not_null
-      - name: filepath
-        tests:
-          - not_null
-
   - name: file_listen_counts
     description: Analytic table of listen data for each file for each user.
     columns:
@@ -145,7 +97,6 @@ models:
       - name: last90_listen_count
         tests:
           - not_null
-
 
   - name: daily_user_listen_stats
     description: Analytic table with listen stats for each user for each day.

@@ -10,7 +10,7 @@ with listen_file_map as (
     , count(1) over (partition by listens.listen_md5) as potential_file_count
 
   from {{ ref('listens') }} as listens
-  inner join {{ ref('file_recording_map') }} as map_ using (recording_mbid)
+  inner join {{ ref('map__file_recording') }} as map_ using (recording_mbid)
 
   where listens.recording_mbid is not null
 )
