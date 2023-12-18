@@ -6,6 +6,7 @@ import pytest
 from moomoo_http.db import Base, MoomooPlaylist, db
 from moomoo_http.playlist_generator import BasePlaylistGenerator
 from moomoo_http.routes.playlist import PlaylistArgs, get_playlist_result
+from werkzeug.datastructures import TypeConversionDict
 
 from ...conftest import load_local_files_table
 
@@ -34,6 +35,29 @@ def load_local_files_table__fixed():
         for i in range(10)
     ]
     load_local_files_table(data=data)
+
+
+def test_playlist_args__from_request():
+    """Test the playlist args from request constructor."""
+
+    class Request:
+        """Fake request."""
+
+        args = None
+
+    request = Request()
+
+    request.args = TypeConversionDict(n="0", seed="0", shuffle="0")
+    args = PlaylistArgs.from_request(request)
+    assert args.n == 0
+    assert args.seed == 0
+    assert args.shuffle is False
+
+    request.args = TypeConversionDict(n="1", seed="1", shuffle="true")
+    args = PlaylistArgs.from_request(request)
+    assert args.n == 1
+    assert args.seed == 1
+    assert args.shuffle is True
 
 
 def test_get_playlist_result():

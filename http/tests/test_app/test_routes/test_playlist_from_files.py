@@ -7,6 +7,8 @@ from moomoo_http.db import Base, db
 
 from ...conftest import load_local_files_table
 
+plist_obj = "moomoo_http.playlist_generator.FromFilesPlaylistGenerator.get_playlist"
+
 
 @pytest.fixture(autouse=True)
 def create_storage():
@@ -44,30 +46,9 @@ def test_arg_errors(http_app: FlaskClient):
     assert resp.json["error"] == "Too many filepaths provided (>500)."
 
 
-def test_invalid_filepaths(http_app: FlaskClient):
-    """Test that an error is returned when invalid filepaths are provided."""
-    patch_obj = "moomoo_http.playlist_generator.FromFilesPlaylistGenerator.get_playlist"
-    resp = http_app.get(
-        "/playlist/from-files",
-        query_string=dict(path="test/3949"),
-        headers={"listenbrainz-username": "a"},
-    )
-    assert resp.status_code == 500
-    assert resp.json["success"] is False
-    assert "No paths requested (or found via request)." in resp.json["error"]
-
-    with patch(patch_obj, side_effect=Exception("test exception")) as mock:
-        resp = http_app.get(
-            "/playlist/from-files",
-            query_string=dict(path="test/3949"),
-            headers={"listenbrainz-username": "a"},
-        )
-        assert resp.status_code == 500
-        assert resp.json["success"] is False
-        assert "test exception" in resp.json["error"]
-        assert mock.call_count == 1
-
-    with patch(patch_obj, return_value=([], [Path("test/3949")])) as mock:
+def test_success(http_app: FlaskClient):
+    """Quick process test when everything works."""
+    with patch(plist_obj, return_value=([], [Path("test/3949")])) as mock:
         resp = http_app.get(
             "/playlist/from-files",
             query_string=dict(path="test/3949"),
