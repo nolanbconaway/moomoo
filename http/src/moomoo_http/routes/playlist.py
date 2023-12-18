@@ -7,12 +7,16 @@ import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID
 
 from flask import Blueprint, Request, request
-from sqlalchemy.orm import Session
 
 from ..db import MoomooPlaylist, db
-from ..playlist_generator import PlaylistGenerator
+from ..playlist_generator import (
+    BasePlaylistGenerator,
+    FromFilesPlaylistGenerator,
+    FromMbidsPlaylistGenerator,
+)
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -44,15 +48,47 @@ class PlaylistArgs:
         )
 
 
-def try_insert(plist: MoomooPlaylist, session: Session) -> None:
-    """Try to insert a playlist and log on error (not raising)."""
+def get_playlist_result(
+    generator: BasePlaylistGenerator, args: PlaylistArgs, username: str
+) -> dict:
+    """Get a playlist from a generator.
+
+    Returns the result as needed for http, and inserts the playlist record into the
+    database.
+    """
+    logger.info(f"playlist request: {generator.name} / {username} / ({args})")
+
     try:
-        session.add(plist)
-        session.commit()
+        plist_paths, source_paths = generator.get_playlist(
+            limit=args.n,
+            shuffle=args.shuffle,
+            seed_count=args.seed,
+            session=db.session,
+        )
+    except Exception as e:
+        traceback.print_exc(file=sys.stdout)
+        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
+
+    plist_strs = list(map(str, plist_paths))
+    source_strs = list(map(str, source_paths))
+
+    # try to insert the playlist into the database, but don't raise if it fails
+    db_plist = MoomooPlaylist(
+        username=username,
+        generator=generator.name,
+        playlist=plist_strs,
+        source_paths=source_strs,
+    )
+
+    try:
+        db.session.add(db_plist)
+        db.session.commit()
         logger.info("Inserted playlist.")
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         logger.error(f"Failed to insert playlist: {type(e).__name__}: {e}")
+
+    return {"success": True, "playlist": plist_strs, "source_paths": source_strs}
 
 
 @bp.route("/from-files", methods=["GET"])
@@ -72,30 +108,33 @@ def from_files():
     elif len(paths) > 500:
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
-    logger.info(f"playlist request: {username} / {paths} ({args})")
+    generator = FromFilesPlaylistGenerator(*paths)
+    return get_playlist_result(generator, args, username)
 
-    try:
-        generator = PlaylistGenerator.from_files(paths)
-        plist_paths, source_paths = generator.get_playlist(
-            limit=args.n,
-            shuffle=args.shuffle,
-            seed_count=args.seed,
-            session=db.session,
+
+@bp.route("/from-mbids", methods=["GET"])
+def from_mbids():
+    """Create a playlist from one or more mbids."""
+    args = PlaylistArgs.from_request(request)
+    mbids = request.args.getlist("mbid", type=str)
+    username = request.headers.get("listenbrainz-username")
+
+    if username is None:
+        return (
+            {"success": False, "error": "No listenbrainz-username header provided."},
+            400,
         )
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
-    # exit early if we don't want to store the playlist
-    plist_strs = list(map(str, plist_paths))
-    source_strs = list(map(str, source_paths))
+    if len(mbids) == 0:
+        return ({"success": False, "error": "No mbids provided."}, 400)
+    elif len(mbids) > 500:
+        return {"success": False, "error": "Too many mbids provided (>500)."}, 400
+    else:
+        # try casting to UUID, and return 400 if any fail
+        try:
+            mbids = [UUID(hex=mbid) for mbid in mbids]
+        except ValueError:
+            return ({"success": False, "error": "Invalid mbid format provided."}, 400)
 
-    db_plist = MoomooPlaylist(
-        username=username,
-        generator="from-files",
-        playlist=plist_strs,
-        source_paths=source_strs,
-    )
-    try_insert(db_plist, session=db.session)
-
-    return {"success": True, "playlist": plist_strs, "source_paths": source_strs}
+    generator = FromMbidsPlaylistGenerator(*mbids)
+    return get_playlist_result(generator, args, username)
