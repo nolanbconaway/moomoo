@@ -7,6 +7,8 @@ from uuid import uuid4
 import pytest
 from moomoo_http.app import create_app
 from moomoo_http.db import db
+
+# use an alias to limit so many multi-line statements
 from moomoo_http.playlist_generator import FromMbidsPlaylistGenerator as Gen
 from moomoo_http.playlist_generator import (
     NoFilesRequestedError,
