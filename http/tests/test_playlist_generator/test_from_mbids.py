@@ -7,8 +7,8 @@ from uuid import uuid4
 import pytest
 from moomoo_http.app import create_app
 from moomoo_http.db import db
+from moomoo_http.playlist_generator import FromMbidsPlaylistGenerator as Gen
 from moomoo_http.playlist_generator import (
-    FromMbidsPlaylistGenerator,
     NoFilesRequestedError,
     PlaylistTrack,
 )
@@ -50,27 +50,18 @@ def test__files_for_recording_mbids():
     )
 
     # test none requested
-    assert (
-        FromMbidsPlaylistGenerator._files_for_recording_mbids(
-            mbids=[], session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_recording_mbids(mbids=[], session=db.session) == []
 
     # test some matched
     mbids = [records[0]["recording_mbid"], records[1]["recording_mbid"]]
-    assert FromMbidsPlaylistGenerator._files_for_recording_mbids(
-        mbids=mbids, session=db.session
-    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
+    assert Gen._files_for_recording_mbids(mbids=mbids, session=db.session) == [
+        Path(f"test/{0}"),
+        Path(f"test/{1}"),
+    ]
 
     # test none matched
     mbids = [uuid4()]
-    assert (
-        FromMbidsPlaylistGenerator._files_for_recording_mbids(
-            mbids=mbids, session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_recording_mbids(mbids=mbids, session=db.session) == []
 
 
 def test__files_for_release_mbids():
@@ -91,27 +82,18 @@ def test__files_for_release_mbids():
     )
 
     # test none requested
-    assert (
-        FromMbidsPlaylistGenerator._files_for_release_mbids(
-            mbids=[], session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_release_mbids(mbids=[], session=db.session) == []
 
     # test some matched
     mbids = [records[0]["release_mbid"], records[1]["release_mbid"]]
-    assert FromMbidsPlaylistGenerator._files_for_release_mbids(
-        mbids=mbids, session=db.session
-    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
+    assert Gen._files_for_release_mbids(mbids=mbids, session=db.session) == [
+        Path(f"test/{0}"),
+        Path(f"test/{1}"),
+    ]
 
     # test none matched
     mbids = [uuid4()]
-    assert (
-        FromMbidsPlaylistGenerator._files_for_release_mbids(
-            mbids=mbids, session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_release_mbids(mbids=mbids, session=db.session) == []
 
 
 def test__files_for_release_group_mbids():
@@ -138,27 +120,18 @@ def test__files_for_release_group_mbids():
     )
 
     # test none requested
-    assert (
-        FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-            mbids=[], session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_release_group_mbids(mbids=[], session=db.session) == []
 
     # test some matched
     mbids = [records[0]["release_group_mbid"], records[1]["release_group_mbid"]]
-    assert FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-        mbids=mbids, session=db.session
-    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
+    assert Gen._files_for_release_group_mbids(mbids=mbids, session=db.session) == [
+        Path(f"test/{0}"),
+        Path(f"test/{1}"),
+    ]
 
     # test none matched
     mbids = [uuid4()]
-    assert (
-        FromMbidsPlaylistGenerator._files_for_release_group_mbids(
-            mbids=mbids, session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_release_group_mbids(mbids=mbids, session=db.session) == []
 
 
 def test__files_for_artist_mbids():
@@ -179,39 +152,24 @@ def test__files_for_artist_mbids():
     )
 
     # test none requested
-    assert (
-        FromMbidsPlaylistGenerator._files_for_artist_mbids(mbids=[], session=db.session)
-        == []
-    )
+    assert Gen._files_for_artist_mbids(mbids=[], session=db.session) == []
 
     # test some matched
     mbids = [records[0]["artist_mbid"], records[1]["artist_mbid"]]
-    assert FromMbidsPlaylistGenerator._files_for_artist_mbids(
-        mbids=mbids, session=db.session
-    ) == [Path(f"test/{0}"), Path(f"test/{1}")]
+    assert Gen._files_for_artist_mbids(mbids=mbids, session=db.session) == [
+        Path(f"test/{0}"),
+        Path(f"test/{1}"),
+    ]
 
     # test none matched
     mbids = [uuid4()]
-    assert (
-        FromMbidsPlaylistGenerator._files_for_artist_mbids(
-            mbids=mbids, session=db.session
-        )
-        == []
-    )
+    assert Gen._files_for_artist_mbids(mbids=mbids, session=db.session) == []
 
 
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
-)
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_mbids"
-)
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids"
-)
-@patch(
-    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_artist_mbids"
-)
+@patch("moomoo_http.playlist_generator.Gen._files_for_recording_mbids")
+@patch("moomoo_http.playlist_generator.Gen._files_for_release_mbids")
+@patch("moomoo_http.playlist_generator.Gen._files_for_release_group_mbids")
+@patch("moomoo_http.playlist_generator.Gen._files_for_artist_mbids")
 def test_list_source_paths(
     patch_artist, patch_release_group, patch_release, patch_recording
 ):
@@ -236,7 +194,7 @@ def test_list_source_paths(
     execute_sql(f"create table {schema}.mbids (mbid uuid, entity varchar)")
 
     # test with mbids that dont map to entities
-    generator = FromMbidsPlaylistGenerator(uuid4())
+    generator = Gen(uuid4())
     assert generator.list_source_paths(session=db.session) == []
     assert patch_recording.call_count == 0
     assert patch_release.call_count == 0
@@ -245,7 +203,7 @@ def test_list_source_paths(
 
     # test mbids with entities but no files
     mbids = [uuid4()]
-    generator = FromMbidsPlaylistGenerator(*mbids)
+    generator = Gen(*mbids)
     execute_sql(
         f"insert into {schema}.mbids (mbid, entity) values (:mbid, 'recording')",
         dict(mbid=mbids[0]),
@@ -274,15 +232,15 @@ def test_list_source_paths(
     assert len(generator.list_source_paths(session=db.session)) == n
 
 
-@patch("moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths")
+@patch("moomoo_http.playlist_generator.Gen.list_source_paths")
 def test_get_playlist__no_files_error(mock_list_source_paths):
     """Test that get_playlist errors when no files are requested."""
     mock_list_source_paths.return_value = []
     with pytest.raises(NoFilesRequestedError):
-        FromMbidsPlaylistGenerator(uuid4()).get_playlist(db.session)
+        Gen(uuid4()).get_playlist(db.session)
 
 
-@patch("moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths")
+@patch("moomoo_http.playlist_generator.Gen.list_source_paths")
 @patch("moomoo_http.playlist_generator.base.stream_similar_tracks")
 def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
     """Test that get_playlist works."""
@@ -299,7 +257,7 @@ def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
         for i in range(1, 100)
     ]
 
-    pg = FromMbidsPlaylistGenerator(Path("test/0"))
+    pg = Gen(Path("test/0"))
     playlist, source_paths = pg.get_playlist(limit=2, shuffle=False, session=db.session)
     assert playlist == [Path("test/1"), Path("test/2")]
     assert source_paths == [Path("test/0")]
