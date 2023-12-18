@@ -35,7 +35,11 @@ def test__files_for_recording_mbids():
     records = [dict(filepath=f"test/{i}", recording_mbid=uuid4()) for i in range(10)]
 
     execute_sql(
-        f"create table {schema}.map__file_recording (filepath text, recording_mbid uuid)"
+        f"""
+        create table {schema}.map__file_recording (
+            filepath text, recording_mbid uuid
+        )
+        """
     )
     execute_sql(
         f"""
