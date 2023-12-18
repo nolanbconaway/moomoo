@@ -168,10 +168,18 @@ def test__files_for_artist_mbids():
     assert Gen._files_for_artist_mbids(mbids=mbids, session=db.session) == []
 
 
-@patch("moomoo_http.playlist_generator.Gen._files_for_recording_mbids")
-@patch("moomoo_http.playlist_generator.Gen._files_for_release_mbids")
-@patch("moomoo_http.playlist_generator.Gen._files_for_release_group_mbids")
-@patch("moomoo_http.playlist_generator.Gen._files_for_artist_mbids")
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
+)
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_mbids"
+)
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids"
+)
+@patch(
+    "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator._files_for_artist_mbids"
+)
 def test_list_source_paths(
     patch_artist, patch_release_group, patch_release, patch_recording
 ):
@@ -234,7 +242,7 @@ def test_list_source_paths(
     assert len(generator.list_source_paths(session=db.session)) == n
 
 
-@patch("moomoo_http.playlist_generator.Gen.list_source_paths")
+@patch("moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths")
 def test_get_playlist__no_files_error(mock_list_source_paths):
     """Test that get_playlist errors when no files are requested."""
     mock_list_source_paths.return_value = []
@@ -242,7 +250,7 @@ def test_get_playlist__no_files_error(mock_list_source_paths):
         Gen(uuid4()).get_playlist(db.session)
 
 
-@patch("moomoo_http.playlist_generator.Gen.list_source_paths")
+@patch("moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths")
 @patch("moomoo_http.playlist_generator.base.stream_similar_tracks")
 def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
     """Test that get_playlist works."""
