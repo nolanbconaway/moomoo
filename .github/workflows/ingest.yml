@@ -24,10 +24,6 @@ jobs:
         with:
           python-version: "3.10"
 
-      - uses: ankane/setup-postgres@v1
-        with:
-          postgres-version: 14
-
       - name: Install pgvector
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
