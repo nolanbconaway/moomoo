@@ -91,3 +91,34 @@ def test_get_most_similar_tracks__artist_limit():
     assert results[2].filepath == Path("test/3")
     assert results[3].filepath == Path("test/4")
     assert results[4].filepath == Path("test/5")
+
+
+def test_get_most_similar_tracks__album_artist_limit():
+    """Test that the album artist limit works."""
+    album_artist_mbid = uuid.uuid1()
+    rows = [
+        dict(
+            filepath=f"test/{i}",
+            embedding=str([i] * 10),
+            artist_mbid=uuid.uuid1(),
+            album_artist_mbid=album_artist_mbid,
+        )
+        for i in range(10)
+    ]
+    load_local_files_table(data=rows)
+
+    # should only get 2 songs, as they are from the same artist
+    target = Path("test/0")
+    results = get_most_similar_tracks([target], db.session, limit_per_artist=2, limit=5)
+    assert len(results) == 2
+    assert results[0].filepath == Path("test/1")
+    assert results[1].filepath == Path("test/2")
+
+    # should only get 5 songs total even though allow 6 per artist
+    results = get_most_similar_tracks([target], db.session, limit_per_artist=6, limit=5)
+    assert len(results) == 5
+    assert results[0].filepath == Path("test/1")
+    assert results[1].filepath == Path("test/2")
+    assert results[2].filepath == Path("test/3")
+    assert results[3].filepath == Path("test/4")
+    assert results[4].filepath == Path("test/5")

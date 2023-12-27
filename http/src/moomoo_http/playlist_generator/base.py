@@ -164,10 +164,13 @@ def get_most_similar_tracks(
     for track in stream_similar_tracks(
         filepaths=filepaths, session=session, limit=limit * limit_per_artist + 1
     ):
-        if artist_counts[track.artist_mbid] < limit_per_artist:
+        if (
+            artist_counts[track.artist_mbid] < limit_per_artist
+            and artist_counts[track.album_artist_mbid] < limit_per_artist
+        ):
             tracks.append(track)
-
             artist_counts[track.artist_mbid] += 1
+
             if track.album_artist_mbid != track.artist_mbid:
                 artist_counts[track.album_artist_mbid] += 1
 
