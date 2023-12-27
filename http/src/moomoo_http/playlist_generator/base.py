@@ -1,6 +1,7 @@
 """Base utilties for playlist generation."""
 import abc
 import os
+import random
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,15 +11,59 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from ..db import MoomooPlaylist
+
 
 @dataclass(frozen=True)
-class PlaylistTrack:
-    """A track in a playlist."""
+class CandidateTrack:
+    """A candidate track in a playlist.
+
+    Contains metadata about the track that can be used to construct a playlist.
+    """
 
     filepath: Path
     artist_mbid: UUID
     album_artist_mbid: UUID
     distance: float
+
+
+@dataclass(frozen=True)
+class Playlist:
+    """A full playlist.
+
+    This object should contain all that is needed to populate client-side playlist, and
+    to insert a playlist record into the database.
+
+    The source_paths and playlist attributes are lists of filepaths. They are not Track
+    objects because they are not guaranteed to have UUIDs, or distances.
+    """
+
+    source_paths: list[Path]
+    playlist: list[Path]
+    description: Optional[str] = None
+
+    def to_db_object(self, username: str, generator: str) -> MoomooPlaylist:
+        """Convert to a MoomooPlaylist object."""
+        return MoomooPlaylist(
+            username=username,
+            generator=generator,
+            source_paths=list(map(str, self.source_paths)),
+            playlist=list(map(str, self.playlist)),
+            description=self.description,
+        )
+
+    def to_dict(self) -> dict:
+        """Convert to a dictionary, appropriate for json serialization."""
+        return {
+            "source_paths": list(map(str, self.source_paths)),
+            "playlist": list(map(str, self.playlist)),
+            "description": self.description,
+        }
+
+    def shuffle(self) -> "Playlist":
+        """Shuffle the playlist."""
+        random.shuffle(self.playlist)
+        return self
 
 
 class NoFilesRequestedError(Exception):
@@ -48,7 +93,7 @@ class BasePlaylistGenerator(abc.ABC):
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-    ) -> tuple[list[Path], list[Path]]:
+    ) -> Playlist:
         """Get a playlist.
 
         Args:
@@ -59,14 +104,14 @@ class BasePlaylistGenerator(abc.ABC):
             seed_count: Number of songs to seed the playlist with.
 
         Returns:
-            A tuple of (filepaths, seed_filepaths).
+            A Playlist object.
         """
         ...
 
 
 def stream_similar_tracks(
     filepaths: list[Path], session: Session, limit: Optional[int] = 500
-) -> Generator[PlaylistTrack, None, None]:
+) -> Generator[CandidateTrack, None, None]:
     """Stream similar tracks to filepaths.
 
     This is best used internally, as it does not return a list of filepaths, but rather
@@ -122,7 +167,7 @@ def stream_similar_tracks(
     res = session.execute(text(sql), {"filepaths": list(map(str, filepaths))})
 
     for filepath, artist_mbid, album_artist_mbid, distance in res:
-        yield PlaylistTrack(
+        yield CandidateTrack(
             filepath=Path(filepath),
             artist_mbid=artist_mbid,
             album_artist_mbid=album_artist_mbid,
@@ -135,7 +180,7 @@ def get_most_similar_tracks(
     session: Session,
     limit: int = 20,
     limit_per_artist: Optional[int] = None,
-) -> list[PlaylistTrack]:
+) -> list[Path]:
     """Get a listing of similar songs.
 
     Performs logic to limit the number of songs per artist, while still returning the
@@ -148,16 +193,19 @@ def get_most_similar_tracks(
         limit_per_artist: Maximum number of songs per artist.
 
     Returns:
-        A list of PlaylistTrack objects, sorted by distance.
+        A list of filepaths, sorted by distance.
     """
     if not filepaths:
         raise ValueError("No filepaths provided.")
 
     # if not limit_per_artist, then we don't need to do any extra logic
     if not limit_per_artist:
-        return list(
-            stream_similar_tracks(filepaths=filepaths, session=session, limit=limit)
-        )
+        return [
+            i.filepath
+            for i in stream_similar_tracks(
+                filepaths=filepaths, session=session, limit=limit
+            )
+        ]
 
     # else, consume the generator and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
@@ -168,7 +216,7 @@ def get_most_similar_tracks(
             artist_counts[track.artist_mbid] < limit_per_artist
             and artist_counts[track.album_artist_mbid] < limit_per_artist
         ):
-            tracks.append(track)
+            tracks.append(track.filepath)
             artist_counts[track.artist_mbid] += 1
 
             if track.album_artist_mbid != track.artist_mbid:

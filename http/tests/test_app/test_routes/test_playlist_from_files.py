@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 from flask.testing import FlaskClient
 from moomoo_http.db import Base, db
+from moomoo_http.playlist_generator import Playlist
 
 from ...conftest import load_local_files_table
 
@@ -48,7 +49,8 @@ def test_arg_errors(http_app: FlaskClient):
 
 def test_success(http_app: FlaskClient):
     """Quick process test when everything works."""
-    with patch(plist_obj, return_value=([], [Path("test/3949")])) as mock:
+    playlist = Playlist(playlist=[], source_paths=[Path("test/3949")])
+    with patch(plist_obj, return_value=playlist) as mock:
         resp = http_app.get(
             "/playlist/from-files",
             query_string=dict(path="test/3949"),

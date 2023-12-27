@@ -14,7 +14,7 @@ def create_app() -> Flask:
     from .db import db
     from .routes import playlist
 
-    app.register_blueprint(playlist.bp)
+    app.register_blueprint(playlist.base)
     db.init_app(app)
 
     return app

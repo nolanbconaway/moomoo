@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 from flask.testing import FlaskClient
 from moomoo_http.db import Base, db
+from moomoo_http.playlist_generator import Playlist
 
 plist_obj = "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.get_playlist"
 list_obj = "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths"
@@ -45,7 +46,8 @@ def test_arg_errors(http_app: FlaskClient):
 
 def test_success(http_app: FlaskClient):
     """Quick process test when everything works."""
-    with patch(plist_obj, return_value=([], [Path("test/3949")])) as mock:
+    playlist = Playlist(playlist=[], source_paths=[Path("test/3949")])
+    with patch(plist_obj, return_value=playlist) as mock:
         resp = http_app.get(
             "/playlist/from-mbids",
             query_string=dict(mbid=uuid4().hex),

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from moomoo_http.db import Base, MoomooPlaylist, db
-from moomoo_http.playlist_generator import BasePlaylistGenerator
+from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist
 from moomoo_http.routes.playlist import PlaylistArgs, get_playlist_result
 from werkzeug.datastructures import TypeConversionDict
 
@@ -16,9 +16,11 @@ class FakePlaylistGenerator(BasePlaylistGenerator):
 
     name = "fake"
 
-    def get_playlist(self, limit: int, **_) -> tuple:
+    def get_playlist(self, limit: int, **_) -> Playlist:
         """Fake playlist generator."""
-        return [f"test/{i}" for i in range(limit)], ["test/0"]
+        return Playlist(
+            playlist=[f"test/{i}" for i in range(limit)], source_paths=["test/0"]
+        )
 
 
 @pytest.fixture(autouse=True)

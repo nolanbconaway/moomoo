@@ -45,6 +45,7 @@ class MoomooPlaylist(Base):
     generator: Mapped[str] = mapped_column(nullable=False, index=True)
     source_paths: Mapped[list[str]] = mapped_column(nullable=False)
     playlist: Mapped[list[str]] = mapped_column(nullable=False)
+    description: Mapped[str] = mapped_column(nullable=True)
     ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
     )

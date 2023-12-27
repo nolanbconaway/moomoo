@@ -11,7 +11,7 @@ from uuid import UUID
 
 from flask import Blueprint, Request, request
 
-from ..db import MoomooPlaylist, db
+from ..db import db
 from ..playlist_generator import (
     BasePlaylistGenerator,
     FromFilesPlaylistGenerator,
@@ -22,7 +22,11 @@ from .logger import get_logger
 logger = get_logger(__name__)
 
 
-bp = Blueprint("playlist", __name__, url_prefix="/playlist")
+base = Blueprint("playlist", __name__, url_prefix="/playlist")
+
+# add a /playlist/suggest endpoint for the suggested playlist generator
+suggest = Blueprint("suggest", __name__, url_prefix="/suggest")
+base.register_blueprint(suggest)
 
 
 def boolean_type(v: str) -> bool:
@@ -59,7 +63,7 @@ def get_playlist_result(
     logger.info(f"playlist request: {generator.name} / {username} / ({args})")
 
     try:
-        plist_paths, source_paths = generator.get_playlist(
+        playlist = generator.get_playlist(
             limit=args.n,
             shuffle=args.shuffle,
             seed_count=args.seed,
@@ -69,16 +73,8 @@ def get_playlist_result(
         traceback.print_exc(file=sys.stdout)
         return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
 
-    plist_strs = list(map(str, plist_paths))
-    source_strs = list(map(str, source_paths))
-
     # try to insert the playlist into the database, but don't raise if it fails
-    db_plist = MoomooPlaylist(
-        username=username,
-        generator=generator.name,
-        playlist=plist_strs,
-        source_paths=source_strs,
-    )
+    db_plist = playlist.to_db_object(username=username, generator=generator.name)
 
     try:
         db.session.add(db_plist)
@@ -88,10 +84,10 @@ def get_playlist_result(
         traceback.print_exc(file=sys.stdout)
         logger.error(f"Failed to insert playlist: {type(e).__name__}: {e}")
 
-    return {"success": True, "playlist": plist_strs, "source_paths": source_strs}
+    return {"success": True, **playlist.to_dict()}
 
 
-@bp.route("/from-files", methods=["GET"])
+@base.route("/from-files", methods=["GET"])
 def from_files():
     """Create a playlist from one or more files."""
     args = PlaylistArgs.from_request(request)
@@ -112,7 +108,7 @@ def from_files():
     return get_playlist_result(generator, args, username)
 
 
-@bp.route("/from-mbids", methods=["GET"])
+@base.route("/from-mbids", methods=["GET"])
 def from_mbids():
     """Create a playlist from one or more mbids."""
     args = PlaylistArgs.from_request(request)
@@ -138,3 +134,20 @@ def from_mbids():
 
     generator = FromMbidsPlaylistGenerator(*mbids)
     return get_playlist_result(generator, args, username)
+
+
+# @suggest.route("/by-artist", methods=["GET"])
+# def suggest_by_artist():
+#     """Suggest playlist based on most listened to artists."""
+#     args = PlaylistArgs.from_request(request)
+#     username = request.headers.get("listenbrainz-username")
+#     count_plists = request.args.get("numPlaylists", 5, type=int)
+
+#     if username is None:
+#         return (
+#             {"success": False, "error": "No listenbrainz-username header provided."},
+#             400,
+#         )
+
+#     generator = FromMbidsPlaylistGenerator(*mbids)
+#     return get_playlist_result(generator, args, username)

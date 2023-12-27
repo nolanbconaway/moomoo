@@ -7,7 +7,12 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from ..db import execute_sql_fetchall
-from .base import BasePlaylistGenerator, NoFilesRequestedError, get_most_similar_tracks
+from .base import (
+    BasePlaylistGenerator,
+    NoFilesRequestedError,
+    Playlist,
+    get_most_similar_tracks,
+)
 
 
 class FromFilesPlaylistGenerator(BasePlaylistGenerator):
@@ -63,7 +68,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-    ) -> tuple[list[Path], list[Path]]:
+    ) -> Playlist:
         """Get a playlist of similar songs.
 
         Args:
@@ -92,10 +97,8 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        # reduce to just the filepaths
-        tracks = [t.filepath for t in tracks]
-
+        res = Playlist(source_paths=source_paths, playlist=seed_files + tracks)
         if shuffle:
-            random.shuffle(tracks)
+            res.shuffle()
 
-        return seed_files + tracks, source_paths
+        return res
