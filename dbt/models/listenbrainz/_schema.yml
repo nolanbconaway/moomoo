@@ -38,6 +38,29 @@ models:
         tests:
           - not_null
 
+  - name: listenbrainz_feedback
+    description: Basic view on the feedback table.
+    columns:
+      - name: feedback_md5
+        tests:
+          - not_null
+          - unique
+      - name: username
+        tests:
+          - not_null
+      - name: score
+        tests:
+          - not_null
+      - name: recording_mbid
+        tests:
+          - not_null
+      - name: feedback_at
+        tests:
+          - not_null
+      - name: _ingest_insert_ts_utc
+        tests:
+          - not_null
+
   - name: similar_user_activity
     description: Listen counts for similar users across different entities and time ranges.
     columns:

@@ -67,6 +67,11 @@ with release_mbids as (
   select distinct mbid
   from {{ ref('similar_user_activity') }}
   where entity = 'recording'
+
+  union distinct
+
+  select distinct recording_mbid as mbid
+  from {{ ref('listenbrainz_feedback') }}
 )
 
 , artist_mbids as (
