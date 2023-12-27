@@ -13,6 +13,14 @@ sources:
               - not_null
               - unique
 
+      - name: listenbrainz_user_feedback
+        description: Feedback data ingested via python script.
+        columns:
+          - name: feedback_md5
+            tests:
+              - not_null
+              - unique
+
       - name: local_music_embeddings
         description: Embeddings from the ml service.
         columns:
