@@ -9,5 +9,5 @@ select = [
     "RUF",  # ruff
 ]
 ignore = [
-    "B017", # `pytest.raises(Exception)` should be considered evil. I dont think its evil sorry.
+    "B017", # `pytest.raises(Exception)` should be considered evil.
 ]
