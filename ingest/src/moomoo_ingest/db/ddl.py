@@ -167,8 +167,11 @@ class ListenBrainzListen(BaseTable):
     )
 
     @classmethod
-    def last_listen_for_user(cls, username: str) -> datetime.datetime:
-        """Get the last listen timestamp from the user in the db."""
+    def last_listen_for_user(cls, username: str) -> datetime.datetime | None:
+        """Get the last listen timestamp from the user in the db.
+
+        Returns None if the user has no listens.
+        """
         stmt = select(func.max(cls.listen_at_ts_utc)).where(cls.username == username)
         with get_session() as session:
             return session.execute(stmt).scalar()
@@ -222,7 +225,7 @@ class LocalFile(BaseTable):
     __tablename__ = "local_music_files"
 
     filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
-    recording_md5: Mapped[str] = mapped_column(nullable=True)
+    recording_md5: Mapped[str] = mapped_column(nullable=True, index=True)
     recording_name: Mapped[str] = mapped_column(nullable=True)
     artist_name: Mapped[str] = mapped_column(nullable=True)
     json_data: Mapped[dict[str, Any]] = mapped_column(nullable=False)
@@ -241,11 +244,40 @@ class MessyBrainzNameMap(BaseTable):
     recording_md5: Mapped[str] = mapped_column(primary_key=True, nullable=False)
     recording_name: Mapped[str] = mapped_column(nullable=False)
     artist_name: Mapped[str] = mapped_column(nullable=False)
-    success: Mapped[bool] = mapped_column(nullable=False)
+    success: Mapped[bool] = mapped_column(nullable=False, index=True)
     payload_json: Mapped[dict[str, Any]] = mapped_column(nullable=True)
     ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
     )
+
+
+class ListenBrainzUserFeedback(BaseTable):
+    """Model for listenbrainz_user_feedback table."""
+
+    __tablename__ = "listenbrainz_user_feedback"
+
+    feedback_md5: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    username: Mapped[str] = mapped_column(nullable=False, index=True)
+    score: Mapped[int] = mapped_column(nullable=False)
+    recording_mbid: Mapped[UUID] = mapped_column(nullable=False)
+    feedback_at: Mapped[datetime.datetime] = mapped_column(nullable=False, index=True)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+    @classmethod
+    def last_love_for_user(cls, username: str) -> datetime.datetime | None:
+        """Get the last love timestamp from the user in the db.
+
+        Returns None if the user has no loves.
+        """
+        stmt = (
+            select(func.max(cls.feedback_at))
+            .where(cls.username == username)
+            .where(cls.score == 1)
+        )
+        with get_session() as session:
+            return session.execute(stmt).scalar()
 
 
 TABLES: tuple[BaseTable] = (
@@ -255,4 +287,5 @@ TABLES: tuple[BaseTable] = (
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,
     MessyBrainzNameMap,
+    ListenBrainzUserFeedback,
 )

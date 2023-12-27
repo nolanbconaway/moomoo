@@ -1,16 +1,13 @@
 """Connectivity utils for the database."""
 
-from .connection import (
-    execute_sql_fetchall,
-    get_engine,
-    get_session,
-)
+from .connection import execute_sql_fetchall, get_engine, get_session
 from .ddl import (
     TABLES,
     BaseTable,
     ListenBrainzArtistStats,
     ListenBrainzListen,
     ListenBrainzSimilarUserActivity,
+    ListenBrainzUserFeedback,
     LocalFile,
     MessyBrainzNameMap,
     MusicBrainzAnnotation,
@@ -28,4 +25,5 @@ __all__ = [
     "MusicBrainzAnnotation",
     "ListenBrainzArtistStats",
     "MessyBrainzNameMap",
+    "ListenBrainzUserFeedback",
 ]
