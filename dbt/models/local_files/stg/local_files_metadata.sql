@@ -1,15 +1,4 @@
-{{ config(
-  indexes=[
-    {'columns': ['filepath'], 'unique': True},
-    {'columns': ['artist_mbid']},
-    {'columns': ['recording_mbid']},
-    {'columns': ['release_mbid']},
-    {'columns': ['artist_name']},
-    {'columns': ['album_artist_name']},
-    {'columns': ['album_name']},
-    {'columns': ['track_name']},
-  ]
-) }}
+{{ config(materialized='table', indexes=[{'columns': ['filepath'], 'unique': True}]) }}
 
 {#
   Unpack JSON to rows.
