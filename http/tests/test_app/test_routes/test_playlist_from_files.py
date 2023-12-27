@@ -3,7 +3,6 @@ from unittest.mock import patch
 
 import pytest
 from flask.testing import FlaskClient
-from moomoo_http.db import Base, db
 from moomoo_http.playlist_generator import Playlist
 
 from ...conftest import load_local_files_table
@@ -13,9 +12,6 @@ plist_obj = "moomoo_http.playlist_generator.FromFilesPlaylistGenerator.get_playl
 
 @pytest.fixture(autouse=True)
 def create_storage():
-    """Create the storage table."""
-    Base.metadata.create_all(db.engine)
-
     # load an empty table so queries don't fail. we dont need any data for these tests.
     load_local_files_table([])
 

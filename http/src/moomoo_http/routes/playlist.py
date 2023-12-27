@@ -3,15 +3,16 @@
 Use the base postgres connection in the playlist module for now. eventually should 
 use a sqlalchemy session.
 """
+import json
 import sys
 import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
 
-from flask import Blueprint, Request, request
+from flask import Blueprint, Request, Response, request
 
-from ..db import db
+from ..db import db, execute_sql_fetchall
 from ..playlist_generator import (
     BasePlaylistGenerator,
     FromFilesPlaylistGenerator,
@@ -52,39 +53,32 @@ class PlaylistArgs:
         )
 
 
-def get_playlist_result(
+def single_playlist_response(
     generator: BasePlaylistGenerator, args: PlaylistArgs, username: str
-) -> dict:
-    """Get a playlist from a generator.
+) -> Response:
+    """Get an http response with a single playlist from a generator.
 
-    Returns the result as needed for http, and inserts the playlist record into the
-    database.
+    Wraps the logic in a try except block to catch errors and return a 500 response.
     """
     logger.info(f"playlist request: {generator.name} / {username} / ({args})")
 
     try:
         playlist = generator.get_playlist(
-            limit=args.n,
-            shuffle=args.shuffle,
-            seed_count=args.seed,
-            session=db.session,
+            limit=args.n, shuffle=args.shuffle, seed_count=args.seed, session=db.session
         )
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        return ({"success": False, "error": f"{type(e).__name__}: {e}"}, 500)
+        return Response(
+            json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}),
+            status=500,
+            content_type="application/json",
+        )
 
-    # try to insert the playlist into the database, but don't raise if it fails
-    db_plist = playlist.to_db_object(username=username, generator=generator.name)
-
-    try:
-        db.session.add(db_plist)
-        db.session.commit()
-        logger.info("Inserted playlist.")
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        logger.error(f"Failed to insert playlist: {type(e).__name__}: {e}")
-
-    return {"success": True, **playlist.to_dict()}
+    return Response(
+        json.dumps({"success": True, **playlist.to_dict()}),
+        status=200,
+        content_type="application/json",
+    )
 
 
 @base.route("/from-files", methods=["GET"])
@@ -105,7 +99,7 @@ def from_files():
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
     generator = FromFilesPlaylistGenerator(*paths)
-    return get_playlist_result(generator, args, username)
+    return single_playlist_response(generator, args, username)
 
 
 @base.route("/from-mbids", methods=["GET"])
@@ -133,21 +127,57 @@ def from_mbids():
             return ({"success": False, "error": "Invalid mbid format provided."}, 400)
 
     generator = FromMbidsPlaylistGenerator(*mbids)
-    return get_playlist_result(generator, args, username)
+    return single_playlist_response(generator, args, username)
 
 
-# @suggest.route("/by-artist", methods=["GET"])
-# def suggest_by_artist():
-#     """Suggest playlist based on most listened to artists."""
-#     args = PlaylistArgs.from_request(request)
-#     username = request.headers.get("listenbrainz-username")
-#     count_plists = request.args.get("numPlaylists", 5, type=int)
+@suggest.route("/by-artist", methods=["GET"])
+def suggest_by_artist():
+    """Suggest playlist based on most listened to artists."""
+    args = PlaylistArgs.from_request(request)
+    username = request.headers.get("listenbrainz-username")
+    count_plists = request.args.get("numPlaylists", 5, type=int)
 
-#     if username is None:
-#         return (
-#             {"success": False, "error": "No listenbrainz-username header provided."},
-#             400,
-#         )
+    if username is None:
+        return (
+            {"success": False, "error": "No listenbrainz-username header provided."},
+            400,
+        )
 
-#     generator = FromMbidsPlaylistGenerator(*mbids)
-#     return get_playlist_result(generator, args, username)
+    logger.info(f"playlist request: by-artist / {username} / ({args})")
+
+    # get the top n artists from last 30 days with more than 10 listens
+    sql = """
+        select artist_mbid, artist_name
+        from moomoo.artist_listen_counts
+        where username = :username
+          and last30_listen_count > 10
+        order by last30_listen_count desc
+        limit :n
+    """
+    rows = execute_sql_fetchall(
+        session=db.session, sql=sql, params=dict(username=username, n=count_plists)
+    )
+
+    if not rows:
+        return ({"success": False, "error": "No artists found."}, 500)
+
+    # get responses for each artist
+    responses = [
+        single_playlist_response(
+            FromMbidsPlaylistGenerator(
+                row["artist_mbid"], description=f"Artist: {row['artist_name']}"
+            ),
+            args,
+            username,
+        )
+        for row in rows
+    ]
+
+    # filter to only successful responses
+    responses = [r for r in responses if r.status_code == 200]
+
+    if len(responses) == 0:
+        return ({"success": False, "error": "Unable to create any playlists."}, 500)
+
+    # make a new response with the list of successful responses
+    return {"success": True, "playlists": [r.json for r in responses]}

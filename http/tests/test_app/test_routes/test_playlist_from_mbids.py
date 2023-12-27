@@ -2,19 +2,11 @@ from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
-import pytest
 from flask.testing import FlaskClient
-from moomoo_http.db import Base, db
 from moomoo_http.playlist_generator import Playlist
 
 plist_obj = "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.get_playlist"
 list_obj = "moomoo_http.playlist_generator.FromMbidsPlaylistGenerator.list_source_paths"
-
-
-@pytest.fixture(autouse=True)
-def create_storage():
-    """Create the storage table."""
-    Base.metadata.create_all(db.engine)
 
 
 def test_arg_errors(http_app: FlaskClient):

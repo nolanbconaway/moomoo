@@ -3,6 +3,7 @@
 import os
 import random
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -21,17 +22,22 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
     Automatically resolves the mbid types, and includes all files for the mbids in cases
     where the mbid is a parent (e.g. release group).
+
+    Set the description to a string to include it in the playlist record. This can be
+    used to provide context to the user about the playlist (i.e., names of the source
+    mbids).
     """
 
     name = "from-mbids"
     limit_source_paths = 25
 
-    def __init__(self, *mbids: UUID):
+    def __init__(self, *mbids: UUID, description: Optional[str] = None):
         if not mbids:
             raise ValueError("At least one mbid must be provided.")
 
         # dedupe
         self.mbids = list(set([mbid for mbid in mbids]))
+        self.description = description
 
     @classmethod
     def _files_for_recording_mbids(
@@ -157,7 +163,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-    ) -> tuple[list[Path], list[Path]]:
+    ) -> Playlist:
         """Get a playlist of similar songs.
 
         Args:
@@ -186,7 +192,11 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        res = Playlist(source_paths=source_paths, playlist=seed_files + tracks)
+        res = Playlist(
+            source_paths=source_paths,
+            playlist=seed_files + tracks,
+            description=self.description,
+        )
         if shuffle:
             res.shuffle()
 

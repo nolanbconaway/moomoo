@@ -11,8 +11,6 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..db import MoomooPlaylist
-
 
 @dataclass(frozen=True)
 class CandidateTrack:
@@ -41,16 +39,6 @@ class Playlist:
     source_paths: list[Path]
     playlist: list[Path]
     description: Optional[str] = None
-
-    def to_db_object(self, username: str, generator: str) -> MoomooPlaylist:
-        """Convert to a MoomooPlaylist object."""
-        return MoomooPlaylist(
-            username=username,
-            generator=generator,
-            source_paths=list(map(str, self.source_paths)),
-            playlist=list(map(str, self.playlist)),
-            description=self.description,
-        )
 
     def to_dict(self) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
@@ -137,7 +125,7 @@ def stream_similar_tracks(
         , distances as (
             select
                 local_files.filepath as filepath
-                , avg(base.embedding <-> local_files.embedding) as distance
+                , avg((base.embedding <-> local_files.embedding)) as distance
 
             from base
             cross join {schema}.local_files
