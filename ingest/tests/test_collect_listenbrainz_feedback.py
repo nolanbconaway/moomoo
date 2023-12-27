@@ -4,7 +4,6 @@ from uuid import uuid1
 from click.testing import CliRunner
 from moomoo_ingest import collect_listenbrainz_feedback, utils_
 from moomoo_ingest.db import ListenBrainzUserFeedback
-from pylistenbrainz.errors import ListenBrainzAPIException
 
 
 def get_mock_lb_http(response) -> mock.Mock:
