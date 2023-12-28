@@ -54,13 +54,13 @@ class PlaylistArgs:
 
 
 def single_playlist_response(
-    generator: BasePlaylistGenerator, args: PlaylistArgs, username: str
+    generator: BasePlaylistGenerator, args: PlaylistArgs
 ) -> Response:
     """Get an http response with a single playlist from a generator.
 
     Wraps the logic in a try except block to catch errors and return a 500 response.
     """
-    logger.info(f"playlist request: {generator.name} / {username} / ({args})")
+    logger.info(f"playlist request: {generator.name} / ({args})")
 
     try:
         playlist = generator.get_playlist(
@@ -76,6 +76,48 @@ def single_playlist_response(
 
     return Response(
         json.dumps({"success": True, **playlist.to_dict()}),
+        status=200,
+        content_type="application/json",
+    )
+
+
+def multi_playlist_response(
+    generators: list[BasePlaylistGenerator], args: PlaylistArgs
+) -> Response:
+    """Produce a response with multiple playlists.
+
+    Wraps the logic in a try except block to catch errors and return a 500 response.
+    Uses the first error message if no playlists are generated, else skips along and
+    returns the playlists that were generated.
+    """
+    n, playlists, errors = len(generators), [], []
+
+    for i, generator in enumerate(generators):
+        try:
+            logger.info(f"Getting playlist {i+1}/{n}: {generator.name} / ({args})")
+            plist = generator.get_playlist(
+                limit=args.n,
+                shuffle=args.shuffle,
+                seed_count=args.seed,
+                session=db.session,
+            )
+            playlists.append(plist)
+        except Exception as e:
+            traceback.print_exc(file=sys.stdout)
+            errors.append(e)
+
+    if not playlists:
+        return Response(
+            json.dumps({"success": False, "error": f"{errors[0]}"}),
+            status=500,
+            content_type="application/json",
+        )
+
+    if errors:
+        logger.warning(f"Some playlists failed: {errors}")
+
+    return Response(
+        json.dumps({"success": True, "playlists": [p.to_dict() for p in playlists]}),
         status=200,
         content_type="application/json",
     )
@@ -99,7 +141,7 @@ def from_files():
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
     generator = FromFilesPlaylistGenerator(*paths)
-    return single_playlist_response(generator, args, username)
+    return single_playlist_response(generator, args)
 
 
 @base.route("/from-mbids", methods=["GET"])
@@ -127,7 +169,7 @@ def from_mbids():
             return ({"success": False, "error": "Invalid mbid format provided."}, 400)
 
     generator = FromMbidsPlaylistGenerator(*mbids)
-    return single_playlist_response(generator, args, username)
+    return single_playlist_response(generator, args)
 
 
 @suggest.route("/by-artist", methods=["GET"])
@@ -162,22 +204,11 @@ def suggest_by_artist():
         return ({"success": False, "error": "No artists found."}, 500)
 
     # get responses for each artist
-    responses = [
-        single_playlist_response(
-            FromMbidsPlaylistGenerator(
-                row["artist_mbid"], description=f"Artist: {row['artist_name']}"
-            ),
-            args,
-            username,
+    generators = [
+        FromMbidsPlaylistGenerator(
+            row["artist_mbid"], description=f"Artist: {row['artist_name']}"
         )
         for row in rows
     ]
 
-    # filter to only successful responses
-    responses = [r for r in responses if r.status_code == 200]
-
-    if len(responses) == 0:
-        return ({"success": False, "error": "Unable to create any playlists."}, 500)
-
-    # make a new response with the list of successful responses
-    return {"success": True, "playlists": [r.json for r in responses]}
+    return multi_playlist_response(generators, args)

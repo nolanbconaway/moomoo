@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -38,7 +37,7 @@ def test_arg_errors(http_app: FlaskClient):
 
 def test_success(http_app: FlaskClient):
     """Quick process test when everything works."""
-    playlist = Playlist(playlist=[], source_paths=[Path("test/3949")])
+    playlist = Playlist(playlist=[])
     with patch(plist_obj, return_value=playlist) as mock:
         resp = http_app.get(
             "/playlist/from-mbids",
@@ -48,5 +47,4 @@ def test_success(http_app: FlaskClient):
         assert resp.status_code == 200
         assert resp.json["success"] is True
         assert resp.json["playlist"] == []
-        assert resp.json["source_paths"] == ["test/3949"]
         assert mock.call_count == 1

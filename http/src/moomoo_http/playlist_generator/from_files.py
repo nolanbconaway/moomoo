@@ -11,6 +11,7 @@ from .base import (
     BasePlaylistGenerator,
     NoFilesRequestedError,
     Playlist,
+    Track,
     get_most_similar_tracks,
 )
 
@@ -89,7 +90,13 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         if not source_paths:
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
-        seed_files = [] if seed_count == 0 else random.sample(source_paths, seed_count)
+        if seed_count == 0:
+            seed_tracks = []
+        else:
+            seed_tracks = [
+                Track(filepath=p) for p in random.sample(source_paths, seed_count)
+            ]
+
         tracks = get_most_similar_tracks(
             filepaths=source_paths,
             session=session,
@@ -97,7 +104,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        res = Playlist(source_paths=source_paths, playlist=seed_files + tracks)
+        res = Playlist(playlist=seed_tracks + tracks)
         if shuffle:
             res.shuffle()
 

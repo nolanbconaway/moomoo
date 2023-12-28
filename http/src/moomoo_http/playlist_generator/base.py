@@ -4,6 +4,7 @@ import os
 import random
 from collections import Counter
 from dataclasses import dataclass
+from operator import attrgetter
 from pathlib import Path
 from typing import Generator, Optional
 from uuid import UUID
@@ -13,44 +14,47 @@ from sqlalchemy.orm import Session
 
 
 @dataclass(frozen=True)
-class CandidateTrack:
+class Track:
     """A candidate track in a playlist.
 
     Contains metadata about the track that can be used to construct a playlist.
     """
 
     filepath: Path
-    artist_mbid: UUID
-    album_artist_mbid: UUID
-    distance: float
+    artist_mbid: Optional[UUID] = None
+    album_artist_mbid: Optional[UUID] = None
+    distance: Optional[float] = None
+
+    def any_missing_info(self) -> bool:
+        """Check if any of the metadata is missing."""
+        return (
+            self.artist_mbid is None
+            or self.album_artist_mbid is None
+            or self.distance is None
+        )
 
 
 @dataclass(frozen=True)
 class Playlist:
     """A full playlist.
 
-    This object should contain all that is needed to populate client-side playlist, and
-    to insert a playlist record into the database.
-
-    The source_paths and playlist attributes are lists of filepaths. They are not Track
-    objects because they are not guaranteed to have UUIDs, or distances.
+    This object should contain all that is needed to populate client-side playlist.
     """
 
-    source_paths: list[Path]
-    playlist: list[Path]
+    playlist: list[Track]
     description: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
+        getter = attrgetter("filepath")
         return {
-            "source_paths": list(map(str, self.source_paths)),
-            "playlist": list(map(str, self.playlist)),
+            "playlist": list(map(str, map(getter, self.playlist))),
             "description": self.description,
         }
 
     def shuffle(self) -> "Playlist":
-        """Shuffle the playlist."""
-        random.shuffle(self.playlist)
+        """Shuffle the playlist inplace."""
+        random.shuffle(self.tracks)
         return self
 
 
@@ -99,7 +103,7 @@ class BasePlaylistGenerator(abc.ABC):
 
 def stream_similar_tracks(
     filepaths: list[Path], session: Session, limit: Optional[int] = 500
-) -> Generator[CandidateTrack, None, None]:
+) -> Generator[Track, None, None]:
     """Stream similar tracks to filepaths.
 
     This is best used internally, as it does not return a list of filepaths, but rather
@@ -115,6 +119,10 @@ def stream_similar_tracks(
         A generator of PlaylistTrack objects, in order of distance. Can be consumed
         until needs are exhausted.
     """
+    # start by expanding the parallel workers. i have a ton of cores so so lets use em
+    session.execute(text("set local max_parallel_workers_per_gather = 8"))
+    session.execute(text("set local max_parallel_workers = 8"))
+
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         with base as (
@@ -155,7 +163,7 @@ def stream_similar_tracks(
     res = session.execute(text(sql), {"filepaths": list(map(str, filepaths))})
 
     for filepath, artist_mbid, album_artist_mbid, distance in res:
-        yield CandidateTrack(
+        yield Track(
             filepath=Path(filepath),
             artist_mbid=artist_mbid,
             album_artist_mbid=album_artist_mbid,
@@ -168,7 +176,7 @@ def get_most_similar_tracks(
     session: Session,
     limit: int = 20,
     limit_per_artist: Optional[int] = None,
-) -> list[Path]:
+) -> list[Track]:
     """Get a listing of similar songs.
 
     Performs logic to limit the number of songs per artist, while still returning the
@@ -189,7 +197,7 @@ def get_most_similar_tracks(
     # if not limit_per_artist, then we don't need to do any extra logic
     if not limit_per_artist:
         return [
-            i.filepath
+            i
             for i in stream_similar_tracks(
                 filepaths=filepaths, session=session, limit=limit
             )
@@ -200,11 +208,14 @@ def get_most_similar_tracks(
     for track in stream_similar_tracks(
         filepaths=filepaths, session=session, limit=limit * limit_per_artist + 1
     ):
+        if track.any_missing_info():
+            continue
+
         if (
             artist_counts[track.artist_mbid] < limit_per_artist
             and artist_counts[track.album_artist_mbid] < limit_per_artist
         ):
-            tracks.append(track.filepath)
+            tracks.append(track)
             artist_counts[track.artist_mbid] += 1
 
             if track.album_artist_mbid != track.artist_mbid:

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from moomoo_http.db import db
-from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist
+from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist, Track
 from moomoo_http.routes.playlist import PlaylistArgs, single_playlist_response
 from werkzeug.datastructures import TypeConversionDict
 
@@ -19,7 +19,15 @@ class FakePlaylistGenerator(BasePlaylistGenerator):
     def get_playlist(self, limit: int, **_) -> Playlist:
         """Fake playlist generator."""
         return Playlist(
-            playlist=[f"test/{i}" for i in range(limit)], source_paths=["test/0"]
+            playlist=[
+                Track(
+                    filepath=f"test/{i}",
+                    artist_mbid=None,
+                    album_artist_mbid=None,
+                    distance=None,
+                )
+                for i in range(limit)
+            ]
         )
 
 
@@ -61,21 +69,19 @@ def test_single_playlist_response():
     # basic
     generator = FakePlaylistGenerator()
     args = PlaylistArgs(n=3, seed=0, shuffle=True)
-    res = single_playlist_response(generator=generator, args=args, username="a")
+    res = single_playlist_response(generator=generator, args=args)
     assert res.json["success"]
     assert res.json["playlist"] == [f"test/{i}" for i in range(3)]
-    assert res.json["source_paths"] == ["test/0"]
 
     # handle error on get_playlist
     with patch.object(generator, "get_playlist", side_effect=Exception("test")):
-        res = single_playlist_response(generator=generator, args=args, username="a")
+        res = single_playlist_response(generator=generator, args=args)
         assert res.status_code == 500
         assert res.json["success"] is False
         assert res.json["error"] == "Exception: test"
 
     # handle error on insert does not raise
     with patch.object(db.session, "add", side_effect=Exception("test")):
-        res = single_playlist_response(generator=generator, args=args, username="a")
+        res = single_playlist_response(generator=generator, args=args)
         assert res.json["success"] is True
         assert res.json["playlist"] == [f"test/{i}" for i in range(3)]
-        assert res.json["source_paths"] == ["test/0"]
