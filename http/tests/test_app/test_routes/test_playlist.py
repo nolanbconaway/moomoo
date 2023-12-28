@@ -5,7 +5,11 @@ from unittest.mock import patch
 import pytest
 from moomoo_http.db import db
 from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist, Track
-from moomoo_http.routes.playlist import PlaylistArgs, single_playlist_response
+from moomoo_http.routes.playlist import (
+    PlaylistArgs,
+    multi_playlist_response,
+    single_playlist_response,
+)
 from werkzeug.datastructures import TypeConversionDict
 
 from ...conftest import load_local_files_table
@@ -85,3 +89,27 @@ def test_single_playlist_response():
         res = single_playlist_response(generator=generator, args=args)
         assert res.json["success"] is True
         assert res.json["playlist"] == [f"test/{i}" for i in range(3)]
+
+
+def test_multi_playlist_response():
+    """Test the composition of multiple playlists from files."""
+    generators = [FakePlaylistGenerator() for _ in range(3)]
+    args = PlaylistArgs(n=3, seed=0, shuffle=True)
+    res = multi_playlist_response(generators=generators, args=args)
+    assert res.json["success"]
+    assert len(res.json["playlists"]) == 3
+    assert all(len(plist["playlist"]) == 3 for plist in res.json["playlists"])
+
+    # single error on get_playlist gets skipped
+    with patch.object(generators[0], "get_playlist", side_effect=Exception("test")):
+        res = multi_playlist_response(generators=generators, args=args)
+        assert res.json["success"]
+        assert len(res.json["playlists"]) == 2
+
+    # error raised if no playlists are generated
+    with patch.object(
+        FakePlaylistGenerator, "get_playlist", side_effect=Exception("test")
+    ):
+        res = multi_playlist_response(generators=generators, args=args)
+        assert not res.json["success"]
+        assert res.json["error"] == "Exception: test"

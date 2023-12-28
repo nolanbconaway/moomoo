@@ -46,15 +46,14 @@ class Playlist:
 
     def to_dict(self) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
-        getter = attrgetter("filepath")
         return {
-            "playlist": list(map(str, map(getter, self.playlist))),
+            "playlist": list(map(str, map(attrgetter("filepath"), self.playlist))),
             "description": self.description,
         }
 
     def shuffle(self) -> "Playlist":
         """Shuffle the playlist inplace."""
-        random.shuffle(self.tracks)
+        random.shuffle(self.playlist)
         return self
 
 
@@ -119,9 +118,6 @@ def stream_similar_tracks(
         A generator of PlaylistTrack objects, in order of distance. Can be consumed
         until needs are exhausted.
     """
-    # start by expanding the parallel workers. i have a ton of cores so so lets use em
-    session.execute(text("set local max_parallel_workers_per_gather = 8"))
-    session.execute(text("set local max_parallel_workers = 8"))
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
@@ -155,12 +151,18 @@ def stream_similar_tracks(
         from distances as d
         inner join {schema}.local_files as f using (filepath)
         order by d.distance asc
+        limit :limit
     """
 
-    if limit is not None:
-        sql += f" limit {limit}"
-
-    res = session.execute(text(sql), {"filepaths": list(map(str, filepaths))})
+    # start by expanding the parallel workers???
+    # session.execute(text("set local max_parallel_workers_per_gather = 12"))
+    # session.execute(text("set local max_parallel_workers = 12"))
+    # session.execute(text("set local hnsw.ef_search = 10"))
+    res = session.execute(
+        text(sql),
+        params={"filepaths": list(map(str, filepaths)), "limit": limit},
+        execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
+    )
 
     for filepath, artist_mbid, album_artist_mbid, distance in res:
         yield Track(

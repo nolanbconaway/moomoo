@@ -107,8 +107,9 @@ def multi_playlist_response(
             errors.append(e)
 
     if not playlists:
+        e = errors[0]
         return Response(
-            json.dumps({"success": False, "error": f"{errors[0]}"}),
+            json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}),
             status=500,
             content_type="application/json",
         )
