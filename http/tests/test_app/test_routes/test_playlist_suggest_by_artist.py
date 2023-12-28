@@ -60,7 +60,6 @@ def test_no_artists_error(http_app: FlaskClient):
     assert resp.json["error"] == "No artists found for user."
 
 
-
 def test_count_playlists(http_app: FlaskClient):
     """Test that the number of playlists returned is correct."""
     artists = [

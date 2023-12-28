@@ -3,7 +3,6 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from moomoo_http.db import db
 from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist, Track
 from moomoo_http.routes.playlist import PlaylistArgs, make_http_response
 from werkzeug.datastructures import TypeConversionDict
@@ -62,7 +61,6 @@ def test_playlist_args__from_request():
     assert args.n == 1
     assert args.seed == 1
     assert args.shuffle is True
-
 
 
 def test_make_http_response():
