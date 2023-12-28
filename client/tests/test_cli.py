@@ -4,10 +4,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from requests_mock import Mocker as RequestsMocker
-
 from moomoo_client.cli import cli as client_cli
 from moomoo_client.cli import playlist as playlist_cli
+from requests_mock import Mocker as RequestsMocker
 
 
 @pytest.fixture(autouse=True)
