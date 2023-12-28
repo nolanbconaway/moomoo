@@ -101,9 +101,7 @@ def test_playlist_from_path__error_handling(
 
     runner = CliRunner()
 
-    result = runner.invoke(
-        playlist_cli, ["from-path", str(local_files / "test.mp3")]
-    )
+    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
     assert result.exit_code != 0
 
     # should still be json parsable
