@@ -4,10 +4,10 @@ Use the base postgres connection in the playlist module for now. eventually shou
 use a sqlalchemy session.
 """
 import json
-import sys
-import traceback
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from flask import Blueprint, Request, Response, request
@@ -17,6 +17,7 @@ from ..playlist_generator import (
     BasePlaylistGenerator,
     FromFilesPlaylistGenerator,
     FromMbidsPlaylistGenerator,
+    Playlist,
 )
 from .logger import get_logger
 
@@ -53,60 +54,41 @@ class PlaylistArgs:
         )
 
 
-def single_playlist_response(
-    generator: BasePlaylistGenerator, args: PlaylistArgs
-) -> Response:
-    """Get an http response with a single playlist from a generator.
-
-    Wraps the logic in a try except block to catch errors and return a 500 response.
-    """
-    logger.info(f"playlist request: {generator.name} / ({args})")
-
-    try:
-        playlist = generator.get_playlist(
-            limit=args.n, shuffle=args.shuffle, seed_count=args.seed, session=db.session
-        )
-    except Exception as e:
-        traceback.print_exc(file=sys.stdout)
-        return Response(
-            json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}),
-            status=500,
-            content_type="application/json",
-        )
-
-    return Response(
-        json.dumps({"success": True, **playlist.to_dict()}),
-        status=200,
-        content_type="application/json",
-    )
-
-
-def multi_playlist_response(
+def make_http_response(
     generators: list[BasePlaylistGenerator], args: PlaylistArgs
 ) -> Response:
-    """Produce a response with multiple playlists.
+    """Generate a http response from a list of generators and args."""
+    if not generators:
+        raise ValueError("No generators provided.")
 
-    Wraps the logic in a try except block to catch errors and return a 500 response.
-    Uses the first error message if no playlists are generated, else skips along and
-    returns the playlists that were generated.
-    """
-    n, playlists, errors = len(generators), [], []
+    @dataclass
+    class Result:
+        generator: BasePlaylistGenerator
+        playlist: Optional[Playlist] = None
+        error: Optional[Exception] = None
 
-    for i, generator in enumerate(generators):
+    # run all generators, catching any errors. results will be a list of Result objects
+    # TODO: make this async/parallel?? something faster
+    results, n = [], len(generators)
+    for i, generator in enumerate(generators, 1):
         try:
-            logger.info(f"Getting playlist {i+1}/{n}: {generator.name} / ({args})")
+            logger.info(f"Getting playlist {i}/{n}: {generator.name} / ({args})")
             plist = generator.get_playlist(
                 limit=args.n,
                 shuffle=args.shuffle,
                 seed_count=args.seed,
                 session=db.session,
             )
-            playlists.append(plist)
+            results.append(Result(generator=generator, playlist=plist))
         except Exception as e:
-            traceback.print_exc(file=sys.stdout)
-            errors.append(e)
+            logger.exception(f"Error getting playlist {i}/{n}: {generator.name}")
+            results.append(Result(generator=generator, error=e))
 
-    if not playlists:
+    # grab the successful playlists and errors
+    success = list(r.playlist for r in results if r.playlist is not None)
+    errors = list(r.error for r in results if r.error is not None)
+
+    if not success:
         e = errors[0]
         return Response(
             json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}),
@@ -114,11 +96,9 @@ def multi_playlist_response(
             content_type="application/json",
         )
 
-    if errors:
-        logger.warning(f"Some playlists failed: {errors}")
-
+    # otherwise return a list of playlists
     return Response(
-        json.dumps({"success": True, "playlists": [p.to_dict() for p in playlists]}),
+        json.dumps({"success": True, "playlists": [p.to_dict() for p in success]}),
         status=200,
         content_type="application/json",
     )
@@ -129,20 +109,14 @@ def from_files():
     """Create a playlist from one or more files."""
     args = PlaylistArgs.from_request(request)
     paths = request.args.getlist("path", type=Path)
-    username = request.headers.get("listenbrainz-username")
 
-    if username is None:
-        return (
-            {"success": False, "error": "No listenbrainz-username header provided."},
-            400,
-        )
     if len(paths) == 0:
         return ({"success": False, "error": "No filepaths provided."}, 400)
     elif len(paths) > 500:
         return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
 
     generator = FromFilesPlaylistGenerator(*paths)
-    return single_playlist_response(generator, args)
+    return make_http_response([generator], args)
 
 
 @base.route("/from-mbids", methods=["GET"])
@@ -150,13 +124,6 @@ def from_mbids():
     """Create a playlist from one or more mbids."""
     args = PlaylistArgs.from_request(request)
     mbids = request.args.getlist("mbid", type=str)
-    username = request.headers.get("listenbrainz-username")
-
-    if username is None:
-        return (
-            {"success": False, "error": "No listenbrainz-username header provided."},
-            400,
-        )
 
     if len(mbids) == 0:
         return ({"success": False, "error": "No mbids provided."}, 400)
@@ -170,30 +137,26 @@ def from_mbids():
             return ({"success": False, "error": "Invalid mbid format provided."}, 400)
 
     generator = FromMbidsPlaylistGenerator(*mbids)
-    return single_playlist_response(generator, args)
+    return make_http_response([generator], args)
 
 
-@suggest.route("/by-artist", methods=["GET"])
-def suggest_by_artist():
+@suggest.route("/by-artist/<username>", methods=["GET"])
+def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
     args = PlaylistArgs.from_request(request)
-    username = request.headers.get("listenbrainz-username")
-    count_plists = request.args.get("numPlaylists", 5, type=int)
+    count_plists = request.args.get("numPlaylists", 3, type=int)
 
-    if username is None:
-        return (
-            {"success": False, "error": "No listenbrainz-username header provided."},
-            400,
-        )
+    if count_plists < 1:
+        return ({"success": False, "error": "numPlaylists must be >= 1."}, 400)
 
     logger.info(f"playlist request: by-artist / {username} / ({args})")
 
     # get the top n artists from last 30 days with more than 10 listens
-    sql = """
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
         select artist_mbid, artist_name
-        from moomoo.artist_listen_counts
-        where username = :username
-          and last30_listen_count > 10
+        from {schema}.artist_listen_counts
+        where username = :username and last30_listen_count > 10
         order by last30_listen_count desc
         limit :n
     """
@@ -202,7 +165,7 @@ def suggest_by_artist():
     )
 
     if not rows:
-        return ({"success": False, "error": "No artists found."}, 500)
+        return ({"success": False, "error": "No artists found for user."}, 500)
 
     # get responses for each artist
     generators = [
@@ -212,4 +175,4 @@ def suggest_by_artist():
         for row in rows
     ]
 
-    return multi_playlist_response(generators, args)
+    return make_http_response(generators, args)

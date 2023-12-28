@@ -5,11 +5,7 @@ from unittest.mock import patch
 import pytest
 from moomoo_http.db import db
 from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist, Track
-from moomoo_http.routes.playlist import (
-    PlaylistArgs,
-    multi_playlist_response,
-    single_playlist_response,
-)
+from moomoo_http.routes.playlist import PlaylistArgs, make_http_response
 from werkzeug.datastructures import TypeConversionDict
 
 from ...conftest import load_local_files_table
@@ -68,41 +64,19 @@ def test_playlist_args__from_request():
     assert args.shuffle is True
 
 
-def test_single_playlist_response():
-    """Test the composition of a playlist from files."""
-    # basic
-    generator = FakePlaylistGenerator()
-    args = PlaylistArgs(n=3, seed=0, shuffle=True)
-    res = single_playlist_response(generator=generator, args=args)
-    assert res.json["success"]
-    assert res.json["playlist"] == [f"test/{i}" for i in range(3)]
 
-    # handle error on get_playlist
-    with patch.object(generator, "get_playlist", side_effect=Exception("test")):
-        res = single_playlist_response(generator=generator, args=args)
-        assert res.status_code == 500
-        assert res.json["success"] is False
-        assert res.json["error"] == "Exception: test"
-
-    # handle error on insert does not raise
-    with patch.object(db.session, "add", side_effect=Exception("test")):
-        res = single_playlist_response(generator=generator, args=args)
-        assert res.json["success"] is True
-        assert res.json["playlist"] == [f"test/{i}" for i in range(3)]
-
-
-def test_multi_playlist_response():
-    """Test the composition of multiple playlists from files."""
+def test_make_http_response():
+    """Test the make http response function."""
     generators = [FakePlaylistGenerator() for _ in range(3)]
     args = PlaylistArgs(n=3, seed=0, shuffle=True)
-    res = multi_playlist_response(generators=generators, args=args)
+    res = make_http_response(generators=generators, args=args)
     assert res.json["success"]
     assert len(res.json["playlists"]) == 3
     assert all(len(plist["playlist"]) == 3 for plist in res.json["playlists"])
 
     # single error on get_playlist gets skipped
     with patch.object(generators[0], "get_playlist", side_effect=Exception("test")):
-        res = multi_playlist_response(generators=generators, args=args)
+        res = make_http_response(generators=generators, args=args)
         assert res.json["success"]
         assert len(res.json["playlists"]) == 2
 
@@ -110,6 +84,6 @@ def test_multi_playlist_response():
     with patch.object(
         FakePlaylistGenerator, "get_playlist", side_effect=Exception("test")
     ):
-        res = multi_playlist_response(generators=generators, args=args)
+        res = make_http_response(generators=generators, args=args)
         assert not res.json["success"]
         assert res.json["error"] == "Exception: test"

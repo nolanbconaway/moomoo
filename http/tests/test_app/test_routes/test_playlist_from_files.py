@@ -17,26 +17,13 @@ def create_storage():
 
 def test_arg_errors(http_app: FlaskClient):
     """Test that an error is returned when bad args are sent."""
-    resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
-    assert resp.status_code == 400
-    assert resp.json["success"] is False
-    assert resp.json["error"] == "No listenbrainz-username header provided."
-
-    resp = http_app.get(
-        "/playlist/from-files",
-        query_string=dict(),
-        headers={"listenbrainz-username": "a"},
-    )
+    resp = http_app.get("/playlist/from-files", query_string=dict())
     assert resp.status_code == 400
     assert resp.json["success"] is False
     assert resp.json["error"] == "No filepaths provided."
 
     query_string = "&".join([f"path=test{i}" for i in range(1000)])
-    resp = http_app.get(
-        "/playlist/from-files",
-        query_string=query_string,
-        headers={"listenbrainz-username": "a"},
-    )
+    resp = http_app.get("/playlist/from-files", query_string=query_string)
     assert resp.status_code == 400
     assert resp.json["success"] is False
     assert resp.json["error"] == "Too many filepaths provided (>500)."
@@ -46,11 +33,7 @@ def test_success(http_app: FlaskClient):
     """Quick process test when everything works."""
     playlist = Playlist(playlist=[])
     with patch(plist_obj, return_value=playlist) as mock:
-        resp = http_app.get(
-            "/playlist/from-files",
-            query_string=dict(path="test/3949"),
-            headers={"listenbrainz-username": "a"},
-        )
+        resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
         assert resp.status_code == 200
         assert resp.json["success"] is True
         assert resp.json["playlist"] == []

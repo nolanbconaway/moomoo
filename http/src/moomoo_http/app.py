@@ -1,7 +1,10 @@
 """Create the Flask app."""
 import os
+from pathlib import Path
 
 from flask import Flask
+
+VERSION_FILE = Path(__file__).parent / "version"
 
 
 def create_app() -> Flask:
@@ -9,12 +12,11 @@ def create_app() -> Flask:
     app = Flask("moomoo")
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["MOOMOO_POSTGRES_URI"]
 
-    app.add_url_rule("/ping", view_func=lambda: {"success": True})
-
     from .db import db
-    from .routes import playlist
+    from .routes import app_meta, playlist
 
     app.register_blueprint(playlist.base)
+    app.register_blueprint(app_meta.base)
     db.init_app(app)
 
     return app
