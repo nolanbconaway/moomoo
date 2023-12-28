@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        pyv: ['3.9', '3.10']
+        pyv: ['3.9', '3.10', '3.11', '3.12']
 
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}-${{matrix.pyv}}-lint-test
@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: wait 10s
+        run: sleep 10  # in case the pr is very new
       - name: Get changed files
         env:
           GH_TOKEN: ${{ github.token }}
