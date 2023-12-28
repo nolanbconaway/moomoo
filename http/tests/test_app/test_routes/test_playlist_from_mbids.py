@@ -28,5 +28,5 @@ def test_success(http_app: FlaskClient):
         resp = http_app.get("/playlist/from-mbids", query_string=dict(mbid=uuid4().hex))
         assert resp.status_code == 200
         assert resp.json["success"] is True
-        assert resp.json["playlist"] == []
+        assert resp.json["playlists"] == [playlist.to_dict()]
         assert mock.call_count == 1

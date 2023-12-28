@@ -36,5 +36,5 @@ def test_success(http_app: FlaskClient):
         resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
         assert resp.status_code == 200
         assert resp.json["success"] is True
-        assert resp.json["playlist"] == []
+        assert resp.json["playlists"] == [playlist.to_dict()]
         assert mock.call_count == 1
