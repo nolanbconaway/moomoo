@@ -1,4 +1,23 @@
 {# Public view of the local files data. #}
+{{ config(
+  materialized='table',
+  indexes=[
+    {'columns': ['filepath'], 'unique': True},
+    {'columns': ['recording_md5']},
+    {'columns': ['recording_mbid']},
+    {'columns': ['release_mbid']},
+    {'columns': ['release_group_mbid']},
+    {'columns': ['artist_mbid']},
+    {'columns': ['album_artist_mbid']},
+    {'columns': ['track_name']},
+    {'columns': ['album_name']},
+    {'columns': ['artist_name']},
+    {'columns': ['album_artist_name']},
+    {'columns': ['embedding_success']},
+    {'columns': ['embedding_duration_seconds']},
+  ]
+) }}
+
 
 with metadata as (
   select

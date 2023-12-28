@@ -5,7 +5,7 @@ import pytest
 from moomoo_http.app import create_app
 from moomoo_http.db import db
 from moomoo_http.playlist_generator import (
-    PlaylistTrack,
+    Track,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
@@ -20,7 +20,7 @@ def app_context():
         yield
 
 
-def base_assert_list_playlist_track(*tracks: PlaylistTrack):
+def base_assert_list_playlist_track(*tracks: Track):
     """Assert that a list of PlaylistTrack objects is valid."""
     assert all(isinstance(i.distance, float) for i in tracks)
     assert all(i.distance >= 0 for i in tracks)
@@ -79,18 +79,19 @@ def test_get_most_similar_tracks__artist_limit():
     # should only get 2 songs, as they are from the same artist
     target = Path("test/0")
     results = get_most_similar_tracks([target], db.session, limit_per_artist=2, limit=5)
-    assert len(results) == 2
-    assert results[0].filepath == Path("test/1")
-    assert results[1].filepath == Path("test/2")
+    base_assert_list_playlist_track(*results)
+    assert [i.filepath for i in results] == [Path("test/1"), Path("test/2")]
 
     # should only get 5 songs total even though allow 6 per artist
     results = get_most_similar_tracks([target], db.session, limit_per_artist=6, limit=5)
-    assert len(results) == 5
-    assert results[0].filepath == Path("test/1")
-    assert results[1].filepath == Path("test/2")
-    assert results[2].filepath == Path("test/3")
-    assert results[3].filepath == Path("test/4")
-    assert results[4].filepath == Path("test/5")
+    base_assert_list_playlist_track(*results)
+    assert [i.filepath for i in results] == [
+        Path("test/1"),
+        Path("test/2"),
+        Path("test/3"),
+        Path("test/4"),
+        Path("test/5"),
+    ]
 
 
 def test_get_most_similar_tracks__album_artist_limit():
@@ -110,15 +111,16 @@ def test_get_most_similar_tracks__album_artist_limit():
     # should only get 2 songs, as they are from the same artist
     target = Path("test/0")
     results = get_most_similar_tracks([target], db.session, limit_per_artist=2, limit=5)
-    assert len(results) == 2
-    assert results[0].filepath == Path("test/1")
-    assert results[1].filepath == Path("test/2")
+    base_assert_list_playlist_track(*results)
+    assert [i.filepath for i in results] == [Path("test/1"), Path("test/2")]
 
     # should only get 5 songs total even though allow 6 per artist
     results = get_most_similar_tracks([target], db.session, limit_per_artist=6, limit=5)
-    assert len(results) == 5
-    assert results[0].filepath == Path("test/1")
-    assert results[1].filepath == Path("test/2")
-    assert results[2].filepath == Path("test/3")
-    assert results[3].filepath == Path("test/4")
-    assert results[4].filepath == Path("test/5")
+    base_assert_list_playlist_track(*results)
+    assert [i.filepath for i in results] == [
+        Path("test/1"),
+        Path("test/2"),
+        Path("test/3"),
+        Path("test/4"),
+        Path("test/5"),
+    ]

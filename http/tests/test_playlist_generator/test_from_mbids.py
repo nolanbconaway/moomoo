@@ -10,10 +10,7 @@ from moomoo_http.db import db
 
 # use an alias to limit so many multi-line statements
 from moomoo_http.playlist_generator import FromMbidsPlaylistGenerator as Gen
-from moomoo_http.playlist_generator import (
-    NoFilesRequestedError,
-    PlaylistTrack,
-)
+from moomoo_http.playlist_generator import NoFilesRequestedError, Track
 from sqlalchemy import text
 
 
@@ -258,7 +255,7 @@ def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
     mock_list_source_paths.return_value = [Path("test/0")]
 
     mock_stream_similar_tracks.return_value = [
-        PlaylistTrack(
+        Track(
             filepath=Path(f"test/{i}"),
             artist_mbid=f"{i}",
             album_artist_mbid=f"{i}",
@@ -268,18 +265,18 @@ def test_get_playlist(mock_stream_similar_tracks, mock_list_source_paths):
     ]
 
     pg = Gen(Path("test/0"))
-    playlist, source_paths = pg.get_playlist(limit=2, shuffle=False, session=db.session)
-    assert playlist == [Path("test/1"), Path("test/2")]
-    assert source_paths == [Path("test/0")]
+    playlist = pg.get_playlist(limit=2, shuffle=False, session=db.session)
+    assert [i.filepath for i in playlist.playlist] == [Path("test/1"), Path("test/2")]
 
     # up the limit
-    playlist, source_paths = pg.get_playlist(limit=4, shuffle=False, session=db.session)
-    assert playlist == [Path("test/1"), Path("test/2"), Path("test/3"), Path("test/4")]
-    assert source_paths == [Path("test/0")]
+    playlist = pg.get_playlist(limit=4, shuffle=False, session=db.session)
+    assert [i.filepath for i in playlist.playlist] == [
+        Path("test/1"),
+        Path("test/2"),
+        Path("test/3"),
+        Path("test/4"),
+    ]
 
     # add a seed
-    playlist, source_paths = pg.get_playlist(
-        limit=2, shuffle=False, seed_count=1, session=db.session
-    )
-    assert playlist == [Path("test/0"), Path("test/1")]
-    assert source_paths == [Path("test/0")]
+    playlist = pg.get_playlist(limit=2, shuffle=False, seed_count=1, session=db.session)
+    assert [i.filepath for i in playlist.playlist] == [Path("test/0"), Path("test/1")]

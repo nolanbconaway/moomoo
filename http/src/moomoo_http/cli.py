@@ -6,7 +6,6 @@ from pathlib import Path
 import click
 import waitress
 
-from . import db
 from .app import create_app
 
 
@@ -33,13 +32,6 @@ def serve(host: str, port: int) -> None:
 
     click.echo(f"Starting moomoo http server on {host}:{port}")
     waitress.serve(app, host=host, port=port)
-
-
-@cli.command()
-def initdb():
-    """Initialize the database."""
-    with create_app().app_context():
-        db.Base.metadata.create_all(db.db.engine)
 
 
 if __name__ == "__main__":

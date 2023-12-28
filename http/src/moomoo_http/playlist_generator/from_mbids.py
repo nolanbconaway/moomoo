@@ -3,12 +3,19 @@
 import os
 import random
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from ..db import execute_sql_fetchall
-from .base import BasePlaylistGenerator, NoFilesRequestedError, get_most_similar_tracks
+from .base import (
+    BasePlaylistGenerator,
+    NoFilesRequestedError,
+    Playlist,
+    Track,
+    get_most_similar_tracks,
+)
 
 
 class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
@@ -16,17 +23,22 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
     Automatically resolves the mbid types, and includes all files for the mbids in cases
     where the mbid is a parent (e.g. release group).
+
+    Set the description to a string to include it in the playlist record. This can be
+    used to provide context to the user about the playlist (i.e., names of the source
+    mbids).
     """
 
     name = "from-mbids"
     limit_source_paths = 25
 
-    def __init__(self, *mbids: UUID):
+    def __init__(self, *mbids: UUID, description: Optional[str] = None):
         if not mbids:
             raise ValueError("At least one mbid must be provided.")
 
         # dedupe
         self.mbids = list(set([mbid for mbid in mbids]))
+        self.description = description
 
     @classmethod
     def _files_for_recording_mbids(
@@ -152,7 +164,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
-    ) -> tuple[list[Path], list[Path]]:
+    ) -> Playlist:
         """Get a playlist of similar songs.
 
         Args:
@@ -173,7 +185,13 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         if not source_paths:
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
-        seed_files = [] if seed_count == 0 else random.sample(source_paths, seed_count)
+        if seed_count == 0:
+            seed_tracks = []
+        else:
+            seed_tracks = [
+                Track(filepath=p) for p in random.sample(source_paths, seed_count)
+            ]
+
         tracks = get_most_similar_tracks(
             filepaths=source_paths,
             session=session,
@@ -181,10 +199,8 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        # reduce to just the filepaths
-        tracks = [t.filepath for t in tracks]
-
+        res = Playlist(playlist=seed_tracks + tracks, description=self.description)
         if shuffle:
-            random.shuffle(tracks)
+            res.shuffle()
 
-        return seed_files + tracks, source_paths
+        return res

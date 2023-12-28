@@ -4,10 +4,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from requests_mock import Mocker as RequestsMocker
-
 from moomoo_client.cli import cli as client_cli
 from moomoo_client.cli import playlist as playlist_cli
+from requests_mock import Mocker as RequestsMocker
 
 
 @pytest.fixture(autouse=True)
@@ -45,20 +44,16 @@ def test_playlist_from_path__media_library_exists_check(
     # mock out the request to the server
     requests_mock.get(
         f"{moomoo_host}/playlist/from-files",
-        json={"success": True, "playlist": [], "source_paths": []},
+        json={"success": True, "playlists": [{"playlist": [], "description": None}]},
     )
 
     runner = CliRunner()
-    result = runner.invoke(
-        playlist_cli, ["from-path", str(local_files / "test.mp3"), "--username=a"]
-    )
+    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
     assert result.exit_code == 0
 
     # set the media library to a non-existent path, should fail
     monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(local_files) + "fakeeee")
-    result = runner.invoke(
-        playlist_cli, ["from-path", str(local_files / "test.mp3"), "--username=a"]
-    )
+    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
     assert result.exit_code != 0
     assert str(local_files) + "fakeeee" + " does not exist" in str(result.exception)
 
@@ -70,13 +65,16 @@ def test_playlist_from_path__json_output(
     # mock out the request to the server
     requests_mock.get(
         f"{moomoo_host}/playlist/from-files",
-        json={"success": True, "playlist": ["a", "b", "c"], "source_paths": ["a"]},
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
     )
 
     runner = CliRunner()
     result = runner.invoke(
         playlist_cli,
-        ["from-path", str(local_files / "test.mp3"), "--username=a", "--out=json"],
+        ["from-path", str(local_files / "test.mp3"), "--out=json"],
     )
     assert result.exit_code == 0
 
@@ -87,7 +85,6 @@ def test_playlist_from_path__json_output(
         str(local_files / "b"),
         str(local_files / "c"),
     ]
-    assert data["source_paths"] == [str(local_files / "a")]
 
 
 def test_playlist_from_path__error_handling(
@@ -103,9 +100,7 @@ def test_playlist_from_path__error_handling(
 
     runner = CliRunner()
 
-    result = runner.invoke(
-        playlist_cli, ["from-path", str(local_files / "test.mp3"), "--username=a"]
-    )
+    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
     assert result.exit_code != 0
 
     # should still be json parsable

@@ -3,9 +3,8 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from moomoo_http.db import Base, MoomooPlaylist, db
-from moomoo_http.playlist_generator import BasePlaylistGenerator
-from moomoo_http.routes.playlist import PlaylistArgs, get_playlist_result
+from moomoo_http.playlist_generator import BasePlaylistGenerator, Playlist, Track
+from moomoo_http.routes.playlist import PlaylistArgs, make_http_response
 from werkzeug.datastructures import TypeConversionDict
 
 from ...conftest import load_local_files_table
@@ -16,15 +15,19 @@ class FakePlaylistGenerator(BasePlaylistGenerator):
 
     name = "fake"
 
-    def get_playlist(self, limit: int, **_) -> tuple:
+    def get_playlist(self, limit: int, **_) -> Playlist:
         """Fake playlist generator."""
-        return [f"test/{i}" for i in range(limit)], ["test/0"]
-
-
-@pytest.fixture(autouse=True)
-def create_storage():
-    """Create the storage table."""
-    Base.metadata.create_all(db.engine)
+        return Playlist(
+            playlist=[
+                Track(
+                    filepath=f"test/{i}",
+                    artist_mbid=None,
+                    album_artist_mbid=None,
+                    distance=None,
+                )
+                for i in range(limit)
+            ]
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -60,35 +63,25 @@ def test_playlist_args__from_request():
     assert args.shuffle is True
 
 
-def test_get_playlist_result():
-    """Test the composition of a playlist from files."""
-    # basic
-    generator = FakePlaylistGenerator()
+def test_make_http_response():
+    """Test the make http response function."""
+    generators = [FakePlaylistGenerator() for _ in range(3)]
     args = PlaylistArgs(n=3, seed=0, shuffle=True)
-    res = get_playlist_result(generator=generator, args=args, username="a")
-    assert res["success"]
-    assert res["playlist"] == [f"test/{i}" for i in range(3)]
-    assert res["source_paths"] == ["test/0"]
+    res = make_http_response(generators=generators, args=args)
+    assert res.json["success"]
+    assert len(res.json["playlists"]) == 3
+    assert all(len(plist["playlist"]) == 3 for plist in res.json["playlists"])
 
-    # test storage
-    assert db.session.query(MoomooPlaylist).count() == 1
-    row = db.session.query(MoomooPlaylist).first()
-    assert row.username == "a"
-    assert row.playlist == res["playlist"]
-    assert row.source_paths == res["source_paths"]
+    # single error on get_playlist gets skipped
+    with patch.object(generators[0], "get_playlist", side_effect=Exception("test")):
+        res = make_http_response(generators=generators, args=args)
+        assert res.json["success"]
+        assert len(res.json["playlists"]) == 2
 
-    # handle error on get_playlist
-    with patch.object(generator, "get_playlist", side_effect=Exception("test")):
-        res, status = get_playlist_result(generator=generator, args=args, username="a")
-        assert status == 500
-        assert res["success"] is False
-        assert res["error"] == "Exception: test"
-        assert db.session.query(MoomooPlaylist).count() == 1  # still only one row
-
-    # handle error on insert does not raise
-    with patch.object(db.session, "add", side_effect=Exception("test")):
-        res = get_playlist_result(generator=generator, args=args, username="a")
-        assert res["success"] is True
-        assert res["playlist"] == [f"test/{i}" for i in range(3)]
-        assert res["source_paths"] == ["test/0"]
-        assert db.session.query(MoomooPlaylist).count() == 1  # still only one row
+    # error raised if no playlists are generated
+    with patch.object(
+        FakePlaylistGenerator, "get_playlist", side_effect=Exception("test")
+    ):
+        res = make_http_response(generators=generators, args=args)
+        assert not res.json["success"]
+        assert res.json["error"] == "Exception: test"

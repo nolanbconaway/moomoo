@@ -8,6 +8,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import click
 import xspf_lib as xspf
@@ -27,23 +28,20 @@ class PlaylistResult:
     """
 
     playlist: list[Path]
-    source_paths: list[Path]
+    description: Optional[str] = None
 
     def to_xspf(self) -> xspf.Playlist:
         """Convert to an xspf playlist."""
         return xspf.Playlist(
             trackList=[xspf.Track(location=str(p)) for p in self.playlist],
             creator="moomoo",
-            annotation=f"Generated via {len(self.source_paths)} source path(s).",
+            annotation=self.description,
         )
 
     def to_json(self) -> str:
         """Convert to a json string."""
         return json.dumps(
-            dict(
-                playlist=[str(p) for p in self.playlist],
-                source_paths=[str(p) for p in self.source_paths],
-            )
+            dict(playlist=[str(p) for p in self.playlist], description=self.description)
         )
 
     def to_xml(self):

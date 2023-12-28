@@ -35,14 +35,11 @@ def playlist():
 @click.argument(
     "paths", type=click.Path(exists=True, path_type=Path), nargs=-1, required=True
 )
-@click.option("-u", "--username", required=True)
 @click.option("--n", default=20, type=int)
 @click.option("--seed", default=1, type=int)
 @click.option("--shuffle", default=True, type=bool)
 @click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
-def from_path(
-    paths: list[Path], username: str, n: int, seed: int, shuffle: bool, out: str
-):
+def from_path(paths: list[Path], n: int, seed: int, shuffle: bool, out: str):
     """Get a playlist from a path."""
     host = os.environ["MOOMOO_HOST"]
     media_library = Path(os.environ["MOOMOO_MEDIA_LIBRARY"])
@@ -67,11 +64,7 @@ def from_path(
             + "Otherwise a single parent path should be provided."
         )
 
-    resp = requests.get(
-        f"{host}/playlist/from-files",
-        params=args,
-        headers={"listenbrainz-username": username},
-    )
+    resp = requests.get(f"{host}/playlist/from-files", params=args)
 
     if resp.status_code != 200:
         try:
@@ -84,9 +77,11 @@ def from_path(
     if not resp.json()["success"]:
         raise RuntimeError(resp.json()["error"])
 
+    # expect only one playlist if success
+    playlist = resp.json()["playlists"][0]
     result = PlaylistResult(
-        playlist=[media_library / f for f in resp.json()["playlist"]],
-        source_paths=[media_library / f for f in resp.json()["source_paths"]],
+        playlist=[media_library / f for f in playlist["playlist"]],
+        description=playlist["description"],
     )
 
     # TODO: any check that the files exist?
