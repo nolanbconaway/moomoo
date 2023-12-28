@@ -33,6 +33,7 @@ setup(
         "click==8.*",
         "xspf-lib==0.3.*",
         "requests==2.*",
+        "kivy[base]==2.2.*",
     ],
     extras_require=dict(
         test=[
@@ -42,6 +43,6 @@ setup(
             "requests-mock==1.11.0",
         ]
     ),
-    entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli:cli"]},
+    entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli.cli:cli"]},
     package_data={"moomoo_client": ["version"]},
 )

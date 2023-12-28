@@ -3,28 +3,51 @@
 Put no specialty imports beyond cli, postgres here, as the thin client needs this.
 """
 import json
+import os
 import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import click
 import xspf_lib as xspf
 
 
-def moomoo_version() -> str:
-    """Get the current moomoo version."""
-    return (Path(__file__).resolve().parent / "version").read_text().strip()
+class MediaLibrary:
+    """A media library."""
+
+    @cached_property
+    def location(self) -> Path:
+        library = os.environ.get("MOOMOO_MEDIA_LIBRARY")
+
+        if library is None:
+            raise ValueError("MOOMOO_MEDIA_LIBRARY environment variable not set.")
+
+        library = Path(library)
+
+        if not library.exists():
+            raise ValueError(f"Media library {library} does not exist.")
+
+        return library
+
+    def make_relative(self, path: Path) -> Path:
+        """Make a path relative, within the media library."""
+        return path.resolve().relative_to(self.location)
+
+    def make_absolute(self, path: Union[Path, str]) -> Path:
+        """Make a path absolute, within the media library."""
+        return self.location / path
 
 
 @dataclass
-class PlaylistResult:
-    """A playlist result.
+class Playlist:
+    """A playlist.
 
-    Contains the target paths and the local paths used to generate it. Has methods
-    to render the playlist in different formats.
+    Contains the target paths for media, and metadata for user context. Has methods to
+    render the playlist in different formats.
     """
 
     playlist: list[Path]
