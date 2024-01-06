@@ -50,7 +50,7 @@ class PlaylistArgs:
         return cls(
             n=request.args.get("n", 20, type=int),
             seed=request.args.get("seed", 0, type=int),
-            shuffle=request.args.get("shuffle", "1", type=boolean_type),
+            shuffle=request.args.get("shuffle", True, type=boolean_type),
         )
 
 
@@ -72,7 +72,12 @@ def make_http_response(
     results, n = [], len(generators)
     for i, generator in enumerate(generators, 1):
         try:
-            logger.info(f"Getting playlist {i}/{n}: {generator.name} / ({args})")
+            logger.info(
+                f"Getting playlist {i}/{n}. generator=%s, description=%s, args=%s",
+                generator.name,
+                generator.description,
+                args,
+            )
             plist = generator.get_playlist(
                 limit=args.n,
                 shuffle=args.shuffle,
@@ -81,7 +86,7 @@ def make_http_response(
             )
             results.append(Result(generator=generator, playlist=plist))
         except Exception as e:
-            logger.exception(f"Error getting playlist {i}/{n}: {generator.name}")
+            logger.exception(f"Error getting playlist {i}/{n}")
             results.append(Result(generator=generator, error=e))
 
     # grab the successful playlists and errors
@@ -144,12 +149,10 @@ def from_mbids():
 def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
     args = PlaylistArgs.from_request(request)
-    count_plists = request.args.get("numPlaylists", 3, type=int)
+    count_plists = request.args.get("numPlaylists", 4, type=int)
 
     if count_plists < 1:
         return ({"success": False, "error": "numPlaylists must be >= 1."}, 400)
-
-    logger.info(f"playlist request: by-artist / {username} / ({args})")
 
     # get the top n artists from last 30 days with more than 10 listens
     schema = os.environ["MOOMOO_DBT_SCHEMA"]

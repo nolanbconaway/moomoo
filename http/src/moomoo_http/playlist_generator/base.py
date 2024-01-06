@@ -76,6 +76,12 @@ class BasePlaylistGenerator(abc.ABC):
         """Name of the playlist generator."""
         ...
 
+    @property
+    @abc.abstractmethod
+    def description(self) -> Optional[str]:
+        """Description of the playlist generator."""
+        ...
+
     @abc.abstractmethod
     def get_playlist(
         self,
@@ -101,7 +107,7 @@ class BasePlaylistGenerator(abc.ABC):
 
 
 def stream_similar_tracks(
-    filepaths: list[Path], session: Session, limit: Optional[int] = 500
+    filepaths: list[Path], session: Session, limit: Optional[int] = 2000
 ) -> Generator[Track, None, None]:
     """Stream similar tracks to filepaths.
 
@@ -122,24 +128,22 @@ def stream_similar_tracks(
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         with base as (
-            select filepath, embedding
+            select avg(embedding) as embedding
             from {schema}.local_files where filepath = any(:filepaths)
         )
 
         , distances as (
             select
                 local_files.filepath as filepath
-                , avg((base.embedding <-> local_files.embedding)) as distance
+                , (base.embedding <-> local_files.embedding) as distance
 
-            from base
-            cross join {schema}.local_files
+            from {schema}.local_files
+            cross join base  -- one row only
 
             where local_files.embedding_success
             and local_files.embedding_duration_seconds >= 60
             and not local_files.filepath = any(:filepaths)
             and local_files.artist_mbid is not null
-
-            group by local_files.filepath
         )
 
         select
@@ -153,11 +157,6 @@ def stream_similar_tracks(
         order by d.distance asc
         limit :limit
     """
-
-    # start by expanding the parallel workers???
-    # session.execute(text("set local max_parallel_workers_per_gather = 12"))
-    # session.execute(text("set local max_parallel_workers = 12"))
-    # session.execute(text("set local hnsw.ef_search = 10"))
     res = session.execute(
         text(sql),
         params={"filepaths": list(map(str, filepaths)), "limit": limit},

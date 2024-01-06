@@ -14,6 +14,7 @@ class FakePlaylistGenerator(BasePlaylistGenerator):
     """Fake playlist generator."""
 
     name = "fake"
+    description = "fake"
 
     def get_playlist(self, limit: int, **_) -> Playlist:
         """Fake playlist generator."""

@@ -38,7 +38,12 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
         # dedupe
         self.mbids = list(set([mbid for mbid in mbids]))
-        self.description = description
+        self._description = description
+
+    @property
+    def description(self) -> Optional[str]:
+        """Get the description for this playlist."""
+        return self._description
 
     @classmethod
     def _files_for_recording_mbids(
