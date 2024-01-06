@@ -37,7 +37,6 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         if len(self.files) > self.limit_source_paths:
             self.files = random.sample(self.files, self.limit_source_paths)
 
-
     @property
     def description(self) -> Optional[str]:
         """Get the description for this playlist."""
