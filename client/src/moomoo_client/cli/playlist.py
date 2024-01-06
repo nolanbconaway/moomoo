@@ -1,4 +1,5 @@
 """CLI commands for playlist generation."""
+import asyncio
 from pathlib import Path
 
 import click
@@ -45,7 +46,7 @@ def cli():
 def playlist_from_path(paths: list[Path], out: str, n: int, seed: int, shuffle: bool):
     """Get a playlist from a path."""
     requester = PlaylistRequester(tracks=n, seed=seed, shuffle=shuffle)
-    playlist = requester.request_playlist_from_path(paths)
+    playlist = asyncio.run(requester.request_playlist_from_path(paths))
     playlist.render(out)
 
 
@@ -53,14 +54,16 @@ def playlist_from_path(paths: list[Path], out: str, n: int, seed: int, shuffle: 
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--count-artists", default=3, type=int)
+@click.option("--count-artists", default=5, type=int)
 @common_options
 def playlist_suggested_artists(
     username: str, count_artists: int, out: str, n: int, seed: int, shuffle: bool
 ):
     """Get a playlist from a path."""
     requester = PlaylistRequester(tracks=n, seed=seed, shuffle=shuffle)
-    playlists = requester.request_user_artist_suggestions(username, count_artists)
+    playlists = asyncio.run(
+        requester.request_user_artist_suggestions(username, count_artists)
+    )
 
     # give users a choice of playlists and wait for input
     click.echo("Choose a playlist:")

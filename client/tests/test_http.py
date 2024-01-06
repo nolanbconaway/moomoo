@@ -1,15 +1,16 @@
 """Test the utils module."""
 
+import asyncio
 import socket
 from pathlib import Path
 
 import pytest
+from httpx import HTTPStatusError
 from moomoo_client.http import Playlist, PlaylistRequester
-from requests import HTTPError
-from requests_mock import Mocker as RequestsMocker
+from pytest_httpx import HTTPXMock
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def moomoo_host(monkeypatch) -> str:
     """Mock the moomoo host to be localhost on a random unused port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -52,37 +53,32 @@ def test_PlaylistRequester__request_tuples(monkeypatch):
     assert requester.request_tuples() == [("n", 10), ("seed", 2), ("shuffle", False)]
 
 
-def test_PlaylistRequester__make_request__error_handling(
-    requests_mock: RequestsMocker, moomoo_host: str
-):
+@pytest.mark.asyncio
+async def test_PlaylistRequester__make_request__error_handling(httpx_mock: HTTPXMock):
     """Test the make_request method's error handling."""
-    requests_mock.get(
-        f"{moomoo_host}/endpoint",
-        json={"success": False, "error": "fake error message"},
-        status_code=500,
+    httpx_mock.add_response(
+        json={"success": False, "error": "fake error message"}, status_code=500
     )
 
     # handle explicit http errors
     requester = PlaylistRequester()
-    with pytest.raises(HTTPError):
-        requester.make_request("/endpoint")
+    with pytest.raises(HTTPStatusError):
+        await requester.make_request("/endpoint")
 
     # handle 200s but unsuccessful requests
-    requests_mock.get(
-        f"{moomoo_host}/endpoint",
-        json={"success": False, "error": "fake error message"},
-        status_code=200,
+    httpx_mock.add_response(
+        json={"success": False, "error": "fake error message"}, status_code=200
     )
     with pytest.raises(RuntimeError):
-        requester.make_request("/endpoint")
+        await requester.make_request("/endpoint")
 
 
-def test_PlaylistRequester__request_playlist_from_path(
-    moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
+@pytest.mark.asyncio
+async def test_PlaylistRequester__request_playlist_from_path(
+    local_files: Path, httpx_mock: HTTPXMock
 ):
     """Test the request_playlist_from_path method."""
-    requests_mock.get(
-        f"{moomoo_host}/playlist/from-files",
+    httpx_mock.add_response(
         json={
             "success": True,
             "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
@@ -91,18 +87,18 @@ def test_PlaylistRequester__request_playlist_from_path(
 
     # all good
     requester = PlaylistRequester()
-    res = requester.request_playlist_from_path([local_files / "test.mp3"])
+    res = await requester.request_playlist_from_path([local_files / "test.mp3"])
     assert isinstance(res, Playlist)
     assert res.playlist == [local_files / "a", local_files / "b", local_files / "c"]
     assert res.description == "aaa"
 
 
-def test_PlaylistRequester__request_user_artist_suggestions(
-    moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
+@pytest.mark.asyncio
+async def test_PlaylistRequester__request_user_artist_suggestions(
+    local_files: Path, httpx_mock: HTTPXMock
 ):
     """Test the request_playlist_from_path method."""
-    requests_mock.get(
-        f"{moomoo_host}/playlist/suggest/by-artist/username",
+    httpx_mock.add_response(
         json={
             "success": True,
             "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
@@ -110,7 +106,7 @@ def test_PlaylistRequester__request_user_artist_suggestions(
     )
 
     requester = PlaylistRequester()
-    res = requester.request_user_artist_suggestions("username", 3)
+    res = await requester.request_user_artist_suggestions("username", 3)
     assert len(res) == 1
 
     plist = res[0]

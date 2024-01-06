@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 from moomoo_client.cli.cli import cli as client_cli
 from moomoo_client.cli.playlist import cli as playlist_cli
-from requests_mock import Mocker as RequestsMocker
+from pytest_httpx import HTTPXMock
 
 
 @pytest.fixture(autouse=True)
@@ -37,13 +37,10 @@ def test_cli_version():
     assert "." in result.output
 
 
-def test_playlist_from_path(
-    moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
-):
+def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
     """End to end test for playlist from path."""
     # mock out the request to the server
-    requests_mock.get(
-        f"{moomoo_host}/playlist/from-files",
+    httpx_mock.add_response(
         json={
             "success": True,
             "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
@@ -66,13 +63,10 @@ def test_playlist_from_path(
     ]
 
 
-def test_playlist_suggested_artists(
-    moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
-):
+def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
     """End to end test for playlist from path."""
     # mock out the request to the server
-    requests_mock.get(
-        f"{moomoo_host}/playlist/suggest/by-artist/username",
+    httpx_mock.add_response(
         json={
             "success": True,
             "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],

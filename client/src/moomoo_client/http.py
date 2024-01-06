@@ -1,4 +1,5 @@
 """Handlers for making HTTP requests."""
+import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import click
-import requests
+import httpx
 
 from .utils_ import MediaLibrary, Playlist
 
@@ -37,13 +38,14 @@ class PlaylistRequester:
         """Convert to tuples, appropriate for passing to requests."""
         return [("n", self.tracks), ("seed", self.seed), ("shuffle", self.shuffle)]
 
-    def make_request(
+    async def make_request(
         self, endpoint: str, params: Optional[list[tuple[str, Union[int, bool]]]] = None
     ) -> dict:
-        """Make a request to the moomoo server, handling errors."""
-        resp = requests.get(
-            f"{self.host}{endpoint}", params=(params or []) + self.request_tuples()
-        )
+        """Make an async request to the moomoo server, handling errors."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{self.host}{endpoint}", params=(params or []) + self.request_tuples()
+            )
 
         if resp.status_code != 200:
             try:
@@ -58,8 +60,8 @@ class PlaylistRequester:
 
         return resp.json()
 
-    def request_playlist_from_path(self, paths: list[Path]) -> Playlist:
-        """Get a playlist from one or more paths."""
+    async def request_playlist_from_path(self, paths: list[Path]) -> Playlist:
+        """Asynchronously request a playlist from a path."""
         if any(p == self.library.location for p in paths):
             raise ValueError("Media library cannot be used as a source path.")
 
@@ -75,7 +77,7 @@ class PlaylistRequester:
         args = [("path", self.library.make_relative(p)) for p in paths]
         endpoint = "/playlist/from-files"
 
-        data = self.make_request(endpoint, args)
+        data = await self.make_request(endpoint, args)
 
         # expect only one playlist if success
         plist = data["playlists"][0]
@@ -84,14 +86,14 @@ class PlaylistRequester:
             description=plist["description"],
         )
 
-    def request_user_artist_suggestions(
+    async def request_user_artist_suggestions(
         self, username: str, count_artists: int
     ) -> list[Playlist]:
-        """Get the suggested artist playlists for a user."""
+        """Asynchronously request user artist playlist suggestions."""
 
         endpoint = f"/playlist/suggest/by-artist/{username}"
         args = [("numPlaylists", count_artists)]
-        data = self.make_request(endpoint, args)
+        data = await self.make_request(endpoint, args)
 
         # expect more than one playlist if success
         return [

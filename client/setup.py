@@ -32,15 +32,16 @@ setup(
     install_requires=[
         "click==8.*",
         "xspf-lib==0.3.*",
-        "requests==2.*",
-        "kivy[base]==2.2.*",
+        "httpx==0.26.*",
+        "toga==0.4.*",
     ],
     extras_require=dict(
         test=[
             "black==23.10.0",
             "ruff==0.1.1",
             "pytest==7.2.2",
-            "requests-mock==1.11.0",
+            "pytest-httpx==0.28.0",
+            "pytest-asyncio==0.23.3",
         ]
     ),
     entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli.cli:cli"]},
