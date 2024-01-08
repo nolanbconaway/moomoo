@@ -18,6 +18,7 @@ from ..playlist_generator import (
     FromFilesPlaylistGenerator,
     FromMbidsPlaylistGenerator,
     Playlist,
+    QueryPlaylistGenerator,
 )
 from .logger import get_logger
 
@@ -145,22 +146,104 @@ def from_mbids():
     return make_http_response([generator], args)
 
 
+@base.route("/loved/<username>", methods=["GET"])
+def loved_tracks(username: str):
+    """Make a playlist of loved tracks for a user."""
+    args = PlaylistArgs.from_request(request)  # note: not used here at all
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+        select filepath
+        from {schema}.loved_tracks
+        where username = :username
+        order by love_at desc
+    """
+    generator = QueryPlaylistGenerator(
+        sql=sql,
+        params=dict(username=username),
+        description=f"Loved tracks for {username}",
+    )
+    return make_http_response([generator], args)
+
+
+@base.route("/revisit-releases/<username>", methods=["GET"])
+def revisit_releases(username: str):
+    """Generate playlists of releases to revisit for a user."""
+    args = PlaylistArgs.from_request(request)  # note: not used here at all
+    count_plists = request.args.get("numPlaylists", 5, type=int)
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+
+    # get release groups for the user
+    sql = f"""
+        select release_group_mbid, release_group_title, artist_name
+        from {schema}.revisit_releases
+        where username = :username
+        order by random()
+        limit :n
+    """
+    groups = execute_sql_fetchall(
+        session=db.session, sql=sql, params=dict(username=username, n=count_plists)
+    )
+
+    if not groups:
+        return ({"success": False, "error": "No revisit releases found."}, 500)
+
+    groups = sorted(groups, key=lambda x: (x["artist_name"], x["release_group_title"]))
+
+    # make a generator for each release group
+    sql = f"""
+        select filepath
+        from {schema}.map__file_release_group
+        where release_group_mbid=:mbid
+        order by filepath
+    """
+
+    generators = [
+        QueryPlaylistGenerator(
+            sql=sql,
+            params=dict(mbid=row["release_group_mbid"]),
+            description=f"Revisit: {row['release_group_title']} - {row['artist_name']}",
+        )
+        for row in groups
+    ]
+
+    return make_http_response(generators, args)
+
+
 @suggest.route("/by-artist/<username>", methods=["GET"])
 def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
     args = PlaylistArgs.from_request(request)
     count_plists = request.args.get("numPlaylists", 4, type=int)
+    history_days = request.args.get("historyDays", "90")
+
+    history_column_map = {
+        "30": "last30_listen_count",
+        "60": "last60_listen_count",
+        "90": "last90_listen_count",
+        "lifetime": "lifetime_listen_count",
+    }
+
+    if history_days not in history_column_map:
+        values = list(history_column_map.keys())
+        return (
+            {
+                "success": False,
+                "error": f"Invalid historyDays value. Must be one of {values}",
+            },
+            400,
+        )
 
     if count_plists < 1:
         return ({"success": False, "error": "numPlaylists must be >= 1."}, 400)
 
     # get the top n artists from last 30 days with more than 10 listens
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    history_column = history_column_map[history_days]
     sql = f"""
         select artist_mbid, artist_name
         from {schema}.artist_listen_counts
-        where username = :username and last30_listen_count > 10
-        order by last30_listen_count desc
+        where username = :username and {history_column} > 10
+        order by {history_column} desc
         limit :n
     """
     rows = execute_sql_fetchall(

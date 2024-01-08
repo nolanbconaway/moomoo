@@ -28,6 +28,8 @@ models:
       - name: lifetime_release_group_count
         tests:
           - not_null
+
+      # just testing one N
       - name: last30_listen_count
         tests:
           - not_null
@@ -61,7 +63,20 @@ models:
           combination_of_columns:
             - release_group_mbid
             - username
-
+    columns:
+      - name: release_group_mbid
+        tests:
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: release_group_title
+        tests:
+          - not_null
+      - name: artist_name
+        tests:
+          - not_null
+  
   - name: file_listen_counts
     description: Analytic table of listen data for each file for each user.
     columns:
@@ -125,3 +140,20 @@ models:
           - not_null
       - name: sum_listen_hours
 
+  - name: loved_tracks
+    description: Tracks that users love. Unions the spikes against the listenbrainz feedback.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - filepath
+    columns:
+      - name: username
+        tests:
+          - not_null
+      - name: filepath
+        tests:
+          - not_null
+      - name: love_at
+        tests:
+          - not_null

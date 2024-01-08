@@ -14,21 +14,21 @@ def populate_artist_listen_counts(data: list[dict]):
     """Populate the artist_listen_counts table.
 
     data should be a list of dicts with keys:
-        username, artist_mbid, artist_name, last30_listen_count
+        username, artist_mbid, artist_name, last90_listen_count
     """
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
     create table {schema}.artist_listen_counts (
-        username text, artist_mbid uuid, artist_name varchar, last30_listen_count int
+        username text, artist_mbid uuid, artist_name varchar, last90_listen_count int
     )
     """
     db.session.execute(text(sql))
 
     sql = f"""
     insert into {schema}.artist_listen_counts (
-        username, artist_mbid, artist_name, last30_listen_count
+        username, artist_mbid, artist_name, last90_listen_count
     )
-    values (:username, :artist_mbid, :artist_name, :last30_listen_count)
+    values (:username, :artist_mbid, :artist_name, :last90_listen_count)
     """
     if len(data) > 0:
         db.session.execute(text(sql), params=data)
@@ -67,19 +67,19 @@ def test_count_playlists(http_app: FlaskClient):
             username="aaa",
             artist_mbid=uuid4(),
             artist_name="1",
-            last30_listen_count=100,
+            last90_listen_count=100,
         ),
         dict(
             username="aaa",
             artist_mbid=uuid4(),
             artist_name="2",
-            last30_listen_count=99,
+            last90_listen_count=99,
         ),
         dict(
             username="aaa",
             artist_mbid=uuid4(),
             artist_name="3",
-            last30_listen_count=98,
+            last90_listen_count=98,
         ),
     ]
     populate_artist_listen_counts(artists)

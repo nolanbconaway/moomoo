@@ -42,9 +42,17 @@ with release_group_stats as (
   having count(distinct listens.recording_mbid) between 4 and 20 --- idk about singles
 )
 
-select release_group_mbid, username
+select
+  stats_.release_group_mbid
+  , release_groups.release_group_title as release_group_title
+  , release_groups.artist_credit_phrase as artist_name
+  , stats_.username
+  , stats_.num_recordings
+  , stats_.listens_old
+  , stats_.listens_recent
 
-from release_group_stats
-where listens_old > (num_recordings + 5)
-  and listens_old > 10
-  and listens_recent < 10
+from release_group_stats as stats_
+inner join {{ ref('release_groups') }} as release_groups using (release_group_mbid)
+where stats_.listens_old > (stats_.num_recordings + 5)
+  and stats_.listens_old > 10
+  and stats_.listens_recent < 10

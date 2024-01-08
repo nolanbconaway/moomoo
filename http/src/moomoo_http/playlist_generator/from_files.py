@@ -80,6 +80,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         """Get a playlist of similar songs.
 
         Args:
+            session: sqlalchemy session to use.
             limit: Number of songs to include in the playlist.
             shuffle: Shuffle the playlist or not.
             seed_files: Files which will be included at the start of the playlist.
@@ -88,10 +89,9 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
                 the playlist. This count is included in the limit; so if limit=10 and
                 seed_count=2, 8 songs will be added to the playlist in addition to the
                 seed files.
-            session: Optional sqlalchemy session to use.
 
         Returns:
-            A tuple of (playlist, source_paths).
+            A Playlist object.
         """
         source_paths = self.list_source_paths(session)
         if not source_paths:
