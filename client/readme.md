@@ -10,6 +10,18 @@ Use of the client requires something to ensure the same access to the media libr
 
 This is intended to be a lightweight pypackage, installed via [`pipx`](https://github.com/pypa/pipx) or similar.
 
+[Install toga deps](https://toga.readthedocs.io/en/stable/tutorial/tutorial-0.html#set-up-your-development-environment). For ubuntu:
+
+```
+sudo apt install 
+    pkg-config \
+    python3-dev \
+    libgirepository1.0-dev \
+    libcairo2-dev \
+    gir1.2-webkit2-4.0 \
+    libcanberra-gtk3-module
+```
+
 Install from git via:
 
 ```sh
