@@ -1,5 +1,4 @@
 """Handlers for making HTTP requests."""
-import asyncio
 import json
 import os
 from dataclasses import dataclass
@@ -10,6 +9,7 @@ from typing import Optional, Union
 import click
 import httpx
 
+from .logger import logger
 from .utils_ import MediaLibrary, Playlist
 
 
@@ -32,6 +32,7 @@ class PlaylistRequester:
         host = os.environ.get("MOOMOO_HOST")
         if host is None:
             raise ValueError("MOOMOO_HOST environment variable not set.")
+        logger.info("host", host=host)
         return host
 
     def request_tuples(self) -> list[tuple[str, Union[int, bool]]]:
@@ -42,6 +43,7 @@ class PlaylistRequester:
         self, endpoint: str, params: Optional[list[tuple[str, Union[int, bool]]]] = None
     ) -> dict:
         """Make an async request to the moomoo server, handling errors."""
+        logger.info("make_request", endpoint=endpoint, params=params)
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{self.host}{endpoint}", params=(params or []) + self.request_tuples()

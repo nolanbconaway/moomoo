@@ -1,6 +1,4 @@
 """Test the utils module."""
-
-import asyncio
 import socket
 from pathlib import Path
 

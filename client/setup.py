@@ -34,6 +34,7 @@ setup(
         "xspf-lib==0.3.*",
         "httpx==0.26.*",
         "toga==0.4.*",
+        "structlog==23.*"
     ],
     extras_require=dict(
         test=[

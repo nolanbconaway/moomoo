@@ -1,19 +1,21 @@
-"""Utility functions for the good of all.
-
-Put no specialty imports beyond cli, postgres here, as the thin client needs this.
-"""
+"""Utility functions for the good of all."""
 import json
 import os
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import Optional, Union
+from uuid import UUID, uuid4
 
 import click
 import xspf_lib as xspf
+
+from .logger import logger
+
+VERSION = (Path(__file__).resolve().parent / "version").read_text().strip()
 
 
 class MediaLibrary:
@@ -31,14 +33,21 @@ class MediaLibrary:
         if not library.exists():
             raise ValueError(f"Media library {library} does not exist.")
 
+        logger.info("location", location=library)
         return library
 
     def make_relative(self, path: Path) -> Path:
-        """Make a path relative, within the media library."""
+        """Make a path relative, within the media library.
+
+        E.g., /home/user/music/album/track.mp3 -> album/track.mp3
+        """
         return path.resolve().relative_to(self.location)
 
     def make_absolute(self, path: Union[Path, str]) -> Path:
-        """Make a path absolute, within the media library."""
+        """Make a path absolute, within the media library.
+
+        E.g., album/track.mp3 -> /home/user/music/album/track.mp3
+        """
         return self.location / path
 
 
@@ -52,6 +61,9 @@ class Playlist:
 
     playlist: list[Path]
     description: Optional[str] = None
+
+    # user should never set this
+    playlist_id: UUID = field(default_factory=uuid4, init=False, repr=False)
 
     def to_xspf(self) -> xspf.Playlist:
         """Convert to an xspf playlist."""

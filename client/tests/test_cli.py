@@ -55,7 +55,7 @@ def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
     assert result.exit_code == 0
 
     # json loadable
-    data = json.loads(result.output)
+    data = json.loads(result.output.splitlines()[-1])
     assert data["playlist"] == [
         str(local_files / "a"),
         str(local_files / "b"),
