@@ -48,7 +48,7 @@ def test_MediaLibrary__make_absolute(local_files: Path):
 def test_playlist__output_formats(local_files: Path):
     """Test the output formats."""
     fpath = local_files / "test.mp3"
-    playlist = Playlist([fpath], description="aaa")
+    playlist = Playlist([fpath], description="aaa", generator="bbb")
 
     assert playlist.to_json() == '{"playlist": ["%s"], "description": "aaa"}' % fpath
     xml = playlist.to_xml()

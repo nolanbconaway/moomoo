@@ -63,8 +63,31 @@ def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
     ]
 
 
+def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
+    """End to end test for playlist from loved tracks."""
+    # mock out the request to the server
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(playlist_cli, ["loved", "username", "--out=json"])
+    assert result.exit_code == 0
+
+    # json loadable
+    data = json.loads(result.output.splitlines()[-1])
+    assert data["playlist"] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+        str(local_files / "c"),
+    ]
+
+
 def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
-    """End to end test for playlist from path."""
+    """End to end test for suggested-artists."""
     # mock out the request to the server
     httpx_mock.add_response(
         json={
@@ -76,6 +99,31 @@ def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
     runner = CliRunner()
     result = runner.invoke(
         playlist_cli, ["suggest-artists", "username", "--out=json"], input="0"
+    )
+    assert result.exit_code == 0
+
+    # json loadable
+    data = json.loads(result.output.splitlines()[-1])
+    assert data["playlist"] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+        str(local_files / "c"),
+    ]
+
+
+def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
+    """End to end test for revisit-releases."""
+    # mock out the request to the server
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        playlist_cli, ["revisit-releases", "username", "--out=json"], input="0"
     )
     assert result.exit_code == 0
 

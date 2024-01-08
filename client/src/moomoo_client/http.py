@@ -86,7 +86,39 @@ class PlaylistRequester:
         return Playlist(
             playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
             description=plist["description"],
+            generator="from-path",
         )
+
+    async def request_loved_tracks(self, username: str) -> Playlist:
+        """Asynchronously request a playlist of loved tracks."""
+        endpoint = f"/playlist/loved/{username}"
+        data = await self.make_request(endpoint)
+
+        # expect only one playlist if success
+        plist = data["playlists"][0]
+        return Playlist(
+            playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+            description=plist["description"],
+            generator="loved",
+        )
+
+    async def request_revisit_releases(
+        self, username: str, count_releases: int
+    ) -> list[Playlist]:
+        """Asynchronously request playlists of revisit releases."""
+        endpoint = f"/playlist/revisit-releases/{username}"
+        args = [("numPlaylists", count_releases)]
+        data = await self.make_request(endpoint, args)
+
+        # expect more than one playlist if success
+        return [
+            Playlist(
+                playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+                description=plist["description"],
+                generator="revisit-releases",
+            )
+            for plist in data["playlists"]
+        ]
 
     async def request_user_artist_suggestions(
         self, username: str, count_artists: int
@@ -102,6 +134,7 @@ class PlaylistRequester:
             Playlist(
                 playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
                 description=plist["description"],
+                generator="suggest-by-artist",
             )
             for plist in data["playlists"]
         ]

@@ -92,6 +92,26 @@ async def test_PlaylistRequester__request_playlist_from_path(
 
 
 @pytest.mark.asyncio
+async def test_PlaylistRequester__request_loved_tracks(
+    local_files: Path, httpx_mock: HTTPXMock
+):
+    """Test the request_playlist_from_path method."""
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
+    )
+
+    # all good
+    requester = PlaylistRequester()
+    res = await requester.request_loved_tracks("username")
+    assert isinstance(res, Playlist)
+    assert res.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert res.description == "aaa"
+
+
+@pytest.mark.asyncio
 async def test_PlaylistRequester__request_user_artist_suggestions(
     local_files: Path, httpx_mock: HTTPXMock
 ):
@@ -105,6 +125,28 @@ async def test_PlaylistRequester__request_user_artist_suggestions(
 
     requester = PlaylistRequester()
     res = await requester.request_user_artist_suggestions("username", 3)
+    assert len(res) == 1
+
+    plist = res[0]
+    assert isinstance(plist, Playlist)
+    assert plist.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert plist.description == "aaa"
+
+
+@pytest.mark.asyncio
+async def test_PlaylistRequester__request_revisit_releases(
+    local_files: Path, httpx_mock: HTTPXMock
+):
+    """Test the request_playlist_from_path method."""
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
+    )
+
+    requester = PlaylistRequester()
+    res = await requester.request_revisit_releases("username", 3)
     assert len(res) == 1
 
     plist = res[0]
