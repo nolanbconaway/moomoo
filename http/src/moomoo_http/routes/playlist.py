@@ -150,17 +150,36 @@ def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
     args = PlaylistArgs.from_request(request)
     count_plists = request.args.get("numPlaylists", 4, type=int)
+    history_days = request.args.get("historyDays", "90")
+
+    history_column_map = {
+        "30": "last30_listen_count",
+        "60": "last60_listen_count",
+        "90": "last90_listen_count",
+        "lifetime": "lifetime_listen_count",
+    }
+
+    if history_days not in history_column_map:
+        values = list(history_column_map.keys())
+        return (
+            {
+                "success": False,
+                "error": f"Invalid historyDays value. Must be one of {values}",
+            },
+            400,
+        )
 
     if count_plists < 1:
         return ({"success": False, "error": "numPlaylists must be >= 1."}, 400)
 
     # get the top n artists from last 30 days with more than 10 listens
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    history_column = history_column_map[history_days]
     sql = f"""
         select artist_mbid, artist_name
         from {schema}.artist_listen_counts
-        where username = :username and last30_listen_count > 10
-        order by last30_listen_count desc
+        where username = :username and {history_column} > 10
+        order by {history_column} desc
         limit :n
     """
     rows = execute_sql_fetchall(

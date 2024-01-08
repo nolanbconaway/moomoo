@@ -28,6 +28,8 @@ models:
       - name: lifetime_release_group_count
         tests:
           - not_null
+
+      # just testing one N
       - name: last30_listen_count
         tests:
           - not_null
