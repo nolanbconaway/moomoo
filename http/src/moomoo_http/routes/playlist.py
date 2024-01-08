@@ -18,6 +18,7 @@ from ..playlist_generator import (
     FromFilesPlaylistGenerator,
     FromMbidsPlaylistGenerator,
     Playlist,
+    QueryPlaylistGenerator,
 )
 from .logger import get_logger
 
@@ -143,6 +144,69 @@ def from_mbids():
 
     generator = FromMbidsPlaylistGenerator(*mbids)
     return make_http_response([generator], args)
+
+
+@base.route("/loved/<username>", methods=["GET"])
+def loved_tracks(username: str):
+    """Make a playlist of loved tracks for a user."""
+    args = PlaylistArgs.from_request(request)  # note: not used here at all
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+        select filepath
+        from {schema}.loved_tracks
+        where username = :username
+        order by love_at desc
+    """
+    generator = QueryPlaylistGenerator(
+        sql=sql,
+        params=dict(username=username),
+        description=f"Loved tracks for {username}",
+    )
+    return make_http_response([generator], args)
+
+
+@base.route("/revisit-releases/<username>", methods=["GET"])
+def revisit_releases(username: str):
+    """Generate playlists of releases to revisit for a user."""
+    args = PlaylistArgs.from_request(request)  # note: not used here at all
+    count_plists = request.args.get("numPlaylists", 5, type=int)
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+
+    # get release groups for the user
+    sql = f"""
+        select release_group_mbid, release_group_title, artist_name
+        from {schema}.revisit_releases
+        where username = :username
+        order by random()
+        limit :n
+    """
+    groups = execute_sql_fetchall(
+        session=db.session, sql=sql, params=dict(username=username, n=count_plists)
+    )
+
+    if not groups:
+        return ({"success": False, "error": "No revisit releases found."}, 500)
+
+    groups = sorted(groups, key=lambda x: (x["artist_name"], x["release_group_title"]))
+
+    # make a generator for each release group
+    sql = f"""
+        select filepath
+        from {schema}.map__file_release_group
+        where release_group_mbid=:mbid
+        order by filepath
+    """
+
+    generators = [
+        QueryPlaylistGenerator(
+            sql=sql,
+            params=dict(mbid=row["release_group_mbid"]),
+            description=f"Revisit: {row['release_group_title']} - {row['artist_name']}",
+        )
+        for row in groups
+    ]
+
+    return make_http_response(generators, args)
 
 
 @suggest.route("/by-artist/<username>", methods=["GET"])
