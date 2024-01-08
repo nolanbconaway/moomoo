@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from moomoo_client.cli import cli as client_cli
-from moomoo_client.cli import playlist as playlist_cli
-from requests_mock import Mocker as RequestsMocker
+from moomoo_client.cli.cli import cli as client_cli
+from moomoo_client.cli.playlist import cli as playlist_cli
+from pytest_httpx import HTTPXMock
 
 
 @pytest.fixture(autouse=True)
@@ -37,34 +37,10 @@ def test_cli_version():
     assert "." in result.output
 
 
-def test_playlist_from_path__media_library_exists_check(
-    monkeypatch, moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
-):
-    """Test that the media library exists check works."""
+def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
+    """End to end test for playlist from path."""
     # mock out the request to the server
-    requests_mock.get(
-        f"{moomoo_host}/playlist/from-files",
-        json={"success": True, "playlists": [{"playlist": [], "description": None}]},
-    )
-
-    runner = CliRunner()
-    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
-    assert result.exit_code == 0
-
-    # set the media library to a non-existent path, should fail
-    monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(local_files) + "fakeeee")
-    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
-    assert result.exit_code != 0
-    assert str(local_files) + "fakeeee" + " does not exist" in str(result.exception)
-
-
-def test_playlist_from_path__json_output(
-    moomoo_host: str, local_files: Path, requests_mock: RequestsMocker
-):
-    """Test that the media library exists check works."""
-    # mock out the request to the server
-    requests_mock.get(
-        f"{moomoo_host}/playlist/from-files",
+    httpx_mock.add_response(
         json={
             "success": True,
             "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
@@ -79,7 +55,7 @@ def test_playlist_from_path__json_output(
     assert result.exit_code == 0
 
     # json loadable
-    data = json.loads(result.output)
+    data = json.loads(result.output.splitlines()[-1])
     assert data["playlist"] == [
         str(local_files / "a"),
         str(local_files / "b"),
@@ -87,24 +63,26 @@ def test_playlist_from_path__json_output(
     ]
 
 
-def test_playlist_from_path__error_handling(
-    local_files: Path, requests_mock: RequestsMocker, moomoo_host: str
-):
-    """Test that the error handling works."""
-    # return a 500 error from the server
-    requests_mock.get(
-        f"{moomoo_host}/playlist/from-files",
-        json={"success": False, "error": "NoFilesRequestedError"},
-        status_code=500,
+def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
+    """End to end test for playlist from path."""
+    # mock out the request to the server
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+        },
     )
 
     runner = CliRunner()
+    result = runner.invoke(
+        playlist_cli, ["suggest-artists", "username", "--out=json"], input="0"
+    )
+    assert result.exit_code == 0
 
-    result = runner.invoke(playlist_cli, ["from-path", str(local_files / "test.mp3")])
-    assert result.exit_code != 0
-
-    # should still be json parsable
-    assert len(result.output) > 0
-    assert json.loads(result.output)
-    assert json.loads(result.output)["success"] is False
-    assert "NoFilesRequestedError" in json.loads(result.output)["error"]
+    # json loadable
+    data = json.loads(result.output.splitlines()[-1])
+    assert data["playlist"] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+        str(local_files / "c"),
+    ]

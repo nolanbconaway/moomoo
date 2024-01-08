@@ -3,6 +3,7 @@
 import os
 import random
 from pathlib import Path
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -26,14 +27,20 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
     name = "from-files"
     limit_source_paths = 25
 
-    def __init__(self, *files: Path):
+    def __init__(self, *files: Path, description: Optional[str] = None):
         if not files:
             raise ValueError("At least one file must be provided.")
 
+        self._description = description
         self.files = list(set(files))  # dedupe
 
         if len(self.files) > self.limit_source_paths:
             self.files = random.sample(self.files, self.limit_source_paths)
+
+    @property
+    def description(self) -> Optional[str]:
+        """Get the description for this playlist."""
+        return self._description
 
     def list_source_paths(self, session: Session) -> list[Path]:
         """List the paths requested by the user that are in the database."""

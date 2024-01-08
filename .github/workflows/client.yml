@@ -27,6 +27,17 @@ jobs:
         with:
           python-version: ${{ matrix.pyv }}
 
+      - name: toga deps
+        run: | 
+          sudo apt update -y
+          sudo apt install \
+            pkg-config \
+            python3-dev \
+            libgirepository1.0-dev \
+            libcairo2-dev \
+            gir1.2-webkit2-4.0 \
+            libcanberra-gtk3-module
+
       - name: pip cache
         uses: actions/cache@v3
         with:

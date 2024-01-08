@@ -10,6 +10,18 @@ Use of the client requires something to ensure the same access to the media libr
 
 This is intended to be a lightweight pypackage, installed via [`pipx`](https://github.com/pypa/pipx) or similar.
 
+[Install toga deps](https://toga.readthedocs.io/en/stable/tutorial/tutorial-0.html#set-up-your-development-environment). For ubuntu:
+
+```
+sudo apt install 
+    pkg-config \
+    python3-dev \
+    libgirepository1.0-dev \
+    libcairo2-dev \
+    gir1.2-webkit2-4.0 \
+    libcanberra-gtk3-module
+```
+
 Install from git via:
 
 ```sh
@@ -25,12 +37,27 @@ Point to the media library and the `moomoo/http` server with these envvars:
 ```sh
 MOOMOO_HOST=host:port
 MOOMOO_MEDIA_LIBRARY=/files/where/music
+LISTENBRAINZ_USERNAME=...
 ```
 
 Create a [strawberry](https://www.strawberrymusicplayer.org/) playlist from a file
 
 ```sh
 moomoo-client playlist from-path --username=... --out=strawberry /path/to/file.mp3
+```
+
+Use the new suggested playlists features:
+
+```sh
+moomoo-client playlist suggest-artists
+```
+
+### :warning: Experimental GUI
+
+I'm not good at GUI programming. I wrote it in Toga but I have no idea if that was a good choice for this.
+
+```sh
+moomoo-client gui
 ```
 
 ## Development
