@@ -34,6 +34,14 @@ Create a [strawberry](https://www.strawberrymusicplayer.org/) playlist from a fi
 moomoo-client playlist from-path --username=... --out=strawberry /path/to/file.mp3
 ```
 
+### :warning: Experimental GUI
+
+I'm not good at GUI programming. I wrote it in Toga but I have no idea if that was a good choice for this.
+
+```sh
+moomoo-client gui
+```
+
 ## Development
 
 Local dev requires running a `moomoo/http` server or aggressive mocks. Perhaps later i write up a test server?
