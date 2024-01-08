@@ -34,6 +34,12 @@ Create a [strawberry](https://www.strawberrymusicplayer.org/) playlist from a fi
 moomoo-client playlist from-path --username=... --out=strawberry /path/to/file.mp3
 ```
 
+Use the new suggested playlists features:
+
+```sh
+moomoo-client playlist suggest-artists
+```
+
 ### :warning: Experimental GUI
 
 I'm not good at GUI programming. I wrote it in Toga but I have no idea if that was a good choice for this.

@@ -96,7 +96,7 @@ class MoomooApp(toga.App):
         logger.info("populate_artist_playlists")
         playlists_list: PlaylistTable = app.widgets["playlists_list"]
         requester = PlaylistRequester()
-        playlists = await requester.request_user_artist_suggestions(USERNAME, 6)
+        playlists = await requester.request_user_artist_suggestions(USERNAME, 10)
         for playlist in playlists:
             playlists_list.add_playlist(playlist)
 
