@@ -60,6 +60,7 @@ class Playlist:
     """
 
     playlist: list[Path]
+    generator: str
     description: Optional[str] = None
 
     # user should never set this

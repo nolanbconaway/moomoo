@@ -19,7 +19,7 @@ class PlaylistTable(toga.Table):
         super().__init__(
             id=id,
             data=[],
-            headings=["id", "description"],
+            headings=["generator", "description"],
             multiple_select=False,
             on_activate=self.activate_playlist_handler,
             style=Pack(
@@ -43,11 +43,12 @@ class PlaylistTable(toga.Table):
         """Add a playlist."""
         self.data.append(
             {
-                "id": playlist.playlist_id.hex[:8],
+                "generator": playlist.generator,
                 "description": playlist.description,
                 "playlist": playlist,  # keep a reference to the playlist
             }
         )
+        # TODO: sort the table on refresh??
 
 
 class MoomooApp(toga.App):
@@ -96,7 +97,22 @@ class MoomooApp(toga.App):
         logger.info("populate_artist_playlists")
         playlists_list: PlaylistTable = app.widgets["playlists_list"]
         requester = PlaylistRequester()
-        playlists = await requester.request_user_artist_suggestions(USERNAME, 10)
+        playlists = await requester.request_user_artist_suggestions(USERNAME, 6)
+        for playlist in playlists:
+            playlists_list.add_playlist(playlist)
+
+    async def populate_loved_tracks(self, app: "MoomooApp"):
+        logger.info("populate_artist_playlists")
+        playlists_list: PlaylistTable = app.widgets["playlists_list"]
+        requester = PlaylistRequester()
+        playlist = await requester.request_loved_tracks(USERNAME)
+        playlists_list.add_playlist(playlist)
+
+    async def populate_revisit_releases(self, app: "MoomooApp"):
+        logger.info("populate_artist_playlists")
+        playlists_list: PlaylistTable = app.widgets["playlists_list"]
+        requester = PlaylistRequester()
+        playlists = await requester.request_revisit_releases(USERNAME, 6)
         for playlist in playlists:
             playlists_list.add_playlist(playlist)
 
@@ -105,6 +121,8 @@ def create_app() -> MoomooApp:
     logger.info("create_app")
     app = MoomooApp("moomoo gui", app_id="com.moomoo.ui")
     app.add_background_task(app.populate_artist_playlists)
+    app.add_background_task(app.populate_loved_tracks)
+    app.add_background_task(app.populate_revisit_releases)
     return app
 
 
