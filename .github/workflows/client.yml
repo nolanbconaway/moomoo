@@ -30,7 +30,7 @@ jobs:
       - name: toga deps
         run: | 
           sudo apt update -y
-          sudo apt install 
+          sudo apt install \
             pkg-config \
             python3-dev \
             libgirepository1.0-dev \
