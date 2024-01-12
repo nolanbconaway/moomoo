@@ -38,5 +38,3 @@ and
 ```sh
 make docker-http-serve
 ```
-
-

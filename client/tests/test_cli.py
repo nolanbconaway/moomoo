@@ -137,7 +137,6 @@ def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
     assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
 
 
-
 def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
     """End to end test for revisit-releases."""
     # mock out the request to the server
