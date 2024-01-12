@@ -102,8 +102,28 @@ def test_success(http_app: FlaskClient):
     assert resp.status_code == 200
     assert resp.json["success"] is True
     assert len(resp.json["playlists"]) == 2
-    assert resp.json["playlists"][0]["playlist"] == ["aaa"]
-    assert resp.json["playlists"][1]["playlist"] == ["bbb", "ccc"]
+    assert resp.json["playlists"][0]["playlist"] == [
+        {
+            "filepath": "aaa",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        }
+    ]
+    assert resp.json["playlists"][1]["playlist"] == [
+        {
+            "filepath": "bbb",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        },
+        {
+            "filepath": "ccc",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        },
+    ]
 
     # test numPlaylists arg
     resp = http_app.get(

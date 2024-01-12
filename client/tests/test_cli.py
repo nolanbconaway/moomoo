@@ -43,7 +43,12 @@ def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -56,11 +61,7 @@ def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [
-        str(local_files / "a"),
-        str(local_files / "b"),
-        str(local_files / "c"),
-    ]
+    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
 
 
 def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
@@ -69,7 +70,12 @@ def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -79,11 +85,7 @@ def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [
-        str(local_files / "a"),
-        str(local_files / "b"),
-        str(local_files / "c"),
-    ]
+    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
 
 
 def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
@@ -92,7 +94,12 @@ def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -104,11 +111,7 @@ def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [
-        str(local_files / "a"),
-        str(local_files / "b"),
-        str(local_files / "c"),
-    ]
+    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
 
 
 def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
@@ -117,7 +120,12 @@ def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -129,8 +137,4 @@ def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [
-        str(local_files / "a"),
-        str(local_files / "b"),
-        str(local_files / "c"),
-    ]
+    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]

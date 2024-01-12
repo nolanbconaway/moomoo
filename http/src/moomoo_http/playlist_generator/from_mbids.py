@@ -204,7 +204,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        res = Playlist(playlist=seed_tracks + tracks, description=self.description)
+        res = Playlist(seeds=seed_tracks, tracks=tracks, description=self.description)
         if shuffle:
             res.shuffle()
 

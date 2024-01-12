@@ -84,7 +84,9 @@ class PlaylistRequester:
         # expect only one playlist if success
         plist = data["playlists"][0]
         return Playlist(
-            playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+            playlist=[
+                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+            ],
             description=plist["description"],
             generator="from-path",
         )
@@ -97,7 +99,9 @@ class PlaylistRequester:
         # expect only one playlist if success
         plist = data["playlists"][0]
         return Playlist(
-            playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+            playlist=[
+                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+            ],
             description=plist["description"],
             generator="loved",
         )
@@ -113,7 +117,9 @@ class PlaylistRequester:
         # expect more than one playlist if success
         return [
             Playlist(
-                playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+                playlist=[
+                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+                ],
                 description=plist["description"],
                 generator="revisit-releases",
             )
@@ -132,7 +138,9 @@ class PlaylistRequester:
         # expect more than one playlist if success
         return [
             Playlist(
-                playlist=[self.library.make_absolute(f) for f in plist["playlist"]],
+                playlist=[
+                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+                ],
                 description=plist["description"],
                 generator="suggest-by-artist",
             )

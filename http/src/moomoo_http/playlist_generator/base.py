@@ -3,14 +3,18 @@ import abc
 import os
 import random
 from collections import Counter
-from dataclasses import dataclass
-from operator import attrgetter
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Generator, Optional
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+
+def str_or_none(val: Optional[str]) -> Optional[str]:
+    """Convert a string to None if it is empty."""
+    return None if val is None or val == "" else str(val)
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,15 @@ class Track:
             or self.distance is None
         )
 
+    def to_dict(self) -> dict:
+        """Convert to a dictionary, appropriate for json serialization."""
+        return {
+            "filepath": str(self.filepath),
+            "artist_mbid": str_or_none(self.artist_mbid),
+            "album_artist_mbid": str_or_none(self.album_artist_mbid),
+            "distance": self.distance,
+        }
+
 
 @dataclass(frozen=True)
 class Playlist:
@@ -41,20 +54,26 @@ class Playlist:
     This object should contain all that is needed to populate client-side playlist.
     """
 
-    playlist: list[Track]
+    tracks: list[Track]
     description: Optional[str] = None
+    seeds: list[Track] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
         return {
-            "playlist": list(map(str, map(attrgetter("filepath"), self.playlist))),
-            "description": self.description,
+            "playlist": [track.to_dict() for track in self.playlist],
+            "description": str_or_none(self.description),
         }
 
     def shuffle(self) -> "Playlist":
         """Shuffle the playlist inplace."""
-        random.shuffle(self.playlist)
+        random.shuffle(self.tracks)
         return self
+
+    @property
+    def playlist(self) -> list[Track]:
+        """Get the playlist as a list of tracks."""
+        return self.seeds + self.tracks
 
 
 class NoFilesRequestedError(Exception):
