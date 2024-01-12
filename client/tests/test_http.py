@@ -79,7 +79,12 @@ async def test_PlaylistRequester__request_playlist_from_path(
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -87,7 +92,7 @@ async def test_PlaylistRequester__request_playlist_from_path(
     requester = PlaylistRequester()
     res = await requester.request_playlist_from_path([local_files / "test.mp3"])
     assert isinstance(res, Playlist)
-    assert res.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert res.playlist == [local_files / "a", local_files / "b"]
     assert res.description == "aaa"
 
 
@@ -99,7 +104,12 @@ async def test_PlaylistRequester__request_loved_tracks(
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
 
@@ -107,7 +117,7 @@ async def test_PlaylistRequester__request_loved_tracks(
     requester = PlaylistRequester()
     res = await requester.request_loved_tracks("username")
     assert isinstance(res, Playlist)
-    assert res.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert res.playlist == [local_files / "a", local_files / "b"]
     assert res.description == "aaa"
 
 
@@ -119,17 +129,21 @@ async def test_PlaylistRequester__request_user_artist_suggestions(
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
-
     requester = PlaylistRequester()
     res = await requester.request_user_artist_suggestions("username", 3)
     assert len(res) == 1
 
     plist = res[0]
     assert isinstance(plist, Playlist)
-    assert plist.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert plist.playlist == [local_files / "a", local_files / "b"]
     assert plist.description == "aaa"
 
 
@@ -141,15 +155,19 @@ async def test_PlaylistRequester__request_revisit_releases(
     httpx_mock.add_response(
         json={
             "success": True,
-            "playlists": [{"playlist": ["a", "b", "c"], "description": "aaa"}],
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
         },
     )
-
     requester = PlaylistRequester()
     res = await requester.request_revisit_releases("username", 3)
     assert len(res) == 1
 
     plist = res[0]
     assert isinstance(plist, Playlist)
-    assert plist.playlist == [local_files / "a", local_files / "b", local_files / "c"]
+    assert plist.playlist == [local_files / "a", local_files / "b"]
     assert plist.description == "aaa"
