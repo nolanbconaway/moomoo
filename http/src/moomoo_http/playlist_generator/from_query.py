@@ -56,7 +56,7 @@ class QueryPlaylistGenerator(BasePlaylistGenerator):
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
         res = Playlist(
-            playlist=[Track(filepath=p) for p in paths], description=self.description
+            tracks=[Track(filepath=p) for p in paths], description=self.description
         )
 
         return res

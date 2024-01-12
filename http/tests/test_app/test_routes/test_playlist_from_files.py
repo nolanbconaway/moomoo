@@ -31,7 +31,7 @@ def test_arg_errors(http_app: FlaskClient):
 
 def test_success(http_app: FlaskClient):
     """Quick process test when everything works."""
-    playlist = Playlist(playlist=[])
+    playlist = Playlist(tracks=[])
     with patch(plist_obj, return_value=playlist) as mock:
         resp = http_app.get("/playlist/from-files", query_string=dict(path="test/3949"))
         assert resp.status_code == 200

@@ -5,6 +5,7 @@ import pytest
 from moomoo_http.app import create_app
 from moomoo_http.db import db
 from moomoo_http.playlist_generator import (
+    Playlist,
     Track,
     get_most_similar_tracks,
     stream_similar_tracks,
@@ -124,3 +125,26 @@ def test_get_most_similar_tracks__album_artist_limit():
         Path("test/4"),
         Path("test/5"),
     ]
+
+
+def test_Playlist__playlist():
+    """Test that the playlist property works."""
+    plist = Playlist(
+        tracks=[Track(filepath=f"test/{i}") for i in range(10)],
+        seeds=[Track(filepath="test/a")],
+    )
+
+    assert plist.playlist == [Track(filepath="test/a")] + [
+        Track(filepath=f"test/{i}") for i in range(10)
+    ]
+
+
+def test_Playlist__shuffle():
+    """Test that the shuffle method works."""
+    plist = Playlist(
+        tracks=[Track(filepath=f"test/{i}") for i in range(10)],
+        seeds=[Track(filepath="test/a")],
+    )
+    plist.shuffle()
+
+    assert plist.playlist[0] == Track(filepath="test/a")

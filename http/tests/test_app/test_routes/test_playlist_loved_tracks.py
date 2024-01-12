@@ -58,4 +58,25 @@ def test_success(http_app: FlaskClient):
     assert resp.json["success"] is True
     assert len(resp.json["playlists"]) == 1
     assert len(resp.json["playlists"][0]["playlist"]) == 3
-    assert resp.json["playlists"][0]["playlist"] == ["ccc", "bbb", "aaa"]
+    assert sorted(
+        resp.json["playlists"][0]["playlist"], key=lambda x: x["filepath"]
+    ) == [
+        {
+            "filepath": "aaa",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        },
+        {
+            "filepath": "bbb",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        },
+        {
+            "filepath": "ccc",
+            "artist_mbid": None,
+            "album_artist_mbid": None,
+            "distance": None,
+        },
+    ]

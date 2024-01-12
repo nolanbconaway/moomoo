@@ -111,7 +111,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
             limit_per_artist=limit_per_artist,
         )
 
-        res = Playlist(playlist=seed_tracks + tracks)
+        res = Playlist(seeds=seed_tracks, tracks=tracks)
         if shuffle:
             res.shuffle()
 

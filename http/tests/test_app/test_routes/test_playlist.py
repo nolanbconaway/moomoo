@@ -19,7 +19,7 @@ class FakePlaylistGenerator(BasePlaylistGenerator):
     def get_playlist(self, limit: int, **_) -> Playlist:
         """Fake playlist generator."""
         return Playlist(
-            playlist=[
+            tracks=[
                 Track(
                     filepath=f"test/{i}",
                     artist_mbid=None,
