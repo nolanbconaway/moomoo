@@ -48,13 +48,17 @@ models:
           - not_null
           - unique
 
-  - name: fresh_releases
-    description: Albums from artists without a lot of listens, ranked by similar user score.
+  - name: artist_recommends
+    description: Recommended artists from similar users.
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
             - username
             - rank
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - artist_mbid
+            - username
 
   - name: revisit_releases
     description: Ablums with historically high listens but not many recent listens.

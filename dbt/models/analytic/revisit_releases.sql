@@ -16,30 +16,22 @@
 
 #}
 
+{% set ts="current_timestamp - interval '90 days'" %}
+
 with release_group_stats as (
   select
     releases.release_group_mbid
     , listens.username
     , count(distinct listens.recording_mbid) as num_recordings
-    , sum(
-      case
-        when
-          listens.listen_at_ts_utc between current_timestamp - interval '180 days'
-          and current_timestamp - interval '90 days'
-          then 1
-      end
-    ) as listens_old
-    , sum(
-      case
-        when listens.listen_at_ts_utc >= current_timestamp - interval ' 90 days'
-          then 1
-      end
-    ) as listens_recent
+    , sum(case when listens.listen_at_ts_utc < {{ ts }} then 1 end) as listens_old
+    , sum(case when listens.listen_at_ts_utc >= {{ ts }} then 1 end) as listens_recent
+
   from {{ ref('listens') }} as listens
   inner join {{ ref('releases') }} as releases using (release_mbid)
 
   group by 1, 2
-  having count(distinct listens.recording_mbid) between 4 and 20 --- idk about singles
+  -- idk about singles or huge box sets
+  having count(distinct listens.recording_mbid) between 4 and 20
 )
 
 select
@@ -53,6 +45,6 @@ select
 
 from release_group_stats as stats_
 inner join {{ ref('release_groups') }} as release_groups using (release_group_mbid)
-where stats_.listens_old > (stats_.num_recordings + 5)
+where stats_.listens_old > (stats_.num_recordings * 2)
   and stats_.listens_old > 10
   and stats_.listens_recent < 10
