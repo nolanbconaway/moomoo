@@ -132,7 +132,7 @@ class PlaylistRequester:
         """Asynchronously request user artist playlist suggestions."""
         endpoint = f"/playlist/suggest/by-artist/{username}"
         args = [("numPlaylists", count_artists)]
-        
+
         if history is not None:
             args.append(("historyDays", history))
 
