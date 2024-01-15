@@ -214,7 +214,7 @@ def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
     args = PlaylistArgs.from_request(request)
     count_plists = request.args.get("numPlaylists", 4, type=int)
-    history_days = request.args.get("historyDays", "90")
+    history_days = request.args.get("historyDays", "lifetime")
 
     # use this to exclude artists that have already been suggested
     exclude_mbids = request.args.getlist("excludeMbid", type=UUID)
