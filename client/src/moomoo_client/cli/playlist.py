@@ -66,7 +66,7 @@ def playlist_loved_tracks(username, out: str):
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--count-releases", default=5, type=int)
+@click.option("--count-releases", default=10, type=int)
 @click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
 def playlist_revisit_releases(username, count_releases: int, out: str):
     """Get releases to revisit."""
@@ -89,7 +89,7 @@ def playlist_revisit_releases(username, count_releases: int, out: str):
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--count-artists", default=5, type=int)
+@click.option("--count-artists", default=10, type=int)
 @common_options
 def playlist_suggested_artists(
     username: str, count_artists: int, out: str, n: int, seed: int, shuffle: bool

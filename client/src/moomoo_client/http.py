@@ -127,12 +127,15 @@ class PlaylistRequester:
         ]
 
     async def request_user_artist_suggestions(
-        self, username: str, count_artists: int
+        self, username: str, count_artists: int, history: Optional[str] = None
     ) -> list[Playlist]:
         """Asynchronously request user artist playlist suggestions."""
-
         endpoint = f"/playlist/suggest/by-artist/{username}"
         args = [("numPlaylists", count_artists)]
+        
+        if history is not None:
+            args.append(("historyDays", history))
+
         data = await self.make_request(endpoint, args)
 
         # expect more than one playlist if success

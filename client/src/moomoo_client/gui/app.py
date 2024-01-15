@@ -11,6 +11,13 @@ from ..utils_ import VERSION, Playlist
 USERNAME = os.environ["LISTENBRAINZ_USERNAME"]
 logger.info("listenbrainz_username", username=USERNAME)
 
+# order in the table
+PLIST_ORDER = [
+    "loved",
+    "revisit-releases",
+    "suggest-by-artist",
+]
+
 
 class PlaylistTable(toga.Table):
     """Container for the playlists."""
@@ -48,7 +55,21 @@ class PlaylistTable(toga.Table):
                 "playlist": playlist,  # keep a reference to the playlist
             }
         )
-        # TODO: sort the table on refresh??
+
+    def sort_table(self):
+        sorted_data = sorted(
+            self.data,
+            key=lambda row: (PLIST_ORDER.index(row.generator), row.description),
+        )
+        # need to make it dicts again
+        self.data = [
+            {
+                "generator": row.generator,
+                "description": row.description,
+                "playlist": row.playlist,
+            }
+            for row in sorted_data
+        ]
 
 
 class MoomooApp(toga.App):
@@ -58,7 +79,7 @@ class MoomooApp(toga.App):
         This needs to be very fast as it is run on the main thread prior to first paint.
         No http, etc.
         """
-        self.main_window = toga.MainWindow(title=self.formal_name, size=(800, 600))
+        self.main_window = toga.MainWindow(title=self.formal_name, size=(800, 1000))
         main_box = toga.Box(style=Pack(direction="column", padding=10))
         main_box.add(
             toga.Label(
@@ -78,7 +99,7 @@ class MoomooApp(toga.App):
         playlists = toga.ScrollContainer(
             horizontal=False,
             content=PlaylistTable(id="playlists_list"),
-            style=Pack(padding_top=10, height=400),
+            style=Pack(padding_top=10, height=900),
         )
         main_box.add(playlists)
 
@@ -97,9 +118,10 @@ class MoomooApp(toga.App):
         logger.info("populate_artist_playlists")
         playlists_list: PlaylistTable = app.widgets["playlists_list"]
         requester = PlaylistRequester()
-        playlists = await requester.request_user_artist_suggestions(USERNAME, 6)
+        playlists = await requester.request_user_artist_suggestions(USERNAME, 15)
         for playlist in playlists:
             playlists_list.add_playlist(playlist)
+        playlists_list.sort_table()
 
     async def populate_loved_tracks(self, app: "MoomooApp"):
         logger.info("populate_artist_playlists")
@@ -107,14 +129,17 @@ class MoomooApp(toga.App):
         requester = PlaylistRequester()
         playlist = await requester.request_loved_tracks(USERNAME)
         playlists_list.add_playlist(playlist)
+        playlists_list.sort_table()
 
     async def populate_revisit_releases(self, app: "MoomooApp"):
         logger.info("populate_artist_playlists")
         playlists_list: PlaylistTable = app.widgets["playlists_list"]
         requester = PlaylistRequester()
-        playlists = await requester.request_revisit_releases(USERNAME, 6)
+        playlists = await requester.request_revisit_releases(USERNAME, 15)
         for playlist in playlists:
             playlists_list.add_playlist(playlist)
+
+        playlists_list.sort_table()
 
 
 def create_app() -> MoomooApp:
