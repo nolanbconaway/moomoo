@@ -225,9 +225,7 @@ def get_most_similar_tracks(
 
     # else, consume the generator and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
-    for track in stream_similar_tracks(
-        filepaths=filepaths, session=session, limit=limit * limit_per_artist + 1
-    ):
+    for track in stream_similar_tracks(filepaths=filepaths, session=session):
         if track.any_missing_info():
             continue
 
