@@ -14,21 +14,27 @@ def populate_artist_listen_counts(data: list[dict]):
     """Populate the artist_listen_counts table.
 
     data should be a list of dicts with keys:
-        username, artist_mbid, artist_name, last90_listen_count
+        username, artist_mbid, artist_name, listen_count
     """
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
     create table {schema}.artist_listen_counts (
-        username text, artist_mbid uuid, artist_name varchar, last90_listen_count int
+        username text, artist_mbid uuid, artist_name varchar, 
+        last30_listen_count int, last60_listen_count int, last90_listen_count int,
+        lifetime_listen_count int
     )
     """
     db.session.execute(text(sql))
 
     sql = f"""
     insert into {schema}.artist_listen_counts (
-        username, artist_mbid, artist_name, last90_listen_count
+        username, artist_mbid, artist_name,
+        last30_listen_count, last60_listen_count, last90_listen_count,
+        lifetime_listen_count
     )
-    values (:username, :artist_mbid, :artist_name, :last90_listen_count)
+    values (:username, :artist_mbid, :artist_name,
+        :listen_count, :listen_count, :listen_count, :listen_count
+    )
     """
     if len(data) > 0:
         db.session.execute(text(sql), params=data)
@@ -63,24 +69,9 @@ def test_no_artists_error(http_app: FlaskClient):
 def test_count_playlists(http_app: FlaskClient):
     """Test that the number of playlists returned is correct."""
     artists = [
-        dict(
-            username="aaa",
-            artist_mbid=uuid4(),
-            artist_name="1",
-            last90_listen_count=100,
-        ),
-        dict(
-            username="aaa",
-            artist_mbid=uuid4(),
-            artist_name="2",
-            last90_listen_count=99,
-        ),
-        dict(
-            username="aaa",
-            artist_mbid=uuid4(),
-            artist_name="3",
-            last90_listen_count=98,
-        ),
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="1", listen_count=100),
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="2", listen_count=99),
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="3", listen_count=98),
     ]
     populate_artist_listen_counts(artists)
 
@@ -100,6 +91,36 @@ def test_count_playlists(http_app: FlaskClient):
             "/playlist/suggest/by-artist/aaa", query_string=dict(numPlaylists=10)
         )
         assert mock_playlist.call_count == 3
+        assert resp.status_code == 200
+        assert resp.json["success"] is True
+        assert len(resp.json["playlists"]) == 3
+
+
+def test_exclude_mbid(http_app: FlaskClient):
+    """Test that excludeMbid works."""
+    artists = [
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="1", listen_count=100),
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="2", listen_count=99),
+        dict(username="aaa", artist_mbid=uuid4(), artist_name="3", listen_count=98),
+    ]
+    populate_artist_listen_counts(artists)
+
+    with patch(playlist_obj, return_value=Playlist([])):
+        resp = http_app.get(
+            "/playlist/suggest/by-artist/aaa",
+            query_string=dict(
+                numPlaylists=3, excludeMbid=str(artists[0]["artist_mbid"])
+            ),
+        )
+        assert resp.status_code == 200
+        assert resp.json["success"] is True
+        assert len(resp.json["playlists"]) == 2
+
+    # no exclude mbid
+    with patch(playlist_obj, return_value=Playlist([])):
+        resp = http_app.get(
+            "/playlist/suggest/by-artist/aaa", query_string=dict(numPlaylists=3)
+        )
         assert resp.status_code == 200
         assert resp.json["success"] is True
         assert len(resp.json["playlists"]) == 3

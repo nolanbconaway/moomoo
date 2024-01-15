@@ -4,7 +4,7 @@
   )
 }}
 
-{# Map files to potential recording mbids. #}
+{# Map files to potential release mbids. #}
 
 select local_files.filepath, map_.release_mbid
 
