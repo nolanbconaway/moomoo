@@ -216,15 +216,19 @@ def suggest_by_artist(username: str):
     count_plists = request.args.get("numPlaylists", 4, type=int)
     history_days = request.args.get("historyDays", "90")
 
-    history_column_map = {
-        "30": "last30_listen_count",
-        "60": "last60_listen_count",
-        "90": "last90_listen_count",
-        "lifetime": "lifetime_listen_count",
+    # use this to exclude artists that have already been suggested
+    exclude_mbids = request.args.getlist("excludeMbid", type=UUID)
+
+    # idk just trying to reduce noise with these min counts.
+    history_length_map = {
+        "30": dict(col="last30_listen_count", min_n=10),
+        "60": dict(col="last60_listen_count", min_n=15),
+        "90": dict(col="last90_listen_count", min_n=20),
+        "lifetime": dict(col="lifetime_listen_count", min_n=25),
     }
 
-    if history_days not in history_column_map:
-        values = list(history_column_map.keys())
+    if history_days not in history_length_map:
+        values = list(history_length_map.keys())
         return (
             {
                 "success": False,
@@ -238,16 +242,28 @@ def suggest_by_artist(username: str):
 
     # get the top n artists from last 30 days with more than 10 listens
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    history_column = history_column_map[history_days]
+    history_column = history_length_map[history_days]["col"]
+    min_listen_count = history_length_map[history_days]["min_n"]
+    exclude = "and not artist_mbid = any(:exclude_mbids)" if exclude_mbids else ""
+
     sql = f"""
         select artist_mbid, artist_name
         from {schema}.artist_listen_counts
-        where username = :username and {history_column} > 10
+        where username = :username
+          and {history_column} >= :min_listen_count
+          {exclude}
         order by {history_column} desc
         limit :n
     """
     rows = execute_sql_fetchall(
-        session=db.session, sql=sql, params=dict(username=username, n=count_plists)
+        session=db.session,
+        sql=sql,
+        params=dict(
+            username=username,
+            n=count_plists,
+            exclude_mbids=exclude_mbids,
+            min_listen_count=min_listen_count,
+        ),
     )
 
     if not rows:

@@ -103,3 +103,48 @@ def test_count_playlists(http_app: FlaskClient):
         assert resp.status_code == 200
         assert resp.json["success"] is True
         assert len(resp.json["playlists"]) == 3
+
+
+def test_exclude_mbid(http_app: FlaskClient):
+    """Test that excludeMbid works."""
+    artists = [
+        dict(
+            username="aaa",
+            artist_mbid=uuid4(),
+            artist_name="1",
+            last90_listen_count=100,
+        ),
+        dict(
+            username="aaa",
+            artist_mbid=uuid4(),
+            artist_name="2",
+            last90_listen_count=99,
+        ),
+        dict(
+            username="aaa",
+            artist_mbid=uuid4(),
+            artist_name="3",
+            last90_listen_count=98,
+        ),
+    ]
+    populate_artist_listen_counts(artists)
+
+    with patch(playlist_obj, return_value=Playlist([])):
+        resp = http_app.get(
+            "/playlist/suggest/by-artist/aaa",
+            query_string=dict(
+                numPlaylists=3, excludeMbid=str(artists[0]["artist_mbid"])
+            ),
+        )
+        assert resp.status_code == 200
+        assert resp.json["success"] is True
+        assert len(resp.json["playlists"]) == 2
+
+    # no exclude mbid
+    with patch(playlist_obj, return_value=Playlist([])):
+        resp = http_app.get(
+            "/playlist/suggest/by-artist/aaa", query_string=dict(numPlaylists=3)
+        )
+        assert resp.status_code == 200
+        assert resp.json["success"] is True
+        assert len(resp.json["playlists"]) == 3
