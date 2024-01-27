@@ -13,6 +13,7 @@ from .base import (
     NoFilesRequestedError,
     Playlist,
     Track,
+    db_retry,
     get_most_similar_tracks,
 )
 
@@ -22,10 +23,6 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
     Automatically resolves the mbid types, and includes all files for the mbids in cases
     where the mbid is a parent (e.g. release group).
-
-    Set the description to a string to include it in the playlist record. This can be
-    used to provide context to the user about the playlist (i.e., names of the source
-    mbids).
     """
 
     limit_source_paths = 25
@@ -123,6 +120,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         ]
         return sorted(res)
 
+    @db_retry
     def list_source_paths(self, session: Session) -> list[Path]:
         """Fetch the local files for the mbids.
 

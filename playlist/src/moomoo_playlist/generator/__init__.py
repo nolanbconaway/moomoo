@@ -3,6 +3,7 @@ from .base import (
     NoFilesRequestedError,
     Playlist,
     Track,
+    db_retry,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
@@ -20,4 +21,5 @@ __all__ = [
     "NoFilesRequestedError",
     "stream_similar_tracks",
     "get_most_similar_tracks",
+    "db_retry",
 ]

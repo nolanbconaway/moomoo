@@ -2,7 +2,6 @@ import uuid
 from pathlib import Path
 
 from moomoo_playlist.generator import (
-    Playlist,
     Track,
     get_most_similar_tracks,
     stream_similar_tracks,
@@ -19,6 +18,10 @@ def base_assert_list_playlist_track(*tracks: Track):
     assert all(isinstance(i.filepath, Path) for i in tracks)
     assert all(isinstance(i.artist_mbid, uuid.UUID) for i in tracks)
     assert all(isinstance(i.album_artist_mbid, uuid.UUID) for i in tracks)
+
+
+def test_db_retry(session: Session):
+    raise NotImplementedError()
 
 
 def test_stream_similar_tracks(session: Session):
@@ -116,26 +119,3 @@ def test_get_most_similar_tracks__album_artist_limit(session: Session):
         Path("test/4"),
         Path("test/5"),
     ]
-
-
-def test_Playlist__playlist():
-    """Test that the playlist property works."""
-    plist = Playlist(
-        tracks=[Track(filepath=f"test/{i}") for i in range(10)],
-        seeds=[Track(filepath="test/a")],
-    )
-
-    assert plist.playlist == [Track(filepath="test/a")] + [
-        Track(filepath=f"test/{i}") for i in range(10)
-    ]
-
-
-def test_Playlist__shuffle():
-    """Test that the shuffle method works."""
-    plist = Playlist(
-        tracks=[Track(filepath=f"test/{i}") for i in range(10)],
-        seeds=[Track(filepath="test/a")],
-    )
-    plist.shuffle()
-
-    assert plist.playlist[0] == Track(filepath="test/a")

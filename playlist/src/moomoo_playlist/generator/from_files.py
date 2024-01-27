@@ -12,6 +12,7 @@ from .base import (
     NoFilesRequestedError,
     Playlist,
     Track,
+    db_retry,
     get_most_similar_tracks,
 )
 
@@ -34,6 +35,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         if len(self.files) > self.limit_source_paths:
             self.files = random.sample(self.files, self.limit_source_paths)
 
+    @db_retry
     def list_source_paths(self, session: Session) -> list[Path]:
         """List the paths requested by the user that are in the database."""
         schema = os.environ["MOOMOO_DBT_SCHEMA"]

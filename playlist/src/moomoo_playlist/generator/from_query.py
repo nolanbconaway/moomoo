@@ -5,7 +5,13 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from ..db import execute_sql_fetchall
-from .base import BasePlaylistGenerator, NoFilesRequestedError, Playlist, Track
+from .base import (
+    BasePlaylistGenerator,
+    NoFilesRequestedError,
+    Playlist,
+    Track,
+    db_retry,
+)
 
 
 class QueryPlaylistGenerator(BasePlaylistGenerator):
@@ -18,12 +24,11 @@ class QueryPlaylistGenerator(BasePlaylistGenerator):
     want.
     """
 
-    name = "exact-query"
-
     def __init__(self, sql: str, params: Optional[dict] = None):
         self.sql = sql
         self.params = params or {}
 
+    @db_retry
     def fetch_filepaths(self, session: Session) -> list[Path]:
         """List the paths requested by the user that are in the database."""
         return [

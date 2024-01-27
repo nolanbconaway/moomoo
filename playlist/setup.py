@@ -17,11 +17,14 @@ setup(
     packages=find_packages("src"),
     package_dir={"": "src"},
     install_requires=[
+        # loose requires bc needs to be importable
         "psycopg[binary]==3.1.*",
         "sqlalchemy==2.0.*",
         "pgvector==0.1.*",
-        "click==8.1.*",
-        "tenacity==8.2.2",
+        "click==8.*",
+        "tenacity==8.*",
+        "tqdm==4.*",
+        "structlog>21.0.0,<25.0.0",
     ],
     extras_require=dict(
         test=[

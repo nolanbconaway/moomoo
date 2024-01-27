@@ -58,6 +58,9 @@ def load_local_files_table(data: list[dict]):
 
         - filepath: str
         - embedding: list[float]
+        - recording_mbid: uuid (optional)
+        - release_mbid: uuid (optional)
+        - release_group_mbid: uuid (optional)
         - artist_mbid: uuid (optional)
         - album_artist_mbid: uuid (optional)
         - embedding_success: bool (optional)
@@ -72,6 +75,8 @@ def load_local_files_table(data: list[dict]):
                 , embedding_success bool
                 , embedding vector
                 , recording_mbid uuid
+                , release_mbid uuid
+                , release_group_mbid uuid
                 , artist_mbid uuid
                 , album_artist_mbid uuid
                 , embedding_duration_seconds int
@@ -85,6 +90,8 @@ def load_local_files_table(data: list[dict]):
                 , embedding_success
                 , embedding
                 , recording_mbid
+                , release_mbid
+                , release_group_mbid
                 , artist_mbid
                 , album_artist_mbid
                 , embedding_duration_seconds
@@ -94,6 +101,8 @@ def load_local_files_table(data: list[dict]):
                 , true
                 , :embedding
                 , :recording_mbid
+                , :release_mbid
+                , :release_group_mbid
                 , :artist_mbid
                 , :album_artist_mbid
                 , :embedding_duration_seconds
@@ -103,13 +112,12 @@ def load_local_files_table(data: list[dict]):
             i = deepcopy(i)
             if "embedding_success" not in i:
                 i["embedding_success"] = i["embedding"] is not None
-            if "recording_mbid" not in i:
-                i["recording_mbid"] = str(uuid4())
-            if "artist_mbid" not in i:
-                i["artist_mbid"] = str(uuid4())
+            i["recording_mbid"] = i.get("recording_mbid", str(uuid4()))
+            i["release_mbid"] = i.get("release_mbid", str(uuid4()))
+            i["release_group_mbid"] = i.get("release_group_mbid", str(uuid4()))
+            i["artist_mbid"] = i.get("artist_mbid", str(uuid4()))
             if "album_artist_mbid" not in i:
                 i["album_artist_mbid"] = i["artist_mbid"]
-            if "embedding_duration_seconds" not in i:
-                i["embedding_duration_seconds"] = 90
+            i["embedding_duration_seconds"] = i.get("embedding_duration_seconds", 90)
             session.execute(text(sql), i)
         session.commit()

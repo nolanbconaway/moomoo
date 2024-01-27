@@ -1,81 +1,41 @@
 """Base utilties for playlist generation."""
 import abc
 import os
-import random
 from collections import Counter
-from dataclasses import dataclass, field
+from logging import WARNING
 from pathlib import Path
 from typing import Generator, Optional
-from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_message,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 
+from ..logger import get_logger
+from ..playlist import Playlist, Track
 
-def str_or_none(val: Optional[str]) -> Optional[str]:
-    """Convert a string to None if it is empty."""
-    return None if val is None or val == "" else str(val)
+logger = get_logger().bind(module=__name__)
 
-
-@dataclass(frozen=True)
-class Track:
-    """A candidate track in a playlist.
-
-    Contains metadata about the track that can be used to construct a playlist.
-    """
-
-    filepath: Path
-    artist_mbid: Optional[UUID] = None
-    album_artist_mbid: Optional[UUID] = None
-    distance: Optional[float] = None
-
-    def any_missing_info(self) -> bool:
-        """Check if any of the metadata is missing."""
-        return (
-            self.artist_mbid is None
-            or self.album_artist_mbid is None
-            or self.distance is None
-        )
-
-    def to_dict(self) -> dict:
-        """Convert to a dictionary, appropriate for json serialization."""
-        return {
-            "filepath": str(self.filepath),
-            "artist_mbid": str_or_none(self.artist_mbid),
-            "album_artist_mbid": str_or_none(self.album_artist_mbid),
-            "distance": self.distance,
-        }
-
-
-@dataclass(frozen=True)
-class Playlist:
-    """A full playlist.
-
-    This object should contain all that is needed to populate client-side playlist.
-    """
-
-    tracks: list[Track]
-    seeds: list[Track] = field(default_factory=list)
-    title: Optional[str] = None
-    description: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        """Convert to a dictionary, appropriate for json serialization."""
-        return {
-            "playlist": [track.to_dict() for track in self.playlist],
-            "description": str_or_none(self.description),
-            "title": str_or_none(self.title),
-        }
-
-    def shuffle(self) -> "Playlist":
-        """Shuffle the playlist inplace."""
-        random.shuffle(self.tracks)
-        return self
-
-    @property
-    def playlist(self) -> list[Track]:
-        """Get the playlist as a list of tracks."""
-        return self.seeds + self.tracks
+# A retry that waits 15s if a required table is missing. this is useful to manage
+# runs that happen at the same time as dbt is refreshing the database. This usually
+# completes in a few seconds, so just one retry should be enough.
+db_retry = retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(3),
+    retry=(
+        retry_if_exception_type(ProgrammingError)
+        & retry_if_exception_message(match="psycopg.errors.UndefinedTable")
+    ),
+    reraise=True,
+    before_sleep=before_sleep_log(logger, log_level=WARNING, exc_info=True),
+)
 
 
 class NoFilesRequestedError(Exception):
@@ -115,6 +75,7 @@ class BasePlaylistGenerator(abc.ABC):
         ...
 
 
+@db_retry
 def stream_similar_tracks(
     filepaths: list[Path], session: Session, limit: Optional[int] = 2000
 ) -> Generator[Track, None, None]:
@@ -160,6 +121,9 @@ def stream_similar_tracks(
 
         select
             filepath
+            , f.recording_mbid
+            , f.release_mbid
+            , f.release_group_mbid
             , f.artist_mbid
             , coalesce(f.album_artist_mbid, f.artist_mbid) as album_artist_mbid
             , d.distance
@@ -219,7 +183,10 @@ def get_most_similar_tracks(
     # else, consume the generator and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
     for track in stream_similar_tracks(filepaths=filepaths, session=session):
-        if track.any_missing_info():
+        if any(
+            getattr(track, attr) is None
+            for attr in ["artist_mbid", "album_artist_mbid"]
+        ):
             continue
 
         if (
