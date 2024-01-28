@@ -31,7 +31,7 @@ db_retry = retry(
     stop=stop_after_attempt(3),
     retry=(
         retry_if_exception_type(ProgrammingError)
-        & retry_if_exception_message(match="psycopg.errors.UndefinedTable")
+        | retry_if_exception_message(match="psycopg.errors.UndefinedTable")
     ),
     reraise=True,
     before_sleep=before_sleep_log(logger, log_level=WARNING, exc_info=True),
@@ -139,12 +139,23 @@ def stream_similar_tracks(
         execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
     )
 
-    for filepath, artist_mbid, album_artist_mbid, distance in res:
+    for (
+        filepath,
+        recording_mbid,
+        release_mbid,
+        release_group_mbid,
+        artist_mbid,
+        album_artist_mbid,
+        distance,
+    ) in res:
         yield Track(
             filepath=Path(filepath),
+            recording_mbid=recording_mbid,
+            release_mbid=release_mbid,
+            release_group_mbid=release_group_mbid,
             artist_mbid=artist_mbid,
             album_artist_mbid=album_artist_mbid,
-            distance=float(distance),
+            distance=distance,
         )
 
 

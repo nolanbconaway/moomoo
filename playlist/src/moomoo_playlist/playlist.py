@@ -2,13 +2,8 @@
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable
 from uuid import UUID
-
-
-def str_or_none(val: Optional[str]) -> Optional[str]:
-    """Convert a string to None if it is empty."""
-    return None if val is None or val == "" else str(val)
 
 
 @dataclass(frozen=True)
@@ -19,12 +14,12 @@ class Track:
     """
 
     filepath: Path
-    recording_mbid: Optional[UUID] = None
-    release_mbid: Optional[UUID] = None
-    release_group_mbid: Optional[UUID] = None
-    artist_mbid: Optional[UUID] = None
-    album_artist_mbid: Optional[UUID] = None
-    distance: Optional[float] = None
+    recording_mbid: UUID | None = None
+    release_mbid: UUID | None = None
+    release_group_mbid: UUID | None = None
+    artist_mbid: UUID | None = None
+    album_artist_mbid: UUID | None = None
+    distance: float | None = None
 
     def __post__init__(self):
         # cast mbids to UUIDs if they are strings
@@ -44,10 +39,15 @@ class Track:
         if isinstance(self.filepath, str):
             self.filepath = Path(self.filepath)
 
-    def add_if_not_none(self, data: dict, key: str) -> dict:
+    def add_if_not_none(
+        self, data: dict, key: str, type: Callable | None = None
+    ) -> dict:
         """Append a key from this object to a dictionary if it is not None."""
         if hasattr(self, key) and getattr(self, key) is not None:
-            return {**data, key: getattr(self, key)}
+            value = getattr(self, key)
+            if type is not None:
+                value = type(value)
+            return {**data, key: value}
         return data
 
     def to_dict(self) -> dict:
@@ -59,10 +59,11 @@ class Track:
             "release_group_mbid",
             "artist_mbid",
             "album_artist_mbid",
-            "distance",
         ]
         for key in attrs:
-            res = self.add_if_not_none(res, key)
+            res = self.add_if_not_none(res, key, str)
+
+        res = self.add_if_not_none(res, "distance")
 
         return res
 
@@ -76,8 +77,8 @@ class Playlist:
 
     tracks: list[Track]
     seeds: list[Track] = field(default_factory=list)
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
 
     def shuffle(self) -> "Playlist":
         """Shuffle the playlist inplace."""

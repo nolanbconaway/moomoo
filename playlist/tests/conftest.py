@@ -5,9 +5,16 @@ from uuid import uuid4
 
 import psycopg
 import pytest
+import tenacity
 from moomoo_playlist.db import get_session
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+
+@pytest.fixture(autouse=True)
+def nosleep(monkeypatch):
+    """Disable sleep in tenacity."""
+    monkeypatch.setattr(tenacity.nap.time, "sleep", lambda *_: None)
 
 
 @pytest.fixture(autouse=True)

@@ -1,6 +1,8 @@
 """Create playlists for specific releases to revisit based on the user's listening."""
 import dataclasses
+import datetime
 import os
+import random
 from uuid import UUID
 
 import click
@@ -8,7 +10,7 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from moomoo_playlist.db import execute_sql_fetchall, get_session
-from moomoo_playlist.ddl import SavedPlaylist
+from moomoo_playlist.ddl import PlaylistCollection
 
 from ..generator import NoFilesRequestedError, QueryPlaylistGenerator, db_retry
 from ..logger import get_logger
@@ -35,10 +37,9 @@ class Release:
 
 @db_retry
 def list_revisit_releases(username: str, count: int, session: Session) -> list[Release]:
-    """List the top artists for a user, returning a list of mbids.
+    """List releases to revisit.
 
-    Order is determined by the listen count for the specified history length, in
-    descending order.
+    Order is random.
     """
     logger.info(f"Listing {count} revisit releases for {username}.")
 
@@ -47,12 +48,20 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
         select release_group_mbid, release_group_title, artist_name
         from {schema}.revisit_releases
         where username = :username
-        order by random()
-        limit :n
+        order by release_group_mbid
     """
     rows = execute_sql_fetchall(
-        session=session, sql=sql, params=dict(username=username, n=count)
+        session=session, sql=sql, params=dict(username=username)
     )
+
+    if len(rows) > count:
+        # select random rows. set the seed to be constant for a given date so that
+        # refreshes of the playlist will be consistent. maybe one day use skip logic
+        # based on recency instead of a crazy random seed.
+        date = datetime.date.today()
+        random.seed(date.year + date.month + date.day)
+        rows = random.sample(rows, count)
+
     logger.info(f"Found {len(rows)} releases.", extra=dict(releases=rows))
     res = [
         Release(
@@ -83,21 +92,20 @@ def main(username: str, count: int):
     releases = list_revisit_releases(username=username, count=count, session=session)
 
     logger.info(f"Generating playlists for {len(releases)} releases.")
-    tracklist_sql = f"""
+    sql = f"""
         select filepath
         from {schema}.map__file_release_group
         where release_group_mbid=:mbid
         order by filepath
     """
+
     playlists = []
     for i, release in tqdm(enumerate(releases, 1), disable=None, total=len(releases)):
+        generator = QueryPlaylistGenerator(sql, params=dict(mbid=release.mbid))
         try:
-            generator = QueryPlaylistGenerator(
-                sql=tracklist_sql, params=dict(mbid=release.mbid)
-            )
             playlist = generator.get_playlist(session=session)
         except NoFilesRequestedError:
-            logger.warning(f"No files found for mbid={release.mbid}.")
+            logger.exception(f"No files found for release mbid={release.mbid}.")
             continue
 
         playlist.title = f"Revisit Release {i}"
@@ -109,7 +117,7 @@ def main(username: str, count: int):
         return
 
     logger.info(f"Saving {len(playlists)} playlists to database.")
-    SavedPlaylist.save_collection(
+    PlaylistCollection.save_collection(
         playlists=playlists,
         username=username,
         collection_name=collection_name,

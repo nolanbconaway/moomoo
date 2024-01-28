@@ -1,6 +1,7 @@
 """Datatbase models for playlist storage."""
 import datetime
 from typing import ClassVar
+from uuid import UUID, uuid4
 
 from sqlalchemy import func
 from sqlalchemy.dialects import postgresql
@@ -19,25 +20,22 @@ class BaseTable(DeclarativeBase):
     }
 
 
-class SavedPlaylist(BaseTable):
-    """Model for moomoo_saved_playlists table."""
+class PlaylistCollection(BaseTable):
+    """Model for moomoo_playlist_collections table."""
 
-    __tablename__ = "moomoo_saved_playlists"
+    __tablename__ = "moomoo_playlist_collections"
 
-    playlist_id: Mapped[int] = mapped_column(
-        nullable=False, primary_key=True, autoincrement=True
+    playlist_id: Mapped[UUID] = mapped_column(
+        nullable=False, primary_key=True, default=uuid4
     )
     playlist: Mapped[list] = mapped_column(nullable=False)
     username: Mapped[str] = mapped_column(nullable=False, index=True)
     title: Mapped[str] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(nullable=True)
     collection_name: Mapped[str] = mapped_column(nullable=False, index=True)
-    collection_update_ts: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, index=True
-    )
-
+    collection_order_index: Mapped[int] = mapped_column(nullable=False)
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp(), index=True
+        nullable=False, server_default=func.current_timestamp()
     )
 
     @classmethod
@@ -47,13 +45,14 @@ class SavedPlaylist(BaseTable):
         username: str,
         collection_name: str,
         session: Session,
-        collection_update_ts: datetime.datetime | None = None,
-    ) -> "SavedPlaylist":
-        """Save a collection of playlists to the database."""
-        if collection_update_ts is None:
-            collection_update_ts = datetime.datetime.utcnow().replace(
+        insert_ts_utc: datetime.datetime | None = None,
+    ) -> "PlaylistCollection":
+        """Save an ordered collection of playlists to the database."""
+        if insert_ts_utc is None:
+            insert_ts_utc = datetime.datetime.utcnow().replace(
                 tzinfo=datetime.timezone.utc
             )
+
         plists = [
             cls(
                 playlist=playlist.serialize_list(),
@@ -61,10 +60,15 @@ class SavedPlaylist(BaseTable):
                 title=playlist.title,
                 description=playlist.description,
                 collection_name=collection_name,
-                collection_update_ts=collection_update_ts,
+                collection_order_index=i,
             )
-            for playlist in playlists
+            for i, playlist in enumerate(playlists)
         ]
+
+        # drop all existing playlists for this user and collection
+        session.query(cls).filter_by(
+            username=username, collection_name=collection_name
+        ).delete()
 
         session.add_all(plists)
         session.commit()

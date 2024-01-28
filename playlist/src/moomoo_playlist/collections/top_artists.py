@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from moomoo_playlist.db import execute_sql_fetchall, get_session
-from moomoo_playlist.ddl import SavedPlaylist
+from moomoo_playlist.ddl import PlaylistCollection
 
 from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError, db_retry
 from ..logger import get_logger
@@ -106,12 +106,11 @@ def main(
     logger.info(f"Generating playlists for {len(artists)} artists.")
     playlists = []
     for i, artist in tqdm(enumerate(artists, 1), disable=None, total=len(artists)):
+        generator = FromMbidsPlaylistGenerator(artist.mbid)
         try:
-            playlist = FromMbidsPlaylistGenerator(artist.mbid).get_playlist(
-                session=session, seed_count=1
-            )
+            playlist = generator.get_playlist(session=session, seed_count=1)
         except NoFilesRequestedError:
-            logger.warning(f"No files found for {artist.name}/{artist.mbid}.")
+            logger.exception(f"No files found for {artist.name}/{artist.mbid}.")
             continue
 
         playlist.title = f"Top Artists {i}"
@@ -123,7 +122,7 @@ def main(
         return
 
     logger.info(f"Saving {len(playlists)} playlists to database.")
-    SavedPlaylist.save_collection(
+    PlaylistCollection.save_collection(
         playlists=playlists,
         username=username,
         collection_name=collection_name,

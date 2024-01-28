@@ -1,11 +1,16 @@
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
+import pytest
 from moomoo_playlist.generator import (
     Track,
+    db_retry,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
+from psycopg.errors import UndefinedTable
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from ..conftest import load_local_files_table
@@ -20,8 +25,39 @@ def base_assert_list_playlist_track(*tracks: Track):
     assert all(isinstance(i.album_artist_mbid, uuid.UUID) for i in tracks)
 
 
-def test_db_retry(session: Session):
-    raise NotImplementedError()
+def test_db_retry():
+    """Test that db_retry works as expected."""
+
+    class Namespace:
+        """Namespace for patching."""
+
+        @staticmethod
+        def f():
+            return 1
+
+    # not retried bc invalid exc type
+    with patch.object(Namespace, "f") as mock_f, pytest.raises(RuntimeError):
+        mock_f.side_effect = [RuntimeError]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 1
+
+    # ProgrammingError but not UndefinedTable
+    with patch.object(Namespace, "f") as mock_f:
+        mock_f.side_effect = [
+            ProgrammingError("test", {}, orig=RuntimeError),
+            1,
+        ]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 2
+
+    # retried once and then succeeded
+    with patch.object(Namespace, "f") as mock_f:
+        mock_f.side_effect = [
+            ProgrammingError("test", {}, orig=UndefinedTable("test")),
+            1,
+        ]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 2
 
 
 def test_stream_similar_tracks(session: Session):
