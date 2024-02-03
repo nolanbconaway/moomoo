@@ -106,7 +106,7 @@ def main(
 
     logger.info(f"Generating playlists for {len(artists)} artists.")
     playlists = []
-    for i, artist in tqdm(enumerate(artists, 1), disable=None, total=len(artists)):
+    for artist in tqdm(artists, disable=None, total=len(artists)):
         generator = FromMbidsPlaylistGenerator(artist.mbid)
         try:
             playlist = generator.get_playlist(session=session, seed_count=1)
@@ -114,7 +114,8 @@ def main(
             logger.exception(f"No files found for {artist.name}/{artist.mbid}.")
             continue
 
-        playlist.title = f"Top Artists {i}"
+        # set title based on list index, in case there was an exception
+        playlist.title = f"Top Artists {len(playlists) + 1}"
         playlist.description = f'Songs like "{artist.name}"'
         playlists.append(playlist)
 

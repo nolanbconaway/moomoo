@@ -101,7 +101,7 @@ def main(username: str, count: int):
     """
 
     playlists = []
-    for i, release in tqdm(enumerate(releases, 1), disable=None, total=len(releases)):
+    for release in tqdm(releases, disable=None, total=len(releases)):
         generator = QueryPlaylistGenerator(sql, params=dict(mbid=release.mbid))
         try:
             playlist = generator.get_playlist(session=session)
@@ -109,7 +109,8 @@ def main(username: str, count: int):
             logger.exception(f"No files found for release mbid={release.mbid}.")
             continue
 
-        playlist.title = f"Revisit Release {i}"
+        # set title based on list index, in case there was an exception
+        playlist.title = f"Revisit Release {len(playlists) + 1}"
         playlist.description = f"Revisit: {release.title} - {release.artist_name}"
         playlists.append(playlist)
 

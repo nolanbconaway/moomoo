@@ -2,6 +2,7 @@
 
 import click
 
+from .collections.loved_tracks import main as loved_tracks_main
 from .collections.revisit_releases import main as revisit_releases_main
 from .collections.top_artists import main as top_artists_main
 from .db import get_session
@@ -24,6 +25,7 @@ def create_db():
 
 cli.add_command(top_artists_main)
 cli.add_command(revisit_releases_main)
+cli.add_command(loved_tracks_main)
 
 if __name__ == "__main__":
     cli()

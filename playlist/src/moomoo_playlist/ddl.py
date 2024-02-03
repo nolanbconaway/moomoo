@@ -37,10 +37,8 @@ class PlaylistCollection(BaseTable):
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
-    update_at_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False,
-        server_default=func.current_timestamp(),
-        onupdate=func.current_timestamp(),
+    playlists_refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=True, index=True
     )
     playlists: Mapped[list["PlaylistCollectionItem"]] = relationship(
         back_populates="collection"
@@ -72,7 +70,7 @@ class PlaylistCollection(BaseTable):
     ) -> "PlaylistCollection":
         """Replace all playlists in the collection with the given list."""
         logger.info(
-            f"Replacing playlists in collection '{self.collection_name}' for user"
+            f"Replacing playlists in collection '{self.collection_name}' for user "
             + self.username
         )
         # drop all existing playlists for this user and collection
@@ -92,6 +90,9 @@ class PlaylistCollection(BaseTable):
         ]
 
         session.add_all(items)
+
+        # update the collection's refreshed at time
+        self.playlists_refreshed_at_utc = func.current_timestamp()
         session.commit()
 
 
@@ -112,11 +113,6 @@ class PlaylistCollectionItem(BaseTable):
     playlist: Mapped[list] = mapped_column(nullable=False)
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
-    )
-    update_at_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False,
-        server_default=func.current_timestamp(),
-        onupdate=func.current_timestamp(),
     )
 
     collection: Mapped["PlaylistCollection"] = relationship(back_populates="playlists")
