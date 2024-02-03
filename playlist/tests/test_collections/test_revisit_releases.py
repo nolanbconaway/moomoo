@@ -130,7 +130,11 @@ def test_main__storage(session: Session):
 
     # get titles of playlists
     res = execute_sql_fetchall(
-        "select title from moomoo_playlist_collections order by collection_order_index",
+        """
+        select title
+        from moomoo_playlist_collection_items
+        order by collection_order_index
+        """,
         session=session,
     )
     assert [i["title"] for i in res] == [
@@ -151,7 +155,11 @@ def test_main__storage(session: Session):
 
     assert res.exit_code == 0
     res = execute_sql_fetchall(
-        "select title from moomoo_playlist_collections order by collection_order_index",
+        """
+        select title
+        from moomoo_playlist_collection_items
+        order by collection_order_index
+        """,
         session=session,
     )
     assert [i["title"] for i in res] == [

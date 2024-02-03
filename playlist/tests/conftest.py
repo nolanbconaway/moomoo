@@ -1,4 +1,5 @@
 """Common fixtures for all tests."""
+
 import os
 from copy import deepcopy
 from uuid import uuid4
@@ -7,6 +8,7 @@ import psycopg
 import pytest
 import tenacity
 from moomoo_playlist.db import get_session
+from moomoo_playlist.ddl import BaseTable
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -54,6 +56,12 @@ def session(mock_db: str) -> Session:
     assert mock_db
     with get_session() as session:
         yield session
+
+
+@pytest.fixture(autouse=True)
+def create_tables(session: Session):
+    """Create the tables in the test db."""
+    BaseTable.metadata.create_all(session.bind)
 
 
 def load_local_files_table(data: list[dict]):

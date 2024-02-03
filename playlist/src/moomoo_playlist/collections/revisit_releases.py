@@ -1,4 +1,5 @@
 """Create playlists for specific releases to revisit based on the user's listening."""
+
 import dataclasses
 import datetime
 import os
@@ -117,12 +118,10 @@ def main(username: str, count: int):
         return
 
     logger.info(f"Saving {len(playlists)} playlists to database.")
-    PlaylistCollection.save_collection(
-        playlists=playlists,
-        username=username,
-        collection_name=collection_name,
-        session=session,
+    collection = PlaylistCollection.get_collection_by_name(
+        username=username, collection_name=collection_name, session=session
     )
+    collection.replace_playlists(playlists=playlists, session=session)
     logger.info("Saved playlists to database.")
 
 
