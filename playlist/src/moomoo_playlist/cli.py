@@ -1,5 +1,7 @@
 """Command line interface for moomoo_playlist."""
 
+from pathlib import Path
+
 import click
 
 from .collections.loved_tracks import main as loved_tracks_main
@@ -13,6 +15,13 @@ from .ddl import BaseTable
 def cli():
     """Create playlists based on your music library."""
     pass
+
+
+@cli.command("version")
+def version():
+    """Print the version number."""
+    p = Path(__file__).parent / "version"
+    click.echo(p.read_text().strip())
 
 
 @cli.command("create-db")
