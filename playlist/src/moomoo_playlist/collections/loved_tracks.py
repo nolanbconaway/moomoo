@@ -6,10 +6,8 @@ from pathlib import Path
 import click
 from sqlalchemy.orm import Session
 
-from moomoo_playlist.db import execute_sql_fetchall, get_session
-from moomoo_playlist.ddl import PlaylistCollection
-
-from ..db import db_retry
+from ..db import db_retry, execute_sql_fetchall, get_session
+from ..ddl import PlaylistCollection
 from ..logger import get_logger
 from ..playlist import Playlist, Track
 
