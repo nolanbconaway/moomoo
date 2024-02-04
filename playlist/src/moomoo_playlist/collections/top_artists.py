@@ -2,6 +2,7 @@
 
 import dataclasses
 import os
+import random
 from uuid import UUID
 
 import click
@@ -11,7 +12,8 @@ from tqdm import tqdm
 from moomoo_playlist.db import execute_sql_fetchall, get_session
 from moomoo_playlist.ddl import PlaylistCollection
 
-from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError, db_retry
+from ..db import db_retry
+from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError
 from ..logger import get_logger
 
 collection_name = "top-artists"
@@ -66,14 +68,16 @@ def list_top_artists(
         from {schema}.artist_listen_counts
         where username = :username
           and {history_column} >= :min_listen_count
-        order by {history_column} desc
-        limit :n
+        order by artist_mbid
     """
     rows = execute_sql_fetchall(
         session=session,
         sql=sql,
-        params=dict(username=username, n=count, min_listen_count=min_listen_count),
+        params=dict(username=username, min_listen_count=min_listen_count),
     )
+    if len(rows) > count:
+        rows = random.sample(rows, count)
+
     logger.info(f"Found {len(rows)} artists.", extra=dict(artists=rows))
     return [Artist(mbid=row["artist_mbid"], name=row["artist_name"]) for row in rows]
 

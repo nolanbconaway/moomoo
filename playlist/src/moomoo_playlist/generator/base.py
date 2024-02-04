@@ -1,41 +1,19 @@
 """Base utilties for playlist generation."""
+
 import abc
 import os
 from collections import Counter
-from logging import WARNING
 from pathlib import Path
 from typing import Generator, Optional
 
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
-from tenacity import (
-    before_sleep_log,
-    retry,
-    retry_if_exception_message,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_fixed,
-)
 
+from ..db import db_retry
 from ..logger import get_logger
 from ..playlist import Playlist, Track
 
 logger = get_logger().bind(module=__name__)
-
-# A retry that waits 15s if a required table is missing. this is useful to manage
-# runs that happen at the same time as dbt is refreshing the database. This usually
-# completes in a few seconds, so just one retry should be enough.
-db_retry = retry(
-    wait=wait_fixed(5),
-    stop=stop_after_attempt(3),
-    retry=(
-        retry_if_exception_type(ProgrammingError)
-        | retry_if_exception_message(match="psycopg.errors.UndefinedTable")
-    ),
-    reraise=True,
-    before_sleep=before_sleep_log(logger, log_level=WARNING, exc_info=True),
-)
 
 
 class NoFilesRequestedError(Exception):
@@ -135,7 +113,7 @@ def stream_similar_tracks(
     """
     res = session.execute(
         text(sql),
-        params={"filepaths": list(map(str, filepaths)), "limit": limit},
+        params={"filepaths": list(set(map(str, filepaths))), "limit": limit},
         execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
     )
 

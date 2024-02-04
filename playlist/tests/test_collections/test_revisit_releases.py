@@ -57,9 +57,6 @@ def test_list_revisit_releases__count_and_seed(session: Session):
     res = list_revisit_releases(username="test", count=5, session=session)
     assert len(res) == 5
 
-    # check deterministic
-    assert res == list_revisit_releases(username="test", count=5, session=session)
-
     res = list_revisit_releases(username="test", count=10, session=session)
     assert len(res) == 10
 

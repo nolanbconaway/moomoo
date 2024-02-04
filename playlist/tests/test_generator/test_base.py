@@ -3,12 +3,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from moomoo_playlist.generator import (
+from moomoo_playlist import (
     Track,
-    db_retry,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
+from moomoo_playlist.db import db_retry
 from psycopg.errors import UndefinedTable
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session

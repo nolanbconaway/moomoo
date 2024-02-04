@@ -64,22 +64,20 @@ def populate_artist_listen_counts(session: Session, data: list[dict]):
     session.commit()
 
 
-def test_list_top_artists__count(session: Session):
+@pytest.mark.parametrize("count", [5, 7])
+def test_list_top_artists__count(session: Session, count: int):
     """Test handling of the count parameter."""
     populate_artist_listen_counts(
         session,
         [
-            dict(
-                artist_name=f"test_{i}", username="test", lifetime_listen_count=i + 100
-            )
+            dict(artist_name=f"test_{i}", username="test", lifetime_listen_count=100)
             for i in range(10)
         ],
     )
     res = list_top_artists(
-        username="test", history_length="lifetime", count=5, session=session
+        username="test", history_length="lifetime", count=count, session=session
     )
-    assert len(res) == 5
-    assert [i.name for i in res] == ["test_9", "test_8", "test_7", "test_6", "test_5"]
+    assert len(res) == count
 
 
 def test_list_top_artists__history_length(session: Session):
@@ -90,18 +88,23 @@ def test_list_top_artists__history_length(session: Session):
             dict(
                 artist_name=f"test_{i}",
                 username="test",
-                lifetime_listen_count=i + 100,
-                last90_listen_count=1000 - i,
+                lifetime_listen_count=1,
+                last90_listen_count=100,
             )
             for i in range(10)
         ],
     )
-    # should have sorted by last90_listen_count, which is opposite of lifetime
+    # lifetime does not have enough listens, but 90 does.
+    res = list_top_artists(
+        username="test", history_length="lifetime", count=5, session=session
+    )
+    assert res == []
+
+    # lifetime does not have enough listens, but 90 does.
     res = list_top_artists(
         username="test", history_length="90", count=5, session=session
     )
     assert len(res) == 5
-    assert [i.name for i in res] == ["test_0", "test_1", "test_2", "test_3", "test_4"]
 
     # test invalid history length
     with pytest.raises(ValueError):

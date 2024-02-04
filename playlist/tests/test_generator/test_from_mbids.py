@@ -4,11 +4,11 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from moomoo_playlist.db import execute_sql_fetchall
 
 # use an alias to limit so many multi-line statements
-from moomoo_playlist.generator import FromMbidsPlaylistGenerator as Gen
-from moomoo_playlist.generator import NoFilesRequestedError, Track
+from moomoo_playlist import FromMbidsPlaylistGenerator as Gen
+from moomoo_playlist import NoFilesRequestedError, Track
+from moomoo_playlist.db import execute_sql_fetchall
 from sqlalchemy.orm import Session
 
 

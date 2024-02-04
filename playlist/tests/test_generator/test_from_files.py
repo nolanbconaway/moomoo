@@ -2,11 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-from moomoo_playlist.generator import (
-    FromFilesPlaylistGenerator,
-    NoFilesRequestedError,
-    Track,
-)
+from moomoo_playlist import FromFilesPlaylistGenerator, NoFilesRequestedError, Track
 from sqlalchemy.orm import Session
 
 from ..conftest import load_local_files_table

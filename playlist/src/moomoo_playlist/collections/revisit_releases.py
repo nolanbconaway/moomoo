@@ -1,7 +1,6 @@
 """Create playlists for specific releases to revisit based on the user's listening."""
 
 import dataclasses
-import datetime
 import os
 import random
 from uuid import UUID
@@ -13,7 +12,8 @@ from tqdm import tqdm
 from moomoo_playlist.db import execute_sql_fetchall, get_session
 from moomoo_playlist.ddl import PlaylistCollection
 
-from ..generator import NoFilesRequestedError, QueryPlaylistGenerator, db_retry
+from ..db import db_retry
+from ..generator import NoFilesRequestedError, QueryPlaylistGenerator
 from ..logger import get_logger
 
 collection_name = "revisit-releases"
@@ -58,11 +58,6 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
     )
 
     if len(rows) > count:
-        # select random rows. set the seed to be constant for a given date so that
-        # refreshes of the playlist will be consistent. maybe one day use skip logic
-        # based on recency instead of a crazy random seed.
-        date = datetime.date.today()
-        random.seed(date.year + date.month + date.day)
         rows = random.sample(rows, count)
 
     logger.info(f"Found {len(rows)} releases.", extra=dict(releases=rows))

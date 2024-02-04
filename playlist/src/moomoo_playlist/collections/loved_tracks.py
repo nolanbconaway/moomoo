@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from moomoo_playlist.db import execute_sql_fetchall, get_session
 from moomoo_playlist.ddl import PlaylistCollection
 
-from ..generator import Playlist, Track, db_retry
+from ..db import db_retry
 from ..logger import get_logger
+from ..playlist import Playlist, Track
 
 collection_name = "loved-tracks"
 logger = get_logger().bind(module=__name__)

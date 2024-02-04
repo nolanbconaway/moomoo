@@ -1,8 +1,8 @@
 from pathlib import Path
 
 import pytest
-from moomoo_playlist.generator import NoFilesRequestedError, Track
-from moomoo_playlist.generator import QueryPlaylistGenerator as Gen
+from moomoo_playlist import NoFilesRequestedError, Track
+from moomoo_playlist import QueryPlaylistGenerator as Gen
 from sqlalchemy.orm import Session
 
 
