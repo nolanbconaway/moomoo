@@ -146,7 +146,38 @@ def test_main__playlist_error(session: Session):
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
     assert "No files found" in res.output
     assert "NoFilesRequestedError" in res.output
-    assert "Saving 4 playlists to database." in res.output
+    assert "Saved 4 playlist(s) to database." in res.output
+
+
+def test_main__stale_handler(session: Session):
+    """The stale handler should skip when the collection is not stale."""
+    populate_artist_listen_counts(
+        session,
+        [
+            dict(artist_name=f"test_{i}", username="test", lifetime_listen_count=500)
+            for i in range(10)
+        ],
+    )
+
+    runner = CliRunner()
+
+    with patch.object(
+        FromMbidsPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+    ) as patch_get_playlist:
+        res = runner.invoke(top_artists_main, ["test", "--count=5"])
+
+    assert patch_get_playlist.call_count == 5
+    assert res.exit_code == 0
+    assert "Saved 5 playlist(s) to database." in res.output
+
+    with patch.object(
+        FromMbidsPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+    ) as patch_get_playlist:
+        res = runner.invoke(top_artists_main, ["test", "--count=5"])
+
+    assert patch_get_playlist.call_count == 0
+    assert res.exit_code == 0
+    assert "Collection is not stale; skipping." in res.output
 
 
 def test_main__storage(session: Session):
@@ -169,8 +200,7 @@ def test_main__storage(session: Session):
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
 
     assert res.exit_code == 0
-    assert "Saving 5 playlists to database." in res.output
-    assert "Saved playlists to database." in res.output
+    assert "Saved 5 playlist(s) to database." in res.output
 
     # get titles of playlists
     res = execute_sql_fetchall(

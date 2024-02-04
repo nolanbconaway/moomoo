@@ -15,6 +15,8 @@ from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError, db_re
 from ..logger import get_logger
 
 collection_name = "top-artists"
+refresh_interval_hours = 24
+
 logger = get_logger().bind(module=__name__)
 
 # mapping of length to config
@@ -92,13 +94,19 @@ def list_top_artists(
     help="The number of playlists to generate.",
     default=10,
 )
-def main(
-    username: str,
-    history_length: str,
-    count: int,
-):
+def main(username: str, history_length: str, count: int):
     """Create playlists based on the top artists in the user's listening history."""
     session = get_session()
+    collection = PlaylistCollection.get_collection_by_name(
+        username=username,
+        collection_name=collection_name,
+        session=session,
+        refresh_interval_hours=refresh_interval_hours,
+    )
+
+    if collection.is_fresh:
+        logger.info("Collection is not stale; skipping.")
+        return
 
     artists = list_top_artists(
         username=username, history_length=history_length, count=count, session=session
@@ -123,12 +131,7 @@ def main(
         logger.warning("No playlists generated.")
         return
 
-    logger.info(f"Saving {len(playlists)} playlists to database.")
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
     collection.replace_playlists(playlists=playlists, session=session)
-    logger.info("Saved playlists to database.")
 
 
 if __name__ == "__main__":

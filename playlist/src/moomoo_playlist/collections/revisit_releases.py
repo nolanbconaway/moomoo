@@ -17,6 +17,8 @@ from ..generator import NoFilesRequestedError, QueryPlaylistGenerator, db_retry
 from ..logger import get_logger
 
 collection_name = "revisit-releases"
+refresh_interval_hours = 24
+
 logger = get_logger().bind(module=__name__)
 
 
@@ -88,14 +90,23 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
 def main(username: str, count: int):
     """Create playlists based on the top artists in the user's listening history."""
     session = get_session()
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    collection = PlaylistCollection.get_collection_by_name(
+        username=username,
+        collection_name=collection_name,
+        session=session,
+        refresh_interval_hours=refresh_interval_hours,
+    )
+
+    if collection.is_fresh:
+        logger.info("Collection is not stale; skipping.")
+        return
 
     releases = list_revisit_releases(username=username, count=count, session=session)
 
     logger.info(f"Generating playlists for {len(releases)} releases.")
     sql = f"""
         select filepath
-        from {schema}.map__file_release_group
+        from {os.environ["MOOMOO_DBT_SCHEMA"]}.map__file_release_group
         where release_group_mbid=:mbid
         order by filepath
     """
@@ -118,12 +129,7 @@ def main(username: str, count: int):
         logger.warning("No playlists generated.")
         return
 
-    logger.info(f"Saving {len(playlists)} playlists to database.")
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
     collection.replace_playlists(playlists=playlists, session=session)
-    logger.info("Saved playlists to database.")
 
 
 if __name__ == "__main__":
