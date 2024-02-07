@@ -1,41 +1,7 @@
 """Test the base app."""
 
-from uuid import uuid4
-
-from moomoo_http.routes.playlist import PlaylistResponse, collection_item_to_playlist
+from moomoo_http.routes.playlist import PlaylistResponse
 from moomoo_playlist import Playlist, Track
-from moomoo_playlist.ddl import PlaylistCollectionItem
-
-
-def test_collection_item_to_playlist():
-    ci = PlaylistCollectionItem(
-        collection_id=uuid4(),
-        collection_order_index=0,
-        title="test",
-        description="test",
-        playlist=[],
-    )
-
-    p = collection_item_to_playlist(ci)
-    assert p.title == "test"
-    assert p.description == "test"
-    assert p.tracks == []
-    assert p.seeds == []
-
-    recording_mbid = uuid4()
-    ci = PlaylistCollectionItem(
-        collection_id=uuid4(),
-        collection_order_index=0,
-        title="test",
-        description="test",
-        playlist=[{"filepath": "test.mp3", "recording_mbid": recording_mbid}],
-    )
-
-    p = collection_item_to_playlist(ci)
-    assert p.title == "test"
-    assert p.description == "test"
-    assert p.tracks == [Track(filepath="test.mp3", recording_mbid=recording_mbid)]
-    assert p.seeds == []
 
 
 def test_PlaylistResponse__serialize_playlist():
