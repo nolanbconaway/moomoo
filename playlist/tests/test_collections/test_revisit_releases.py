@@ -125,6 +125,7 @@ def test_main__stale_handler(session: Session):
     assert res.exit_code == 0
     assert "Saved 5 playlist(s) to database." in res.output
 
+    # test stale handler
     with patch.object(
         QueryPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
     ) as patch_get_playlist:
@@ -133,6 +134,16 @@ def test_main__stale_handler(session: Session):
     assert patch_get_playlist.call_count == 0
     assert res.exit_code == 0
     assert "Collection is not stale; skipping." in res.output
+
+    # test force flag
+    with patch.object(
+        QueryPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+    ) as patch_get_playlist:
+        res = runner.invoke(revisit_releases_main, ["test", "--count=5", "--force"])
+
+    assert patch_get_playlist.call_count == 5
+    assert res.exit_code == 0
+    assert "Saved 5 playlist(s) to database." in res.output
 
 
 def test_main__storage(session: Session):

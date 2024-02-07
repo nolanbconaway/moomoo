@@ -25,7 +25,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
     where the mbid is a parent (e.g. release group).
     """
 
-    limit_source_paths = 25
+    limit_source_paths = 100
 
     def __init__(self, *mbids: UUID):
         if not mbids:

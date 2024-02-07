@@ -94,9 +94,15 @@ def list_top_artists(
     required=True,
     type=click.IntRange(min=1),
     help="The number of playlists to generate.",
-    default=10,
+    default=15,
 )
-def main(username: str, history_length: str, count: int):
+@click.option(
+    "-f",
+    "--force",
+    is_flag=True,
+    help="Force refresh of collection, even if not stale.",
+)
+def main(username: str, history_length: str, count: int, force: bool):
     """Create playlists based on the top artists in the user's listening history."""
     session = get_session()
     collection = PlaylistCollection.get_collection_by_name(
@@ -106,7 +112,7 @@ def main(username: str, history_length: str, count: int):
         refresh_interval_hours=refresh_interval_hours,
     )
 
-    if collection.is_fresh:
+    if collection.is_fresh and not force:
         logger.info("Collection is not stale; skipping.")
         return
 
@@ -126,14 +132,14 @@ def main(username: str, history_length: str, count: int):
 
         # set title based on list index, in case there was an exception
         playlist.title = f"Top Artists {len(playlists) + 1}"
-        playlist.description = f'Songs like "{artist.name}"'
+        playlist.description = f'Songs like {artist.name}'
         playlists.append(playlist)
 
     if len(playlists) == 0:
         logger.warning("No playlists generated.")
         return
 
-    collection.replace_playlists(playlists=playlists, session=session)
+    collection.replace_playlists(playlists=playlists, session=session, force=force)
 
 
 if __name__ == "__main__":

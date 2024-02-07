@@ -62,3 +62,7 @@ def test_replace_playlists(session: Session):
     assert collection.is_stale
     collection.replace_playlists([playlist], session=session)
     assert collection.is_fresh
+
+    # test force handler
+    assert collection.replace_playlists([playlist], session=session) is False
+    assert collection.replace_playlists([playlist], session=session, force=True) is True

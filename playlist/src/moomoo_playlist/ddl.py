@@ -110,20 +110,26 @@ class PlaylistCollection(BaseTable):
         return not self.is_stale
 
     def replace_playlists(
-        self, playlists: list[Playlist], session: Session
-    ) -> "PlaylistCollection":
-        """Replace all playlists in the collection with the given list."""
+        self, playlists: list[Playlist], session: Session, force: bool = False
+    ) -> int:
+        """Replace all playlists in the collection with the given list.
+
+        Set force=True to replace the playlists even if the collection is not stale.
+
+        Returns a boolean indicating if the playlists were replaced (True = replaced,
+        False = skipped).
+        """
         logger.info(
             f"Replacing playlists in collection '{self.collection_name}' for user "
             + self.username
         )
 
-        if self.is_fresh:
+        if self.is_fresh and not force:
             logger.info(
                 f"Collection '{self.collection_name}' for user '{self.username}' is "
                 "fresh; skipping."
             )
-            return
+            return False
 
         # drop all existing playlists for this user and collection
         session.query(PlaylistCollectionItem).filter_by(
@@ -148,7 +154,7 @@ class PlaylistCollection(BaseTable):
         session.commit()
 
         logger.info(f"Saved {len(playlists)} playlist(s) to database.")
-        return self
+        return True
 
 
 class PlaylistCollectionItem(BaseTable):
