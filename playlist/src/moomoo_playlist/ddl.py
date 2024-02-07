@@ -140,12 +140,10 @@ class PlaylistCollection(BaseTable):
         ).delete()
 
         items = [
-            PlaylistCollectionItem(
+            PlaylistCollectionItem.from_playlist(
                 collection_id=self.collection_id,
                 collection_order_index=i,
-                title=playlist.title,
-                description=playlist.description,
-                playlist=playlist.serialize_list(),
+                playlist=playlist,
             )
             for i, playlist in enumerate(playlists)
         ]
@@ -183,3 +181,16 @@ class PlaylistCollectionItem(BaseTable):
 
     # unique constraint for collection_id and collection_order_index
     __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
+
+    @classmethod
+    def from_playlist(
+        cls, playlist: Playlist, collection_id: UUID, collection_order_index: int
+    ) -> "PlaylistCollectionItem":
+        """Create a collection item from a playlist."""
+        return cls(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            title=playlist.title,
+            description=playlist.description,
+            playlist=playlist.serialize_tracks(),
+        )

@@ -24,7 +24,7 @@ def test_collection_item__unique_constraint(session: Session):
     session.add(collection)
     session.commit()
 
-    playlist = Playlist(tracks=[]).serialize_list()
+    playlist = Playlist([]).serialize_tracks()
     item = PlaylistCollectionItem(
         collection_id=collection.collection_id,
         collection_order_index=0,

@@ -38,7 +38,7 @@ def test_get_playlist(session: Session):
     """
 
     plist = Gen(sql).get_playlist(session=session)
-    assert plist.playlist == [
+    assert plist.tracks == [
         Track(filepath=Path("a")),
         Track(filepath=Path("b")),
         Track(filepath=Path("c")),

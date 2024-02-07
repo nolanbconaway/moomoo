@@ -74,11 +74,11 @@ def test_get_playlist(
 
     pg = FromFilesPlaylistGenerator(Path("test/0"))
     playlist = pg.get_playlist(limit=2, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.playlist] == [Path("test/1"), Path("test/2")]
+    assert [i.filepath for i in playlist.tracks] == [Path("test/1"), Path("test/2")]
 
     # up the limit
     playlist = pg.get_playlist(limit=4, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.playlist] == [
+    assert [i.filepath for i in playlist.tracks] == [
         Path("test/1"),
         Path("test/2"),
         Path("test/3"),
@@ -87,7 +87,7 @@ def test_get_playlist(
 
     # add a seed
     playlist = pg.get_playlist(limit=2, shuffle=False, seed_count=1, session=session)
-    assert [i.filepath for i in playlist.playlist] == [Path("test/0"), Path("test/1")]
+    assert [i.filepath for i in playlist.tracks] == [Path("test/0"), Path("test/1")]
 
 
 def test_source_limit_handler(session: Session):

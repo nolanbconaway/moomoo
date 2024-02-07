@@ -52,6 +52,6 @@ class QueryPlaylistGenerator(BasePlaylistGenerator):
         if not paths:
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
-        res = Playlist(tracks=[Track(filepath=p) for p in paths])
+        res = Playlist([Track(filepath=p) for p in paths])
 
         return res

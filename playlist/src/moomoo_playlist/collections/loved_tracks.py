@@ -51,7 +51,7 @@ def main(username: str):
 
     logger.info(f"Creating playlist for {len(paths)} loved tracks.")
     playlist = Playlist(
-        tracks=[Track(filepath=path) for path in paths],
+        [Track(filepath=path) for path in paths],
         title="Loved Tracks",
         description=f"Tracks that {username} has loved on ListenBrainz.",
     )

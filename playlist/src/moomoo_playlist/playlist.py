@@ -1,6 +1,6 @@
 """Container classes for playlist data."""
-import random
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 from uuid import UUID
@@ -50,7 +50,7 @@ class Track:
             return {**data, key: value}
         return data
 
-    def to_dict(self) -> dict:
+    def to_dict(self, is_seed: bool | None = None) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
         res = {"filepath": str(self.filepath)}
         attrs = [
@@ -65,6 +65,9 @@ class Track:
 
         res = self.add_if_not_none(res, "distance")
 
+        if is_seed is not None:
+            res["seed"] = is_seed
+
         return res
 
 
@@ -72,24 +75,13 @@ class Track:
 class Playlist:
     """A full playlist.
 
-    This object should contain all that is needed to populate client-side playlist.
+    This contains an ordered list of tracks, as well as a title and description.
     """
 
     tracks: list[Track]
-    seeds: list[Track] = field(default_factory=list)
     title: str | None = None
     description: str | None = None
 
-    def shuffle(self) -> "Playlist":
-        """Shuffle the playlist inplace."""
-        random.shuffle(self.tracks)
-        return self
-
-    @property
-    def playlist(self) -> list[Track]:
-        """Get the playlist as a list of tracks."""
-        return self.seeds + self.tracks
-
-    def serialize_list(self) -> list[dict]:
+    def serialize_tracks(self) -> list[dict]:
         """Serialize the playlist list to a list of dicts, suitable for postgres."""
-        return [track.to_dict() for track in self.playlist]
+        return [track.to_dict() for track in self.tracks]
