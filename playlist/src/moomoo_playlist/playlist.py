@@ -6,7 +6,7 @@ from typing import Callable
 from uuid import UUID
 
 
-@dataclass(frozen=True)
+@dataclass
 class Track:
     """A candidate track in a playlist.
 
@@ -21,7 +21,7 @@ class Track:
     album_artist_mbid: UUID | None = None
     distance: float | None = None
 
-    def __post__init__(self):
+    def __post_init__(self):
         # cast mbids to UUIDs if they are strings
         attrs = [
             "recording_mbid",
@@ -91,6 +91,9 @@ class Playlist:
             Track(**track) if isinstance(track, dict) else track
             for track in self.tracks
         ]
+
+        if not all(isinstance(track, Track) for track in self.tracks):
+            raise ValueError("all tracks must be Track objects (or dicts)")
 
     def serialize_tracks(self) -> list[dict]:
         """Serialize the playlist list to a list of dicts, suitable for postgres."""

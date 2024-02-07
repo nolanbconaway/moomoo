@@ -1,6 +1,17 @@
 from pathlib import Path
+from uuid import UUID
 
 from moomoo_playlist.playlist import Playlist, Track
+
+
+def test_track__track_type_casting():
+    """Test that the Track class casts the filepath to a Path object."""
+    uuid = "00000000-0000-0000-0000-000000000000"
+    t = Track(filepath="test/test.mp3", recording_mbid=uuid)
+    assert isinstance(t.filepath, Path)
+    assert t.filepath == Path("test/test.mp3")
+    assert isinstance(t.recording_mbid, UUID)
+    assert t.recording_mbid == UUID(uuid)
 
 
 def test_Track__to_dict():

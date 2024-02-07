@@ -251,8 +251,8 @@ def test_get_playlist(
     mock_stream_similar_tracks.return_value = [
         Track(
             filepath=Path(f"test/{i}"),
-            artist_mbid=f"{i}",
-            album_artist_mbid=f"{i}",
+            artist_mbid=uuid4(),
+            album_artist_mbid=uuid4(),
             distance=i,
         )
         for i in range(1, 100)
