@@ -4,7 +4,7 @@ import datetime
 from typing import ClassVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
@@ -44,6 +44,9 @@ class PlaylistCollection(BaseTable):
     playlists: Mapped[list["PlaylistCollectionItem"]] = relationship(
         back_populates="collection"
     )
+
+    # add unique constraint for username and collection_name
+    __table_args__ = (UniqueConstraint("username", "collection_name"), {})
 
     @classmethod
     def get_collection_by_name(
@@ -177,3 +180,6 @@ class PlaylistCollectionItem(BaseTable):
     )
 
     collection: Mapped["PlaylistCollection"] = relationship(back_populates="playlists")
+
+    # unique constraint for collection_id and collection_order_index
+    __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
