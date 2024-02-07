@@ -1,6 +1,71 @@
-from moomoo_playlist.ddl import PlaylistCollection
+import uuid
+
+import pytest
+from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
 from moomoo_playlist.playlist import Playlist
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+
+def test_collection__unique_constraint(session: Session):
+    """Test the unique constraint on collection_name and username."""
+    collection = PlaylistCollection(username="test", collection_name="test")
+    session.add(collection)
+    session.commit()
+
+    # create a new collection with the same name
+    collection = PlaylistCollection(username="test", collection_name="test")
+    session.add(collection)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_collection_item__unique_constraint(session: Session):
+    """Test the unique constraint on collection_id and collection_order_index."""
+    collection = PlaylistCollection(username="test", collection_name="test")
+    session.add(collection)
+    session.commit()
+
+    playlist = Playlist([]).serialize_tracks()
+    item = PlaylistCollectionItem(
+        collection_id=collection.collection_id,
+        collection_order_index=0,
+        playlist=playlist,
+    )
+    session.add(item)
+    session.commit()
+
+    # create a new item with the same collection_id and collection_order_index
+    item = PlaylistCollectionItem(
+        collection_id=collection.collection_id,
+        collection_order_index=0,
+        playlist=playlist,
+    )
+    session.add(item)
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_collection_item__playlist_round_trip(session: Session):
+    collection = PlaylistCollection(username="test", collection_name="test")
+    session.add(collection)
+    session.commit()
+
+    track = {"filepath": "test/test.mp3", "artist_mbid": str(uuid.uuid4())}
+    playlist = Playlist([track])
+    item = PlaylistCollectionItem.from_playlist(
+        collection_id=collection.collection_id,
+        collection_order_index=0,
+        playlist=playlist,
+    )
+    session.add(item)
+    session.commit()
+
+    # round trip test
+    item: PlaylistCollectionItem = session.query(PlaylistCollectionItem).get(
+        item.playlist_id
+    )
+    assert item.to_playlist() == playlist
 
 
 def test_get_collection_by_name(session: Session):
@@ -62,3 +127,7 @@ def test_replace_playlists(session: Session):
     assert collection.is_stale
     collection.replace_playlists([playlist], session=session)
     assert collection.is_fresh
+
+    # test force handler
+    assert collection.replace_playlists([playlist], session=session) is False
+    assert collection.replace_playlists([playlist], session=session, force=True) is True

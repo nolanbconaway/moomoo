@@ -1,12 +1,12 @@
 """Container classes for playlist data."""
-import random
-from dataclasses import dataclass, field
+
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 from uuid import UUID
 
 
-@dataclass(frozen=True)
+@dataclass
 class Track:
     """A candidate track in a playlist.
 
@@ -21,7 +21,7 @@ class Track:
     album_artist_mbid: UUID | None = None
     distance: float | None = None
 
-    def __post__init__(self):
+    def __post_init__(self):
         # cast mbids to UUIDs if they are strings
         attrs = [
             "recording_mbid",
@@ -50,7 +50,7 @@ class Track:
             return {**data, key: value}
         return data
 
-    def to_dict(self) -> dict:
+    def to_dict(self, is_seed: bool | None = None) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
         res = {"filepath": str(self.filepath)}
         attrs = [
@@ -65,6 +65,9 @@ class Track:
 
         res = self.add_if_not_none(res, "distance")
 
+        if is_seed is not None:
+            res["seed"] = is_seed
+
         return res
 
 
@@ -72,24 +75,26 @@ class Track:
 class Playlist:
     """A full playlist.
 
-    This object should contain all that is needed to populate client-side playlist.
+    This contains an ordered list of tracks, as well as a title and description.
     """
 
     tracks: list[Track]
-    seeds: list[Track] = field(default_factory=list)
     title: str | None = None
     description: str | None = None
 
-    def shuffle(self) -> "Playlist":
-        """Shuffle the playlist inplace."""
-        random.shuffle(self.tracks)
-        return self
+    def __post_init__(self):
+        if not isinstance(self.tracks, list):
+            raise ValueError("tracks must be a list")
 
-    @property
-    def playlist(self) -> list[Track]:
-        """Get the playlist as a list of tracks."""
-        return self.seeds + self.tracks
+        # cast tracks to Track objects if they are dicts
+        self.tracks = [
+            Track(**track) if isinstance(track, dict) else track
+            for track in self.tracks
+        ]
 
-    def serialize_list(self) -> list[dict]:
+        if not all(isinstance(track, Track) for track in self.tracks):
+            raise ValueError("all tracks must be Track objects (or dicts)")
+
+    def serialize_tracks(self) -> list[dict]:
         """Serialize the playlist list to a list of dicts, suitable for postgres."""
-        return [track.to_dict() for track in self.playlist]
+        return [track.to_dict() for track in self.tracks]

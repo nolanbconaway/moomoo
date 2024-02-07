@@ -4,12 +4,12 @@ import datetime
 from typing import ClassVar
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import ForeignKey, UniqueConstraint, func
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 from .logger import get_logger
-from .playlist import Playlist
+from .playlist import Playlist, Track
 
 logger = get_logger().bind(module=__name__)
 
@@ -44,6 +44,9 @@ class PlaylistCollection(BaseTable):
     playlists: Mapped[list["PlaylistCollectionItem"]] = relationship(
         back_populates="collection"
     )
+
+    # add unique constraint for username and collection_name
+    __table_args__ = (UniqueConstraint("username", "collection_name"), {})
 
     @classmethod
     def get_collection_by_name(
@@ -110,20 +113,26 @@ class PlaylistCollection(BaseTable):
         return not self.is_stale
 
     def replace_playlists(
-        self, playlists: list[Playlist], session: Session
-    ) -> "PlaylistCollection":
-        """Replace all playlists in the collection with the given list."""
+        self, playlists: list[Playlist], session: Session, force: bool = False
+    ) -> int:
+        """Replace all playlists in the collection with the given list.
+
+        Set force=True to replace the playlists even if the collection is not stale.
+
+        Returns a boolean indicating if the playlists were replaced (True = replaced,
+        False = skipped).
+        """
         logger.info(
             f"Replacing playlists in collection '{self.collection_name}' for user "
             + self.username
         )
 
-        if self.is_fresh:
+        if self.is_fresh and not force:
             logger.info(
                 f"Collection '{self.collection_name}' for user '{self.username}' is "
                 "fresh; skipping."
             )
-            return
+            return False
 
         # drop all existing playlists for this user and collection
         session.query(PlaylistCollectionItem).filter_by(
@@ -131,12 +140,10 @@ class PlaylistCollection(BaseTable):
         ).delete()
 
         items = [
-            PlaylistCollectionItem(
+            PlaylistCollectionItem.from_playlist(
                 collection_id=self.collection_id,
                 collection_order_index=i,
-                title=playlist.title,
-                description=playlist.description,
-                playlist=playlist.serialize_list(),
+                playlist=playlist,
             )
             for i, playlist in enumerate(playlists)
         ]
@@ -148,7 +155,7 @@ class PlaylistCollection(BaseTable):
         session.commit()
 
         logger.info(f"Saved {len(playlists)} playlist(s) to database.")
-        return self
+        return True
 
 
 class PlaylistCollectionItem(BaseTable):
@@ -171,3 +178,27 @@ class PlaylistCollectionItem(BaseTable):
     )
 
     collection: Mapped["PlaylistCollection"] = relationship(back_populates="playlists")
+
+    # unique constraint for collection_id and collection_order_index
+    __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
+
+    @classmethod
+    def from_playlist(
+        cls, playlist: Playlist, collection_id: UUID, collection_order_index: int
+    ) -> "PlaylistCollectionItem":
+        """Create a collection item from a playlist."""
+        return cls(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            title=playlist.title,
+            description=playlist.description,
+            playlist=playlist.serialize_tracks(),
+        )
+
+    def to_playlist(self) -> Playlist:
+        """Convert this collection item to a playlist."""
+        return Playlist(
+            tracks=[Track(**track) for track in self.playlist],
+            title=self.title,
+            description=self.description,
+        )
