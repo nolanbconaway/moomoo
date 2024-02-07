@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Blueprint, Response, request
-from moomoo_playlist import FromFilesPlaylistGenerator, Playlist, Track
-from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+from moomoo_playlist import FromFilesPlaylistGenerator, Playlist
+from moomoo_playlist.ddl import PlaylistCollection
 
 from ..db import db
 
@@ -24,16 +24,6 @@ base.register_blueprint(suggest)
 def boolean_type(v: str) -> bool:
     """Convert a string to a boolean."""
     return v.lower() in ["1", "true"]
-
-
-def collection_item_to_playlist(item: PlaylistCollectionItem) -> Playlist:
-    """Convert a PlaylistCollectionItem to a Playlist."""
-    # TODO: implement this in moomoo-playlist
-    return Playlist(
-        title=item.title,
-        description=item.description,
-        tracks=[Track(**track) for track in item.playlist],
-    )
 
 
 @dataclass
@@ -51,7 +41,7 @@ class PlaylistResponse:
     @staticmethod
     def serialize_playlist(playlist: Playlist) -> dict:
         """Serialize a playlist."""
-        res = {"playlist": [t.to_dict() for t in playlist.tracks]}
+        res = {"playlist": playlist.serialize_tracks()}
         if playlist.title is not None:
             res["title"] = playlist.title
         if playlist.description is not None:
@@ -86,8 +76,7 @@ class PlaylistResponse:
 def from_files():
     """Create a playlist from one or more files."""
     n_tracks = request.args.get("n", 20, type=int)
-    seed = request.args.get("seed", 0, type=int)
-    shuffle = request.args.get("shuffle", True, type=boolean_type)
+    seed = request.args.get("seed", 1, type=int)
     paths = request.args.getlist("path", type=Path)
 
     if len(paths) == 0:
@@ -97,7 +86,7 @@ def from_files():
 
     try:
         playlist = generator.get_playlist(
-            limit=n_tracks, shuffle=shuffle, seed_count=seed, session=db.session
+            limit=n_tracks, shuffle=True, seed_count=seed, session=db.session
         )
     except Exception as e:
         return PlaylistResponse(
@@ -126,7 +115,7 @@ def loved_tracks(username: str):
             success=False, error=f"No {collection_name} playlists found for {username}."
         ).to_http()
 
-    playlist = collection_item_to_playlist(collection.playlists[0])
+    playlist = collection.playlists[0].to_playlist()
     return PlaylistResponse(success=True, playlists=[playlist]).to_http()
 
 
@@ -150,7 +139,7 @@ def revisit_releases(username: str):
             success=False, error=f"No {collection_name} playlists found for {username}."
         ).to_http()
 
-    playlists = [collection_item_to_playlist(item) for item in collection.playlists]
+    playlists = [item.to_playlist() for item in collection.playlists]
     return PlaylistResponse(success=True, playlists=playlists).to_http()
 
 
@@ -174,5 +163,5 @@ def suggest_by_artist(username: str):
             success=False, error=f"No {collection_name} playlists found for {username}."
         ).to_http()
 
-    playlists = [collection_item_to_playlist(item) for item in collection.playlists]
+    playlists = [item.to_playlist() for item in collection.playlists]
     return PlaylistResponse(success=True, playlists=playlists).to_http()

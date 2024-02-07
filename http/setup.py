@@ -12,7 +12,7 @@ version = (
 
 # setup for installing moomoo-playlist from a git repository
 # TODO: get thne url from shell? grab from a tagged release?
-playlist_commit = "c3b14fe61ddc3a0b2603206016e162d0e2676786"
+playlist_commit = "7f2f04214a0a6a39724b5277793429b9d43975f8"
 playlist_url = "https://github.com/nolanbconaway/moomoo.git"
 
 setup(
