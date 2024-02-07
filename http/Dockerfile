@@ -1,6 +1,6 @@
-FROM python:3.9-slim-bullseye
+FROM python:3.10-slim-bullseye
 RUN apt update
-RUN apt install -y make
+RUN apt install -y make git
 
 WORKDIR /src
 

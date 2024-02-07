@@ -3,27 +3,16 @@
 Use the base postgres connection in the playlist module for now. eventually should 
 use a sqlalchemy session.
 """
+
 import json
-import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-from uuid import UUID
 
-from flask import Blueprint, Request, Response, request
+from flask import Blueprint, Response, request
+from moomoo_playlist import FromFilesPlaylistGenerator, Playlist, Track
+from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
 
-from ..db import db, execute_sql_fetchall
-from ..playlist_generator import (
-    BasePlaylistGenerator,
-    FromFilesPlaylistGenerator,
-    FromMbidsPlaylistGenerator,
-    Playlist,
-    QueryPlaylistGenerator,
-)
-from .logger import get_logger
-
-logger = get_logger(__name__)
-
+from ..db import db
 
 base = Blueprint("playlist", __name__, url_prefix="/playlist")
 
@@ -37,244 +26,153 @@ def boolean_type(v: str) -> bool:
     return v.lower() in ["1", "true"]
 
 
+def collection_item_to_playlist(item: PlaylistCollectionItem) -> Playlist:
+    """Convert a PlaylistCollectionItem to a Playlist."""
+    # TODO: implement this in moomoo-playlist
+    return Playlist(
+        title=item.title,
+        description=item.description,
+        tracks=[Track(**track) for track in item.playlist],
+    )
+
+
 @dataclass
-class PlaylistArgs:
-    """Dataclass for common playlist arguments."""
+class PlaylistResponse:
+    """Dataclass for a playlist response."""
 
-    n: int
-    seed: int
-    shuffle: bool
+    success: bool
+    playlists: list[Playlist] | None = None
+    error: str | None = None
 
-    @classmethod
-    def from_request(cls, request: Request) -> "PlaylistArgs":
-        """Create a PlaylistArgs object from a request."""
-        return cls(
-            n=request.args.get("n", 20, type=int),
-            seed=request.args.get("seed", 0, type=int),
-            shuffle=request.args.get("shuffle", True, type=boolean_type),
-        )
+    def __post__init__(self):
+        if self.playlists is not None and self.error is not None:
+            raise ValueError("Cannot have both playlists and error.")
 
+    @staticmethod
+    def serialize_playlist(playlist: Playlist) -> dict:
+        """Serialize a playlist."""
+        res = {"playlist": [t.to_dict() for t in playlist.tracks]}
+        if playlist.title is not None:
+            res["title"] = playlist.title
+        if playlist.description is not None:
+            res["description"] = playlist.description
+        return res
 
-def make_http_response(
-    generators: list[BasePlaylistGenerator], args: PlaylistArgs
-) -> Response:
-    """Generate a http response from a list of generators and args."""
-    if not generators:
-        raise ValueError("No generators provided.")
+    def to_serializable(self) -> dict:
+        """Convert to a dictionary, appropriate for json serialization."""
+        res = {"success": self.success}
 
-    @dataclass
-    class Result:
-        generator: BasePlaylistGenerator
-        playlist: Optional[Playlist] = None
-        error: Optional[Exception] = None
+        if self.playlists is not None:
+            res["playlists"] = [self.serialize_playlist(p) for p in self.playlists]
 
-    # run all generators, catching any errors. results will be a list of Result objects
-    # TODO: make this async/parallel?? something faster
-    results, n = [], len(generators)
-    for i, generator in enumerate(generators, 1):
-        try:
-            logger.info(
-                f"Getting playlist {i}/{n}. generator=%s, description=%s, args=%s",
-                generator.name,
-                generator.description,
-                args,
-            )
-            plist = generator.get_playlist(
-                limit=args.n,
-                shuffle=args.shuffle,
-                seed_count=args.seed,
-                session=db.session,
-            )
-            results.append(Result(generator=generator, playlist=plist))
-        except Exception as e:
-            logger.exception(f"Error getting playlist {i}/{n}")
-            results.append(Result(generator=generator, error=e))
+        if self.error is not None:
+            res["error"] = self.error
 
-    # grab the successful playlists and errors
-    success = list(r.playlist for r in results if r.playlist is not None)
-    errors = list(r.error for r in results if r.error is not None)
+        return res
 
-    if not success:
-        e = errors[0]
+    def to_http(self, status_code: int | None = None) -> Response:
+        """Convert to a flask response."""
+        if status_code is None:
+            status_code = 200 if self.success else 500
+
         return Response(
-            json.dumps({"success": False, "error": f"{type(e).__name__}: {e}"}),
-            status=500,
+            json.dumps(self.to_serializable()),
+            status=status_code,
             content_type="application/json",
         )
-
-    # otherwise return a list of playlists
-    return Response(
-        json.dumps({"success": True, "playlists": [p.to_dict() for p in success]}),
-        status=200,
-        content_type="application/json",
-    )
 
 
 @base.route("/from-files", methods=["GET"])
 def from_files():
     """Create a playlist from one or more files."""
-    args = PlaylistArgs.from_request(request)
+    n_tracks = request.args.get("n", 20, type=int)
+    seed = request.args.get("seed", 0, type=int)
+    shuffle = request.args.get("shuffle", True, type=boolean_type)
     paths = request.args.getlist("path", type=Path)
 
     if len(paths) == 0:
-        return ({"success": False, "error": "No filepaths provided."}, 400)
-    elif len(paths) > 500:
-        return {"success": False, "error": "Too many filepaths provided (>500)."}, 400
+        return PlaylistResponse(success=False, error="No paths provided.").to_http(400)
 
     generator = FromFilesPlaylistGenerator(*paths)
-    return make_http_response([generator], args)
 
+    try:
+        playlist = generator.get_playlist(
+            limit=n_tracks, shuffle=shuffle, seed_count=seed, session=db.session
+        )
+    except Exception as e:
+        return PlaylistResponse(
+            success=False, error=f"{type(e).__name__}: {e}"
+        ).to_http()
 
-@base.route("/from-mbids", methods=["GET"])
-def from_mbids():
-    """Create a playlist from one or more mbids."""
-    args = PlaylistArgs.from_request(request)
-    mbids = request.args.getlist("mbid", type=str)
-
-    if len(mbids) == 0:
-        return ({"success": False, "error": "No mbids provided."}, 400)
-    elif len(mbids) > 500:
-        return {"success": False, "error": "Too many mbids provided (>500)."}, 400
-    else:
-        # try casting to UUID, and return 400 if any fail
-        try:
-            mbids = [UUID(hex=mbid) for mbid in mbids]
-        except ValueError:
-            return ({"success": False, "error": "Invalid mbid format provided."}, 400)
-
-    generator = FromMbidsPlaylistGenerator(*mbids)
-    return make_http_response([generator], args)
+    return PlaylistResponse(success=True, playlists=[playlist]).to_http()
 
 
 @base.route("/loved/<username>", methods=["GET"])
 def loved_tracks(username: str):
     """Make a playlist of loved tracks for a user."""
-    args = PlaylistArgs.from_request(request)  # note: not used here at all
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
-        select filepath
-        from {schema}.loved_tracks
-        where username = :username
-        order by love_at desc
-    """
-    generator = QueryPlaylistGenerator(
-        sql=sql,
-        params=dict(username=username),
-        description=f"Loved tracks for {username}",
+    collection_name = "loved-tracks"
+    collection = (
+        db.session.query(PlaylistCollection)
+        .filter_by(username=username, collection_name=collection_name)
+        .first()
     )
-    return make_http_response([generator], args)
+    if collection is None:
+        return PlaylistResponse(
+            success=False,
+            error=f"Collection {collection_name} collection not found for {username}.",
+        ).to_http()
+    if not collection.playlists:
+        return PlaylistResponse(
+            success=False, error=f"No {collection_name} playlists found for {username}."
+        ).to_http()
+
+    playlist = collection_item_to_playlist(collection.playlists[0])
+    return PlaylistResponse(success=True, playlists=[playlist]).to_http()
 
 
 @base.route("/revisit-releases/<username>", methods=["GET"])
 def revisit_releases(username: str):
     """Generate playlists of releases to revisit for a user."""
-    args = PlaylistArgs.from_request(request)  # note: not used here at all
-    count_plists = request.args.get("numPlaylists", 5, type=int)
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-
-    # get release groups for the user
-    sql = f"""
-        select release_group_mbid, release_group_title, artist_name
-        from {schema}.revisit_releases
-        where username = :username
-        order by random()
-        limit :n
-    """
-    groups = execute_sql_fetchall(
-        session=db.session, sql=sql, params=dict(username=username, n=count_plists)
+    collection_name = "revisit-releases"
+    collection = (
+        db.session.query(PlaylistCollection)
+        .filter_by(username=username, collection_name=collection_name)
+        .first()
     )
 
-    if not groups:
-        return ({"success": False, "error": "No revisit releases found."}, 500)
+    if collection is None:
+        return PlaylistResponse(
+            success=False,
+            error=f"Collection {collection_name} collection not found for {username}.",
+        ).to_http()
+    if not collection.playlists:
+        return PlaylistResponse(
+            success=False, error=f"No {collection_name} playlists found for {username}."
+        ).to_http()
 
-    groups = sorted(groups, key=lambda x: (x["artist_name"], x["release_group_title"]))
-
-    # make a generator for each release group
-    sql = f"""
-        select filepath
-        from {schema}.map__file_release_group
-        where release_group_mbid=:mbid
-        order by filepath
-    """
-
-    generators = [
-        QueryPlaylistGenerator(
-            sql=sql,
-            params=dict(mbid=row["release_group_mbid"]),
-            description=f"Revisit: {row['release_group_title']} - {row['artist_name']}",
-        )
-        for row in groups
-    ]
-
-    return make_http_response(generators, args)
+    playlists = [collection_item_to_playlist(item) for item in collection.playlists]
+    return PlaylistResponse(success=True, playlists=playlists).to_http()
 
 
 @suggest.route("/by-artist/<username>", methods=["GET"])
 def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
-    args = PlaylistArgs.from_request(request)
-    count_plists = request.args.get("numPlaylists", 4, type=int)
-    history_days = request.args.get("historyDays", "lifetime")
-
-    # use this to exclude artists that have already been suggested
-    exclude_mbids = request.args.getlist("excludeMbid", type=UUID)
-
-    # idk just trying to reduce noise with these min counts.
-    history_length_map = {
-        "30": dict(col="last30_listen_count", min_n=10),
-        "60": dict(col="last60_listen_count", min_n=15),
-        "90": dict(col="last90_listen_count", min_n=20),
-        "lifetime": dict(col="lifetime_listen_count", min_n=25),
-    }
-
-    if history_days not in history_length_map:
-        values = list(history_length_map.keys())
-        return (
-            {
-                "success": False,
-                "error": f"Invalid historyDays value. Must be one of {values}",
-            },
-            400,
-        )
-
-    if count_plists < 1:
-        return ({"success": False, "error": "numPlaylists must be >= 1."}, 400)
-
-    # get the top n artists from last 30 days with more than 10 listens
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    history_column = history_length_map[history_days]["col"]
-    min_listen_count = history_length_map[history_days]["min_n"]
-    exclude = "and not artist_mbid = any(:exclude_mbids)" if exclude_mbids else ""
-
-    sql = f"""
-        select artist_mbid, artist_name
-        from {schema}.artist_listen_counts
-        where username = :username
-          and {history_column} >= :min_listen_count
-          {exclude}
-        order by {history_column} desc
-        limit :n
-    """
-    rows = execute_sql_fetchall(
-        session=db.session,
-        sql=sql,
-        params=dict(
-            username=username,
-            n=count_plists,
-            exclude_mbids=exclude_mbids,
-            min_listen_count=min_listen_count,
-        ),
+    collection_name = "top-artists"
+    collection = (
+        db.session.query(PlaylistCollection)
+        .filter_by(username=username, collection_name=collection_name)
+        .first()
     )
 
-    if not rows:
-        return ({"success": False, "error": "No artists found for user."}, 500)
+    if collection is None:
+        return PlaylistResponse(
+            success=False,
+            error=f"Collection {collection_name} collection not found for {username}.",
+        ).to_http()
+    if not collection.playlists:
+        return PlaylistResponse(
+            success=False, error=f"No {collection_name} playlists found for {username}."
+        ).to_http()
 
-    # get responses for each artist
-    generators = [
-        FromMbidsPlaylistGenerator(
-            row["artist_mbid"], description=f"Artist: {row['artist_name']}"
-        )
-        for row in rows
-    ]
-
-    return make_http_response(generators, args)
+    playlists = [collection_item_to_playlist(item) for item in collection.playlists]
+    return PlaylistResponse(success=True, playlists=playlists).to_http()

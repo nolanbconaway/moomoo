@@ -10,6 +10,10 @@ version = (
     .strip()
 )
 
+# setup for installing moomoo-playlist from a git repository
+# TODO: get thne url from shell? grab from a tagged release?
+playlist_commit = "c3b14fe61ddc3a0b2603206016e162d0e2676786"
+playlist_url = "https://github.com/nolanbconaway/moomoo.git"
 
 setup(
     name="moomoo-http",
@@ -21,12 +25,12 @@ setup(
         "waitress==2.1.*",
         "Flask-SQLAlchemy==3.1.*",
         "psycopg[binary]==3.1.*",
+        f"moomoo-playlist @ git+{playlist_url}@{playlist_commit}#subdirectory=playlist",
     ],
     extras_require=dict(
         test=[
-            "black==23.10.0",
-            "ruff==0.1.1",
-            "pytest==7.4.2",
+            "ruff==0.2.0",
+            "pytest==7.4.4",
             "pytest-postgresql==5.0.0",
         ],
     ),
