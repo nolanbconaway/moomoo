@@ -9,7 +9,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 
 from .logger import get_logger
-from .playlist import Playlist
+from .playlist import Playlist, Track
 
 logger = get_logger().bind(module=__name__)
 
@@ -193,4 +193,12 @@ class PlaylistCollectionItem(BaseTable):
             title=playlist.title,
             description=playlist.description,
             playlist=playlist.serialize_tracks(),
+        )
+
+    def to_playlist(self) -> Playlist:
+        """Convert this collection item to a playlist."""
+        return Playlist(
+            tracks=[Track(**track) for track in self.playlist],
+            title=self.title,
+            description=self.description,
         )

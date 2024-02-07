@@ -132,7 +132,7 @@ def main(username: str, history_length: str, count: int, force: bool):
 
         # set title based on list index, in case there was an exception
         playlist.title = f"Top Artists {len(playlists) + 1}"
-        playlist.description = f'Songs like {artist.name}'
+        playlist.description = f"Songs like {artist.name}"
         playlists.append(playlist)
 
     if len(playlists) == 0:

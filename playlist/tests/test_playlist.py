@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from moomoo_playlist.playlist import Playlist, Track
 
 
@@ -31,3 +33,12 @@ def test_Playlist__setter_getter():
     plist.description = "test description"
     assert plist.title == "test title"
     assert plist.description == "test description"
+
+
+def test_playlist__track_type_casting():
+    """Test that the tracks are cast to Track objects."""
+    plist = Playlist(
+        tracks=[{"filepath": f"test/{i}"} for i in range(10)],
+    )
+    assert all(isinstance(track, Track) for track in plist.tracks)
+    assert all(isinstance(track.filepath, Path) for track in plist.tracks)

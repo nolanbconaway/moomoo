@@ -82,6 +82,16 @@ class Playlist:
     title: str | None = None
     description: str | None = None
 
+    def __post_init__(self):
+        if not isinstance(self.tracks, list):
+            raise ValueError("tracks must be a list")
+
+        # cast tracks to Track objects if they are dicts
+        self.tracks = [
+            Track(**track) if isinstance(track, dict) else track
+            for track in self.tracks
+        ]
+
     def serialize_tracks(self) -> list[dict]:
         """Serialize the playlist list to a list of dicts, suitable for postgres."""
         return [track.to_dict() for track in self.tracks]
