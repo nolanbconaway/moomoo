@@ -34,12 +34,11 @@ setup(
         "xspf-lib==0.3.*",
         "httpx==0.26.*",
         "toga==0.4.*",
-        "structlog==23.*"
+        "structlog==23.*",
     ],
     extras_require=dict(
         test=[
-            "black==23.10.0",
-            "ruff==0.1.1",
+            "ruff==0.2.1",
             "pytest==7.2.2",
             "pytest-httpx==0.28.0",
             "pytest-asyncio==0.23.3",

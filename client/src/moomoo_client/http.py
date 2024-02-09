@@ -1,7 +1,7 @@
 """Handlers for making HTTP requests."""
+
 import json
 import os
-from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Optional, Union
@@ -13,13 +13,12 @@ from .logger import logger
 from .utils_ import MediaLibrary, Playlist
 
 
-@dataclass
 class PlaylistRequester:
     """A playlist requester for http."""
 
-    tracks: int = 20
-    seed: int = 1
-    shuffle: bool = True
+    def __init__(self, **kw) -> None:
+        """Initialize the playlist requester."""
+        self.args = kw
 
     @cached_property
     def library(self) -> MediaLibrary:
@@ -37,7 +36,7 @@ class PlaylistRequester:
 
     def request_tuples(self) -> list[tuple[str, Union[int, bool]]]:
         """Convert to tuples, appropriate for passing to requests."""
-        return [("n", self.tracks), ("seed", self.seed), ("shuffle", self.shuffle)]
+        return [(k, v) for k, v in self.args.items()]
 
     async def make_request(
         self, endpoint: str, params: Optional[list[tuple[str, Union[int, bool]]]] = None
@@ -87,7 +86,7 @@ class PlaylistRequester:
             playlist=[
                 self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
             ],
-            description=plist["description"],
+            description=plist.get("description"),
             generator="from-path",
         )
 
@@ -102,17 +101,14 @@ class PlaylistRequester:
             playlist=[
                 self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
             ],
-            description=plist["description"],
+            description=plist.get("description"),
             generator="loved",
         )
 
-    async def request_revisit_releases(
-        self, username: str, count_releases: int
-    ) -> list[Playlist]:
+    async def request_revisit_releases(self, username: str) -> list[Playlist]:
         """Asynchronously request playlists of revisit releases."""
         endpoint = f"/playlist/revisit-releases/{username}"
-        args = [("numPlaylists", count_releases)]
-        data = await self.make_request(endpoint, args)
+        data = await self.make_request(endpoint)
 
         # expect more than one playlist if success
         return [
@@ -120,23 +116,16 @@ class PlaylistRequester:
                 playlist=[
                     self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
                 ],
-                description=plist["description"],
+                description=plist.get("description"),
                 generator="revisit-releases",
             )
             for plist in data["playlists"]
         ]
 
-    async def request_user_artist_suggestions(
-        self, username: str, count_artists: int, history: Optional[str] = None
-    ) -> list[Playlist]:
+    async def request_user_artist_suggestions(self, username: str) -> list[Playlist]:
         """Asynchronously request user artist playlist suggestions."""
         endpoint = f"/playlist/suggest/by-artist/{username}"
-        args = [("numPlaylists", count_artists)]
-
-        if history is not None:
-            args.append(("historyDays", history))
-
-        data = await self.make_request(endpoint, args)
+        data = await self.make_request(endpoint)
 
         # expect more than one playlist if success
         return [
@@ -144,7 +133,7 @@ class PlaylistRequester:
                 playlist=[
                     self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
                 ],
-                description=plist["description"],
+                description=plist.get("description"),
                 generator="suggest-by-artist",
             )
             for plist in data["playlists"]
