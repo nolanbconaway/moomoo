@@ -5,18 +5,22 @@ VERSION := $(shell cat src/moomoo_client/version)
 version:
 	@ echo $(VERSION)
 
-.PHONY:
+.PHONY: 
 lint:
-	@ black tests src --check --verbose
-	@ ruff tests src
+	@ ruff check
+	@ ruff format --check
 
-.PHONY:
+.PHONY: 
 format:
-	@ black tests src --verbose
+	@ ruff check --select I --fix .
+	@ ruff format
 
 .PHONY:
 test:
 	@ pytest tests --verbose
+
+.PHONY: 
+lint-test: lint test
 
 .PHONY:
 lint-test: lint test

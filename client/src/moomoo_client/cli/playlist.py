@@ -1,4 +1,5 @@
 """CLI commands for playlist generation."""
+
 import asyncio
 from pathlib import Path
 
@@ -6,30 +7,10 @@ import click
 
 from ..http import PlaylistRequester
 
-
-def common_options(func):
-    """Add common options to a command
-
-    Has same effect as:
-
-        @click.option("--n", default=20, type=int)
-        @click.option("--seed", default=1, type=int)
-        @click.option("--shuffle", default=True, type=bool)
-        @click.option("--out", default="json", type=...
-
-    """
-    options = [
-        click.option("--n", default=20, type=int),
-        click.option("--seed", default=1, type=int),
-        click.option("--shuffle", default=True, type=bool),
-        click.option(
-            "--out", default="json", type=click.Choice(["xml", "json", "strawberry"])
-        ),
-    ]
-
-    for option in options:
-        func = option(func)
-    return func
+# shared among most commands
+OPTION_OUT = click.option(
+    "--out", default="json", type=click.Choice(["xml", "json", "strawberry"])
+)
 
 
 @click.group()
@@ -42,10 +23,10 @@ def cli():
 @click.argument(
     "paths", type=click.Path(exists=True, path_type=Path), nargs=-1, required=True
 )
-@common_options
-def playlist_from_path(paths: list[Path], out: str, n: int, seed: int, shuffle: bool):
+@OPTION_OUT
+def playlist_from_path(paths: list[Path], out: str):
     """Get a playlist from a path."""
-    requester = PlaylistRequester(tracks=n, seed=seed, shuffle=shuffle)
+    requester = PlaylistRequester()
     playlist = asyncio.run(requester.request_playlist_from_path(paths))
     playlist.render(out)
 
@@ -54,7 +35,7 @@ def playlist_from_path(paths: list[Path], out: str, n: int, seed: int, shuffle: 
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
+@OPTION_OUT
 def playlist_loved_tracks(username, out: str):
     """Get the loved tracks of a user."""
     requester = PlaylistRequester()
@@ -66,14 +47,11 @@ def playlist_loved_tracks(username, out: str):
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--count-releases", default=10, type=int)
-@click.option("--out", default="json", type=click.Choice(["xml", "json", "strawberry"]))
-def playlist_revisit_releases(username, count_releases: int, out: str):
+@OPTION_OUT
+def playlist_revisit_releases(username, out: str):
     """Get releases to revisit."""
     requester = PlaylistRequester()
-    playlists = asyncio.run(
-        requester.request_revisit_releases(username, count_releases)
-    )
+    playlists = asyncio.run(requester.request_revisit_releases(username))
 
     # give users a choice of playlists and wait for input
     click.echo("Choose a playlist:")
@@ -89,16 +67,11 @@ def playlist_revisit_releases(username, count_releases: int, out: str):
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
 )
-@click.option("--count-artists", default=10, type=int)
-@common_options
-def playlist_suggested_artists(
-    username: str, count_artists: int, out: str, n: int, seed: int, shuffle: bool
-):
+@OPTION_OUT
+def playlist_suggested_artists(username: str, out: str):
     """Get playlists of suggested artists."""
-    requester = PlaylistRequester(tracks=n, seed=seed, shuffle=shuffle)
-    playlists = asyncio.run(
-        requester.request_user_artist_suggestions(username, count_artists)
-    )
+    requester = PlaylistRequester()
+    playlists = asyncio.run(requester.request_user_artist_suggestions(username))
 
     # give users a choice of playlists and wait for input
     click.echo("Choose a playlist:")

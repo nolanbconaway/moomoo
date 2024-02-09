@@ -1,4 +1,5 @@
 """Test the utils module."""
+
 import socket
 from pathlib import Path
 
@@ -45,9 +46,9 @@ def test_PlaylistRequester__request_tuples(monkeypatch):
     monkeypatch.setenv("MOOMOO_HOST", "localhost:8000")
 
     requester = PlaylistRequester()
-    assert requester.request_tuples() == [("n", 20), ("seed", 1), ("shuffle", True)]
+    assert requester.request_tuples() == []
 
-    requester = PlaylistRequester(tracks=10, seed=2, shuffle=False)
+    requester = PlaylistRequester(n=10, seed=2, shuffle=False)
     assert requester.request_tuples() == [("n", 10), ("seed", 2), ("shuffle", False)]
 
 
@@ -72,8 +73,9 @@ async def test_PlaylistRequester__make_request__error_handling(httpx_mock: HTTPX
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["aaa", None])
 async def test_PlaylistRequester__request_playlist_from_path(
-    local_files: Path, httpx_mock: HTTPXMock
+    local_files: Path, httpx_mock: HTTPXMock, description: str
 ):
     """Test the request_playlist_from_path method."""
     httpx_mock.add_response(
@@ -82,7 +84,7 @@ async def test_PlaylistRequester__request_playlist_from_path(
             "playlists": [
                 {
                     "playlist": [{"filepath": "a"}, {"filepath": "b"}],
-                    "description": "aaa",
+                    "description": description,
                 }
             ],
         },
@@ -93,12 +95,13 @@ async def test_PlaylistRequester__request_playlist_from_path(
     res = await requester.request_playlist_from_path([local_files / "test.mp3"])
     assert isinstance(res, Playlist)
     assert res.playlist == [local_files / "a", local_files / "b"]
-    assert res.description == "aaa"
+    assert res.description == description
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["aaa", None])
 async def test_PlaylistRequester__request_loved_tracks(
-    local_files: Path, httpx_mock: HTTPXMock
+    local_files: Path, httpx_mock: HTTPXMock, description: str
 ):
     """Test the request_playlist_from_path method."""
     httpx_mock.add_response(
@@ -107,7 +110,7 @@ async def test_PlaylistRequester__request_loved_tracks(
             "playlists": [
                 {
                     "playlist": [{"filepath": "a"}, {"filepath": "b"}],
-                    "description": "aaa",
+                    "description": description,
                 }
             ],
         },
@@ -118,12 +121,13 @@ async def test_PlaylistRequester__request_loved_tracks(
     res = await requester.request_loved_tracks("username")
     assert isinstance(res, Playlist)
     assert res.playlist == [local_files / "a", local_files / "b"]
-    assert res.description == "aaa"
+    assert res.description == description
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["aaa", None])
 async def test_PlaylistRequester__request_user_artist_suggestions(
-    local_files: Path, httpx_mock: HTTPXMock
+    local_files: Path, httpx_mock: HTTPXMock, description: str
 ):
     """Test the request_playlist_from_path method."""
     httpx_mock.add_response(
@@ -132,24 +136,25 @@ async def test_PlaylistRequester__request_user_artist_suggestions(
             "playlists": [
                 {
                     "playlist": [{"filepath": "a"}, {"filepath": "b"}],
-                    "description": "aaa",
+                    "description": description,
                 }
             ],
         },
     )
     requester = PlaylistRequester()
-    res = await requester.request_user_artist_suggestions("username", 3)
+    res = await requester.request_user_artist_suggestions("username")
     assert len(res) == 1
 
     plist = res[0]
     assert isinstance(plist, Playlist)
     assert plist.playlist == [local_files / "a", local_files / "b"]
-    assert plist.description == "aaa"
+    assert plist.description == description
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["aaa", None])
 async def test_PlaylistRequester__request_revisit_releases(
-    local_files: Path, httpx_mock: HTTPXMock
+    local_files: Path, httpx_mock: HTTPXMock, description: str
 ):
     """Test the request_playlist_from_path method."""
     httpx_mock.add_response(
@@ -158,16 +163,16 @@ async def test_PlaylistRequester__request_revisit_releases(
             "playlists": [
                 {
                     "playlist": [{"filepath": "a"}, {"filepath": "b"}],
-                    "description": "aaa",
+                    "description": description,
                 }
             ],
         },
     )
     requester = PlaylistRequester()
-    res = await requester.request_revisit_releases("username", 3)
+    res = await requester.request_revisit_releases("username")
     assert len(res) == 1
 
     plist = res[0]
     assert isinstance(plist, Playlist)
     assert plist.playlist == [local_files / "a", local_files / "b"]
-    assert plist.description == "aaa"
+    assert plist.description == description

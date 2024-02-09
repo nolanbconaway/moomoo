@@ -28,7 +28,7 @@ Install from git via:
 pipx install git+https://github.com/nolanbconaway/moomoo.git#subdirectory=client
 ```
 
-> NOTE: Only python 3.9 and 3.10 are tested, so use the `--python=/path/to/py3.9/bin/python` pipx option if needed.
+> NOTE: python 3.9-3.12 are tested, so use the `--python=/path/to/py3.9/bin/python` pipx option if needed.
 
 ## Usage
 
