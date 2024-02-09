@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.pyv }}
 
@@ -39,7 +39,7 @@ jobs:
             libcanberra-gtk3-module
 
       - name: pip cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: pip-client-${{matrix.pyv}}-${{ hashFiles('client/setup.py') }}
