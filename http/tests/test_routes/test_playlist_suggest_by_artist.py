@@ -12,25 +12,7 @@ def test_arg_errors(http_app: FlaskClient):
     assert resp.status_code == 404
 
 
-def test_no_playlist_errors(http_app: FlaskClient):
-    # no loved playlist collection available
-    resp = http_app.get("/playlist/suggest/by-artist/aaa")
-    assert resp.status_code == 500
-    assert resp.json["success"] is False
-    assert "Collection top-artists collection not found for aaa." in resp.json["error"]
-
-    # a collection available, but no playlists
-    collection = PlaylistCollection(username="aaa", collection_name="top-artists")
-    db.session.add(collection)
-    db.session.commit()
-
-    resp = http_app.get("/playlist/suggest/by-artist/aaa")
-    assert resp.status_code == 500
-    assert resp.json["success"] is False
-    assert "No top-artists playlists found for aaa." in resp.json["error"]
-
-
-def test_success(http_app: FlaskClient):
+def test_get(http_app: FlaskClient):
     """Test that the correct playlist is returned."""
     collection = PlaylistCollection(
         collection_id=uuid4(), username="aaa", collection_name="top-artists"

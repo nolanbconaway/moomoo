@@ -11,6 +11,7 @@ from pathlib import Path
 from flask import Blueprint, Response, request
 from moomoo_playlist import FromFilesPlaylistGenerator, Playlist
 from moomoo_playlist.ddl import PlaylistCollection
+from sqlalchemy.orm import Session
 
 from ..db import db
 
@@ -71,6 +72,29 @@ class PlaylistResponse:
             content_type="application/json",
         )
 
+    @classmethod
+    def from_user_collection(
+        cls, collection_name: str, username: str, session: Session
+    ) -> "PlaylistResponse":
+        """Create a PlaylistResponse from a named collection for a user."""
+        collection = (
+            session.query(PlaylistCollection)
+            .filter_by(username=username, collection_name=collection_name)
+            .first()
+        )
+
+        if collection is None:
+            error = f"Collection {collection_name} collection not found for {username}."
+            return cls(success=False, error=error)
+
+        if not collection.items:
+            return cls(
+                success=False,
+                error=f"No {collection_name} playlists found for {username}.",
+            )
+
+        return cls(success=True, playlists=collection.playlists)
+
 
 @base.route("/from-files", methods=["GET"])
 def from_files():
@@ -99,69 +123,22 @@ def from_files():
 @base.route("/loved/<username>", methods=["GET"])
 def loved_tracks(username: str):
     """Make a playlist of loved tracks for a user."""
-    collection_name = "loved-tracks"
-    collection = (
-        db.session.query(PlaylistCollection)
-        .filter_by(username=username, collection_name=collection_name)
-        .first()
-    )
-    if collection is None:
-        return PlaylistResponse(
-            success=False,
-            error=f"Collection {collection_name} collection not found for {username}.",
-        ).to_http()
-    if not collection.playlists:
-        return PlaylistResponse(
-            success=False, error=f"No {collection_name} playlists found for {username}."
-        ).to_http()
-
-    playlist = collection.playlists[0].to_playlist()
-    return PlaylistResponse(success=True, playlists=[playlist]).to_http()
+    return PlaylistResponse.from_user_collection(
+        collection_name="loved-tracks", username=username, session=db.session
+    ).to_http()
 
 
 @base.route("/revisit-releases/<username>", methods=["GET"])
 def revisit_releases(username: str):
     """Generate playlists of releases to revisit for a user."""
-    collection_name = "revisit-releases"
-    collection = (
-        db.session.query(PlaylistCollection)
-        .filter_by(username=username, collection_name=collection_name)
-        .first()
-    )
-
-    if collection is None:
-        return PlaylistResponse(
-            success=False,
-            error=f"Collection {collection_name} collection not found for {username}.",
-        ).to_http()
-    if not collection.playlists:
-        return PlaylistResponse(
-            success=False, error=f"No {collection_name} playlists found for {username}."
-        ).to_http()
-
-    playlists = [item.to_playlist() for item in collection.playlists]
-    return PlaylistResponse(success=True, playlists=playlists).to_http()
+    return PlaylistResponse.from_user_collection(
+        collection_name="revisit-releases", username=username, session=db.session
+    ).to_http()
 
 
 @suggest.route("/by-artist/<username>", methods=["GET"])
 def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
-    collection_name = "top-artists"
-    collection = (
-        db.session.query(PlaylistCollection)
-        .filter_by(username=username, collection_name=collection_name)
-        .first()
-    )
-
-    if collection is None:
-        return PlaylistResponse(
-            success=False,
-            error=f"Collection {collection_name} collection not found for {username}.",
-        ).to_http()
-    if not collection.playlists:
-        return PlaylistResponse(
-            success=False, error=f"No {collection_name} playlists found for {username}."
-        ).to_http()
-
-    playlists = [item.to_playlist() for item in collection.playlists]
-    return PlaylistResponse(success=True, playlists=playlists).to_http()
+    return PlaylistResponse.from_user_collection(
+        collection_name="top-artists", username=username, session=db.session
+    ).to_http()
