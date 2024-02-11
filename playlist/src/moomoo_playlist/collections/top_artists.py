@@ -3,7 +3,6 @@
 import dataclasses
 import os
 import random
-from pathlib import Path
 from uuid import UUID
 
 import click
@@ -124,7 +123,6 @@ def main(username: str, history_length: str, count: int, force: bool):
     logger.info(f"Generating playlists for {len(artists)} artists.")
     playlists = []
     for artist in tqdm(artists, disable=None, total=len(artists)):
-
         generator = FromMbidsPlaylistGenerator(artist.mbid, username=username)
         try:
             playlist = generator.get_playlist(session=session, seed_count=1)

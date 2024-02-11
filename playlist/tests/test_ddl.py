@@ -66,13 +66,34 @@ def test_collection_item__playlist_round_trip(session: Session):
     assert item.to_playlist() == playlist
 
 
+def test_collection_playlists(session: Session):
+    """Test the playlists property."""
+    collection = PlaylistCollection(username="test", collection_name="test")
+    session.add(collection)
+    session.commit()
+
+    assert collection.playlists == []
+
+    track = {"filepath": "test/test.mp3", "artist_mbid": str(uuid.uuid4())}
+    playlist = Playlist([track])
+    item = PlaylistCollectionItem.from_playlist(
+        collection_id=collection.collection_id,
+        collection_order_index=0,
+        playlist=playlist,
+    )
+    session.add(item)
+    session.commit()
+
+    assert collection.playlists == [playlist]
+
+
 def test_get_collection_by_name(session: Session):
     collection = PlaylistCollection.get_collection_by_name(
         username="test", collection_name="test", session=session
     )
     assert collection.username == "test"
     assert collection.collection_name == "test"
-    assert collection.playlists == []
+    assert collection.items == []
 
     collection_2 = PlaylistCollection.get_collection_by_name(
         username="test", collection_name="test", session=session
@@ -103,15 +124,15 @@ def test_replace_playlists(session: Session):
         username="test", collection_name="test", session=session
     )
     playlist = Playlist(tracks=[], title="test title", description="test description")
-    assert collection.playlists == []
+    assert collection.items == []
 
     collection.replace_playlists([playlist], session=session)
-    assert len(collection.playlists) == 1
-    assert collection.playlists[0].title == playlist.title
-    assert collection.playlists[0].description == playlist.description
-    assert collection.playlists[0].playlist == []
-    assert collection.playlists[0].collection_order_index == 0
-    assert collection.playlists[0].collection_id == collection.collection_id
+    assert len(collection.items) == 1
+    assert collection.items[0].title == playlist.title
+    assert collection.items[0].description == playlist.description
+    assert collection.items[0].playlist == []
+    assert collection.items[0].collection_order_index == 0
+    assert collection.items[0].collection_id == collection.collection_id
 
     # test stale handler
     collection = PlaylistCollection.get_collection_by_name(
