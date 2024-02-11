@@ -3,6 +3,7 @@
 import os
 import random
 from pathlib import Path
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from .base import (
     Playlist,
     Track,
     db_retry,
+    fetch_user_listen_counts,
     get_most_similar_tracks,
 )
 
@@ -23,16 +25,22 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
     Automatically resolves the mbid types, and includes all files for the mbids in cases
     where the mbid is a parent (e.g. release group).
+
+    Args:
+        mbids: MBIDs to include in the playlist.
+        username: Username for which to generate the playlist. If provided, source
+            paths can be weighted based on the user's listening history.
     """
 
     limit_source_paths = 100
 
-    def __init__(self, *mbids: UUID):
+    def __init__(self, *mbids: UUID, username: Optional[str] = None):
         if not mbids:
             raise ValueError("At least one mbid must be provided.")
 
         # dedupe
-        self.mbids = list(set([mbid for mbid in mbids]))
+        self.mbids = list(set(list(mbids)))  # need the internal list for some reason
+        self.username = username
 
     @classmethod
     def _files_for_recording_mbids(
@@ -195,11 +203,23 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
                 Track(filepath=p) for p in random.sample(source_paths, seed_count)
             ]
 
+        if self.username is not None:
+            listen_counts = fetch_user_listen_counts(
+                filepaths=source_paths, session=session, username=self.username
+            )
+            weights = [
+                self.listen_count_to_weight(listen_counts.get(fp, 0))
+                for fp in source_paths
+            ]
+        else:
+            weights = None
+
         tracks = get_most_similar_tracks(
             filepaths=source_paths,
             session=session,
             limit=limit - seed_count,
             limit_per_artist=limit_per_artist,
+            weights=weights,
         )
 
         if shuffle:

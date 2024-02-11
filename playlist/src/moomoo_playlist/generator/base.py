@@ -3,17 +3,15 @@
 import abc
 import os
 from collections import Counter
+from math import log
 from pathlib import Path
 from typing import Generator, Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..db import db_retry
-from ..logger import get_logger
+from ..db import db_retry, execute_sql_fetchall, make_temp_table
 from ..playlist import Playlist, Track
-
-logger = get_logger().bind(module=__name__)
 
 
 class NoFilesRequestedError(Exception):
@@ -30,32 +28,76 @@ class BasePlaylistGenerator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_playlist(
-        self,
-        session: Session,
-        limit: int = 20,
-        limit_per_artist: int = 2,
-        shuffle: bool = True,
-        seed_count: int = 0,
-    ) -> Playlist:
-        """Get a playlist.
+    def get_playlist(self) -> Playlist:
+        ...
+
+    @staticmethod
+    def listen_count_to_weight(x: int) -> float:
+        """Convert a listen count to a weight.
+
+        This is a simple logarithmic function which converts a listen count to a non-
+        zero weight via log(2 + x). I put it here to share across playlist generators.
 
         Args:
-            session: Sqlalchemy session.
-            limit: Number of songs to include in the playlist.
-            limit_per_artist: Maximum number of songs per artist.
-            shuffle: Whether to shuffle the playlist.
-            seed_count: Number of songs to seed the playlist with.
+            listen_count: Listen count.
 
         Returns:
-            A Playlist object.
+            A weight for use in similarity calculations.
         """
-        ...
+        return log(2 + max(x, 0))
+
+
+@db_retry
+def fetch_user_listen_counts(
+    filepaths: list[Path],
+    session: Session,
+    username: str,
+    history_column: str = "lifetime_listen_count",
+) -> dict[Path, int]:
+    """Fetch the listen counts for a user's tracks.
+
+    Args:
+        filepaths: List of filepaths.
+        session: Sqlalchemy session.
+        username: Username to fetch listen counts for.
+        history_column: Column to fetch listen counts from.
+
+    Returns:
+        A dictionary of filepaths to listen counts.
+    """
+    if not filepaths:
+        return dict()
+
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    tmp_name = make_temp_table(
+        session=session,
+        types={"filepath": "text"},
+        data=[{"filepath": str(f)} for f in filepaths],
+        pk="filepath",
+    )
+    sql = f"""
+        select filepath, {history_column} as listens
+        from {schema}.file_listen_counts
+        inner join {tmp_name} using (filepath)
+        where username = :username
+    """
+    rows = {
+        Path(row["filepath"]): row["listens"]
+        for row in execute_sql_fetchall(
+            sql=sql, params={"username": username}, session=session
+        )
+    }
+
+    # add any missing filepaths with 0 listens
+    return {fp: rows.get(fp, 0) for fp in filepaths}
 
 
 @db_retry
 def stream_similar_tracks(
-    filepaths: list[Path], session: Session, limit: Optional[int] = 2000
+    filepaths: list[Path],
+    session: Session,
+    limit: Optional[int] = 2000,
+    weights: Optional[list[float]] = None,
 ) -> Generator[Track, None, None]:
     """Stream similar tracks to filepaths.
 
@@ -67,23 +109,58 @@ def stream_similar_tracks(
         filepaths: List of paths files.
         session: Sqlalchemy session.
         limit: Maximum number of tracks to return (default 500).
+        weights: List of weights for each filepath. If provided, the aggregate distance
+            will be weighted (larger weights counted more). Must be the same length as
+            filepaths. Must be non-negative.
 
     Returns:
         A generator of PlaylistTrack objects, in order of distance. Can be consumed
         until needs are exhausted.
     """
+    # get weights
+    if weights is not None:
+        # validate weights
+        if len(weights) != len(filepaths):
+            raise ValueError("weights must be the same length as filepaths.")
+        elif any(w < 0 for w in weights):
+            raise ValueError("Weights must be non-negative.")
+        elif sum(weights) == 0:
+            raise ValueError("Weights must sum to a non-zero value.")
+    else:
+        weights = [1] * len(filepaths)
+
+    # upload files and weights to a temporary table to avoid a huge where clause
+    tmp_name = make_temp_table(
+        session=session,
+        types={"filepath": "text", "weight": "float"},
+        data=[
+            {"filepath": str(fp), "weight": w}
+            for fp, w in zip(filepaths, weights)
+            if w > 0
+        ],
+        pk="filepath",
+    )
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         with base as (
-            select embedding
-            from {schema}.local_files where filepath = any(:filepaths)
+            select filepath, tmp_.weight, local_files.embedding
+            from {schema}.local_files
+            inner join {tmp_name} as tmp_ using (filepath)
+            where local_files.embedding_success
+              and local_files.embedding_duration_seconds >= 60
         )
 
         , distances as (
             select
                 local_files.filepath as filepath
-                , avg(base.embedding <-> local_files.embedding) as distance
+                , case 
+                    when sum(base.weight) > 0  -- in case filtered to only 0 weights
+                    then (
+                        sum((base.embedding <-> local_files.embedding) * base.weight)
+                        / sum(base.weight)
+                    )
+                  end  as distance
 
             from {schema}.local_files
             cross join base
@@ -91,10 +168,11 @@ def stream_similar_tracks(
             where true
                 and local_files.embedding_success
                 and local_files.embedding_duration_seconds >= 60
-                and not local_files.filepath = any(:filepaths)
+                and not local_files.filepath = base.filepath
                 and local_files.artist_mbid is not null
 
             group by local_files.filepath
+            having sum(base.weight) > 0
         )
 
         select
@@ -142,6 +220,7 @@ def get_most_similar_tracks(
     session: Session,
     limit: int = 20,
     limit_per_artist: Optional[int] = None,
+    weights: Optional[list[float]] = None,
 ) -> list[Track]:
     """Get a listing of similar songs.
 
@@ -153,6 +232,9 @@ def get_most_similar_tracks(
         session: sqlalchemy session to use.
         limit: Number of songs to include in the playlist.
         limit_per_artist: Maximum number of songs per artist.
+        weights: List of weights for each filepath. If provided, the aggregate distance
+            will be weighted (larger weights counted more). Must be the same length as
+            filepaths. Must be non-negative.
 
     Returns:
         A list of filepaths, sorted by distance.
@@ -165,7 +247,7 @@ def get_most_similar_tracks(
         return [
             i
             for i in stream_similar_tracks(
-                filepaths=filepaths, session=session, limit=limit
+                filepaths=filepaths, session=session, limit=limit, weights=weights
             )
         ]
 

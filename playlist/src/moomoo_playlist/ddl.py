@@ -41,12 +41,18 @@ class PlaylistCollection(BaseTable):
     playlists_refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=True, index=True
     )
-    playlists: Mapped[list["PlaylistCollectionItem"]] = relationship(
+
+    items: Mapped[list["PlaylistCollectionItem"]] = relationship(
         back_populates="collection"
     )
 
     # add unique constraint for username and collection_name
     __table_args__ = (UniqueConstraint("username", "collection_name"), {})
+
+    @property
+    def playlists(self) -> list[Playlist]:
+        """Get the playlists in this collection."""
+        return [item.to_playlist() for item in self.items]
 
     @classmethod
     def get_collection_by_name(
@@ -177,7 +183,7 @@ class PlaylistCollectionItem(BaseTable):
         nullable=False, server_default=func.current_timestamp()
     )
 
-    collection: Mapped["PlaylistCollection"] = relationship(back_populates="playlists")
+    collection: Mapped["PlaylistCollection"] = relationship(back_populates="items")
 
     # unique constraint for collection_id and collection_order_index
     __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})

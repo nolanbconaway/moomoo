@@ -21,10 +21,10 @@ logger = get_logger().bind(module=__name__)
 
 # mapping of length to config
 HISTORY_CONFIG = {
-    "30": dict(col="last30_listen_count", min_n=10),
-    "60": dict(col="last60_listen_count", min_n=15),
-    "90": dict(col="last90_listen_count", min_n=20),
-    "lifetime": dict(col="lifetime_listen_count", min_n=25),
+    "30": dict(col="last30_listen_count", min_n=15),
+    "60": dict(col="last60_listen_count", min_n=20),
+    "90": dict(col="last90_listen_count", min_n=25),
+    "lifetime": dict(col="lifetime_listen_count", min_n=50),
 }
 
 
@@ -76,7 +76,7 @@ def list_top_artists(
     if len(rows) > count:
         rows = random.sample(rows, count)
 
-    logger.info(f"Found {len(rows)} artists.", extra=dict(artists=rows))
+    logger.info(f"Found {len(rows)} artists.", artists=[r["artist_name"] for r in rows])
     return [Artist(mbid=row["artist_mbid"], name=row["artist_name"]) for row in rows]
 
 
@@ -123,7 +123,7 @@ def main(username: str, history_length: str, count: int, force: bool):
     logger.info(f"Generating playlists for {len(artists)} artists.")
     playlists = []
     for artist in tqdm(artists, disable=None, total=len(artists)):
-        generator = FromMbidsPlaylistGenerator(artist.mbid)
+        generator = FromMbidsPlaylistGenerator(artist.mbid, username=username)
         try:
             playlist = generator.get_playlist(session=session, seed_count=1)
         except NoFilesRequestedError:
