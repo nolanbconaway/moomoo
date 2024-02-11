@@ -62,9 +62,7 @@ def test_collection_item__playlist_round_trip(session: Session):
     session.commit()
 
     # round trip test
-    item: PlaylistCollectionItem = session.query(PlaylistCollectionItem).get(
-        item.playlist_id
-    )
+    item = session.get(PlaylistCollectionItem, item.playlist_id)
     assert item.to_playlist() == playlist
 
 

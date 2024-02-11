@@ -6,6 +6,7 @@ from .generator import (
     FromMbidsPlaylistGenerator,
     NoFilesRequestedError,
     QueryPlaylistGenerator,
+    fetch_user_listen_counts,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
@@ -21,4 +22,5 @@ __all__ = [
     "NoFilesRequestedError",
     "stream_similar_tracks",
     "get_most_similar_tracks",
+    "fetch_user_listen_counts",
 ]

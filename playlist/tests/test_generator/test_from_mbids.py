@@ -239,13 +239,20 @@ def test_get_playlist__no_files_error(mock_list_source_paths, session: Session):
         Gen(uuid4()).get_playlist(session)
 
 
+@pytest.mark.parametrize("username", [None, "test"])
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_paths")
 @patch("moomoo_playlist.generator.base.stream_similar_tracks")
+@patch("moomoo_playlist.generator.from_mbids.fetch_user_listen_counts")
 def test_get_playlist(
-    mock_stream_similar_tracks, mock_list_source_paths, session: Session
+    mock_fetch_user_listen_counts,
+    mock_stream_similar_tracks,
+    mock_list_source_paths,
+    session: Session,
+    username,
 ):
     """Test that get_playlist works."""
     # mock listed sources and stream
+    mock_fetch_user_listen_counts.return_value = {Path("test/0"): 1}
     mock_list_source_paths.return_value = [Path("test/0")]
 
     mock_stream_similar_tracks.return_value = [
@@ -258,7 +265,7 @@ def test_get_playlist(
         for i in range(1, 100)
     ]
 
-    pg = Gen(Path("test/0"))
+    pg = Gen(Path("test/0"), username=username)
     playlist = pg.get_playlist(limit=2, shuffle=False, session=session)
     assert [i.filepath for i in playlist.tracks] == [Path("test/1"), Path("test/2")]
 
