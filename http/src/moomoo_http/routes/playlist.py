@@ -142,3 +142,11 @@ def suggest_by_artist(username: str):
     return PlaylistResponse.from_user_collection(
         collection_name="top-artists", username=username, session=db.session
     ).to_http()
+
+
+@suggest.route("/smart-mix/<username>", methods=["GET"])
+def suggest_smart_mix(username: str):
+    """Suggest playlist based on most listened to artists."""
+    return PlaylistResponse.from_user_collection(
+        collection_name="smart-mixes", username=username, session=db.session
+    ).to_http()
