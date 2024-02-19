@@ -203,7 +203,7 @@ def main(username: str, count: int, force: bool, n_jobs: int):
             *[track.filepath for track in cluster], username=username
         )
         try:
-            playlist = generator.get_playlist(session=session)
+            playlist = generator.get_playlist(session=session, seed_count=1)
         except NoFilesRequestedError:
             logger.exception("No files found for cluster.")
             continue
@@ -212,9 +212,9 @@ def main(username: str, count: int, force: bool, n_jobs: int):
         # "Song like X - Y, A - B.
         t1, t2 = cluster[:2]
         description = (
-            "Songs like "
-            + f"{t1.track_name} - {t1.artist_name}; "
-            + f"{t2.track_name} - {t2.artist_name}"
+            "Songs like: "
+            + f"'{t1.track_name}' ({t1.artist_name}); "
+            + f"'{t2.track_name}' ({t2.artist_name})"
         )
 
         # set title based on list index, in case there was an exception
