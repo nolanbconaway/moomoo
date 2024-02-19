@@ -20,7 +20,7 @@ refresh_interval_hours = 24
 logger = get_logger().bind(module=__name__)
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Release:
     """Container for artists."""
 

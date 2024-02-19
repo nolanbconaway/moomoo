@@ -28,7 +28,7 @@ HISTORY_CONFIG = {
 }
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Artist:
     """Container for artists."""
 

@@ -24,6 +24,7 @@ setup(
         "click==8.*",
         "tenacity==8.*",
         "tqdm==4.*",
+        "scikit-learn==1.4.*",
         "structlog>21.0.0,<25.0.0",
     ],
     extras_require=dict(
