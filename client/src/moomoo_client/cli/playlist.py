@@ -83,5 +83,25 @@ def playlist_suggested_artists(username: str, out: str):
     playlists[choice].render(out)
 
 
+@cli.command("smart-mix")
+@click.argument(
+    "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
+)
+@OPTION_OUT
+def playlist_smart_mixes(username: str, out: str):
+    """Get playlists of suggested artists."""
+    requester = PlaylistRequester()
+    playlists = asyncio.run(requester.request_user_smart_mixes(username))
+
+    # give users a choice of playlists and wait for input
+    click.echo("Choose a playlist:")
+    for i, playlist in enumerate(playlists):
+        click.echo(f"{i}: {playlist.description}")
+
+    choice = click.prompt("Choice", type=int)
+
+    playlists[choice].render(out)
+
+
 if __name__ == "__main__":
     cli()
