@@ -78,6 +78,9 @@ def load_local_files_table(data: list[dict]):
         - release_group_mbid: uuid (optional)
         - artist_mbid: uuid (optional)
         - album_artist_mbid: uuid (optional)
+        - artist_name: str (optional)
+        - album_artist_name: str (optional)
+        - track_name: str (optional)
         - embedding_success: bool (optional)
         - embedding_duration_seconds: int (optional)
     """
@@ -94,6 +97,9 @@ def load_local_files_table(data: list[dict]):
                 , release_group_mbid uuid
                 , artist_mbid uuid
                 , album_artist_mbid uuid
+                , artist_name text
+                , album_artist_name text
+                , track_name text
                 , embedding_duration_seconds int
             )
         """
@@ -109,17 +115,23 @@ def load_local_files_table(data: list[dict]):
                 , release_group_mbid
                 , artist_mbid
                 , album_artist_mbid
+                , artist_name
+                , album_artist_name
+                , track_name
                 , embedding_duration_seconds
             )
             values (
                 :filepath
-                , true
+                , :embedding_success
                 , :embedding
                 , :recording_mbid
                 , :release_mbid
                 , :release_group_mbid
                 , :artist_mbid
                 , :album_artist_mbid
+                , :artist_name
+                , :album_artist_name
+                , :track_name
                 , :embedding_duration_seconds
             )
         """
@@ -133,6 +145,9 @@ def load_local_files_table(data: list[dict]):
             i["artist_mbid"] = i.get("artist_mbid", str(uuid4()))
             if "album_artist_mbid" not in i:
                 i["album_artist_mbid"] = i["artist_mbid"]
+            i["artist_name"] = i.get("artist_name", "artist_name")
+            i["album_artist_name"] = i.get("album_artist_name", "album_artist_name")
+            i["track_name"] = i.get("track_name", "track_name")
             i["embedding_duration_seconds"] = i.get("embedding_duration_seconds", 90)
             session.execute(text(sql), i)
         session.commit()
