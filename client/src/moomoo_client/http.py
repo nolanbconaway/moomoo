@@ -138,3 +138,20 @@ class PlaylistRequester:
             )
             for plist in data["playlists"]
         ]
+
+    async def request_user_smart_mixes(self, username: str) -> list[Playlist]:
+        """Asynchronously request user artist playlist suggestions."""
+        endpoint = f"/playlist/suggest/smart-mix/{username}"
+        data = await self.make_request(endpoint)
+
+        # expect more than one playlist if success
+        return [
+            Playlist(
+                playlist=[
+                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+                ],
+                description=plist.get("description"),
+                generator="smart-mix",
+            )
+            for plist in data["playlists"]
+        ]

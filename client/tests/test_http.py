@@ -176,3 +176,30 @@ async def test_PlaylistRequester__request_revisit_releases(
     assert isinstance(plist, Playlist)
     assert plist.playlist == [local_files / "a", local_files / "b"]
     assert plist.description == description
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("description", ["aaa", None])
+async def test_PlaylistRequester__request_user_smart_mixes(
+    local_files: Path, httpx_mock: HTTPXMock, description: str
+):
+    """Test the request_playlist_from_path method."""
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": description,
+                }
+            ],
+        },
+    )
+    requester = PlaylistRequester()
+    res = await requester.request_user_smart_mixes("username")
+    assert len(res) == 1
+
+    plist = res[0]
+    assert isinstance(plist, Playlist)
+    assert plist.playlist == [local_files / "a", local_files / "b"]
+    assert plist.description == description

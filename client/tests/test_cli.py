@@ -138,3 +138,29 @@ def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
     assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+
+
+def test_playlist_smart_mixes(local_files: Path, httpx_mock: HTTPXMock):
+    """End to end test for suggested-artists."""
+    # mock out the request to the server
+    httpx_mock.add_response(
+        json={
+            "success": True,
+            "playlists": [
+                {
+                    "playlist": [{"filepath": "a"}, {"filepath": "b"}],
+                    "description": "aaa",
+                }
+            ],
+        },
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        playlist_cli, ["smart-mix", "username", "--out=json"], input="0"
+    )
+    assert result.exit_code == 0
+
+    # json loadable
+    data = json.loads(result.output.splitlines()[-1])
+    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]

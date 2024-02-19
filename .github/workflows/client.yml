@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.pyv }}
+          cache: 'pip'
+          cache-dependency-path: client/setup.py
 
       - name: toga deps
         run: | 
@@ -37,12 +39,6 @@ jobs:
             libcairo2-dev \
             gir1.2-webkit2-4.0 \
             libcanberra-gtk3-module
-
-      - name: pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-client-${{matrix.pyv}}-${{ hashFiles('client/setup.py') }}
 
       - name: pip install
         run: |
