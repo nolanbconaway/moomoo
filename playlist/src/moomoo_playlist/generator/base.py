@@ -6,12 +6,36 @@ from collections import Counter
 from math import log
 from pathlib import Path
 from typing import Generator, Optional
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from ..db import db_retry, execute_sql_fetchall, make_temp_table
 from ..playlist import Playlist, Track
+
+# Special purpose artists are artists that are used for a special purpose, such as
+# "Various Artists" for compilations. They are not real artists, so should pass thru
+# max artist count logic, etc.
+#
+# Docs: https://musicbrainz.org/doc/Style/Unknown_and_untitled/Special_purpose_artist
+SPECIAL_PURPOSE_ARTISTS = {
+    UUID("f731ccc4-e22a-43af-a747-64213329e088"),  # anonymous
+    UUID("33cf029c-63b0-41a0-9855-be2a3665fb3b"),  # data
+    UUID("314e1c25-dde7-4e4d-b2f4-0a7b9f7c56dc"),  # dialogue
+    UUID("eec63d3c-3b81-4ad4-b1e4-7c147d4d2b61"),  # no artist
+    UUID("9be7f096-97ec-4615-8957-8d40b5dcbc41"),  # traditional
+    UUID("125ec42a-7229-4250-afc5-e057484327fe"),  # unknown
+    UUID("89ad4ac3-39f7-470e-963a-56509c546377"),  # various artists
+}
+
+# A list of mashup artists. These artists appear in basically all playists because they
+# have a slice of everything in them. So do not put them in any playlist for now.
+#
+# Eventually I will want a better playlist generator which is sensitive to this context.
+MASHUP_ARTISTS = {
+    UUID("24e36781-1f4a-40af-bd18-c5de61f10c66"),  # girl talk
+}
 
 
 class NoFilesRequestedError(Exception):
@@ -28,8 +52,7 @@ class BasePlaylistGenerator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_playlist(self) -> Playlist:
-        ...
+    def get_playlist(self) -> Playlist: ...
 
     @staticmethod
     def listen_count_to_weight(x: int) -> float:
@@ -186,12 +209,18 @@ def stream_similar_tracks(
 
         from distances as d
         inner join {schema}.local_files as f using (filepath)
+        where f.artist_mbid != any(:mashup_artists)
+          and coalesce(f.album_artist_mbid, f.artist_mbid) != any(:mashup_artists)
         order by d.distance asc
         limit :limit
     """
     res = session.execute(
         text(sql),
-        params={"filepaths": list(set(map(str, filepaths))), "limit": limit},
+        params={
+            "filepaths": list(set(map(str, filepaths))),
+            "limit": limit,
+            "mashup_artists": list(MASHUP_ARTISTS),
+        },
         execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
     )
 
@@ -260,15 +289,14 @@ def get_most_similar_tracks(
         ):
             continue
 
-        if (
-            artist_counts[track.artist_mbid] < limit_per_artist
-            and artist_counts[track.album_artist_mbid] < limit_per_artist
-        ):
-            tracks.append(track)
-            artist_counts[track.artist_mbid] += 1
+        track_artists = list(set([track.artist_mbid, track.album_artist_mbid]))
+        track_artist_counts = [artist_counts[mbid] for mbid in track_artists]
 
-            if track.album_artist_mbid != track.artist_mbid:
-                artist_counts[track.album_artist_mbid] += 1
+        if all(c < limit_per_artist for c in track_artist_counts):
+            tracks.append(track)
+            for mbid in track_artists:
+                if mbid not in SPECIAL_PURPOSE_ARTISTS:
+                    artist_counts[mbid] += 1
 
         if len(tracks) >= limit:
             break

@@ -12,6 +12,7 @@ from moomoo_playlist import (
     stream_similar_tracks,
 )
 from moomoo_playlist.db import db_retry
+from moomoo_playlist.generator.base import MASHUP_ARTISTS, SPECIAL_PURPOSE_ARTISTS
 from psycopg.errors import UndefinedTable
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
@@ -185,6 +186,21 @@ def test_stream_similar_tracks__weighted(session: Session):
     assert pytest.approx(res[0].distance) == expect
 
 
+def test_stream_similar_tracks__mashup(session: Session):
+    """Test the mashup artist exclusion logic."""
+    artist_mbid = next(iter(MASHUP_ARTISTS))
+    rows = [
+        dict(filepath=f"test/{i}", embedding=str([i] * 10), artist_mbid=artist_mbid)
+        for i in range(10)
+    ]
+    load_local_files_table(data=rows)
+
+    # should return 0 results, since all are mashup artists
+    res = list(stream_similar_tracks([Path("test/0")], session))
+    base_assert_list_playlist_track(*res)
+    assert not res
+
+
 def test_get_most_similar_tracks(session: Session):
     """Test that get_most_similar_tracks works as expected."""
     rows = [dict(filepath=f"test/{i}", embedding=str([i] * 10)) for i in range(10)]
@@ -226,6 +242,30 @@ def test_get_most_similar_tracks__artist_limit(session: Session):
         Path("test/4"),
         Path("test/5"),
     ]
+
+
+def test_get_most_similar_tracks__artist_limit__spa_logic(session: Session):
+    """Test the special purpose artist passthrough logic."""
+    artist_mbid = next(iter(SPECIAL_PURPOSE_ARTISTS))
+    rows = [
+        dict(filepath=f"test/{i}", embedding=str([i] * 10), artist_mbid=artist_mbid)
+        for i in range(10)
+    ]
+    load_local_files_table(data=rows)
+
+    # should only get 5 sougs total, even though allow 2 per artist
+    target = Path("test/0")
+    results = get_most_similar_tracks([target], session, limit_per_artist=2, limit=5)
+    base_assert_list_playlist_track(*results)
+    assert [i.filepath for i in results] == [
+        Path("test/1"),
+        Path("test/2"),
+        Path("test/3"),
+        Path("test/4"),
+        Path("test/5"),
+    ]
+
+    assert len(set(i.artist_mbid for i in results)) == 1
 
 
 def test_get_most_similar_tracks__album_artist_limit(session: Session):
