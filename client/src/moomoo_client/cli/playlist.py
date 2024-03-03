@@ -63,6 +63,18 @@ def playlist_revisit_releases(username, out: str):
     playlists[choice].render(out)
 
 
+@cli.command("revisit-tracks")
+@click.argument(
+    "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
+)
+@OPTION_OUT
+def playlist_revisit_tracks(username, out: str):
+    """Get the loved tracks of a user."""
+    requester = PlaylistRequester()
+    playlist = asyncio.run(requester.request_revisit_tracks(username))
+    playlist.render(out)
+
+
 @cli.command("suggest-artists")
 @click.argument(
     "username", type=str, nargs=1, required=True, envvar="LISTENBRAINZ_USERNAME"
