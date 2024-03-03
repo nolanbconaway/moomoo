@@ -136,6 +136,14 @@ def revisit_releases(username: str):
     ).to_http()
 
 
+@base.route("/revisit-tracks/<username>", methods=["GET"])
+def revisit_tracks(username: str):
+    """Generate playlists of releases to revisit for a user."""
+    return PlaylistResponse.from_user_collection(
+        collection_name="revisit-tracks", username=username, session=db.session
+    ).to_http()
+
+
 @suggest.route("/by-artist/<username>", methods=["GET"])
 def suggest_by_artist(username: str):
     """Suggest playlist based on most listened to artists."""
