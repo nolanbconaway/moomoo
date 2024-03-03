@@ -7,13 +7,12 @@
 
   In particluar, the measurements are:
 
-   - listens_old: the number of listens in the last 180-90 days
+   - listens_old: the number of listens older than 90 days
    - listens_recent: the number of listens in the last 90 days
    - num_recordings: the number of recordings in the release group
 
   This model identifies release groups with more listens than recordings in the past,
   but few listens recently.
-
 #}
 
 select
