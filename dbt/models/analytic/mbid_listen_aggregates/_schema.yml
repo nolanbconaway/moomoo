@@ -1,0 +1,107 @@
+
+version: 2
+
+
+models:
+  - name: artist_listen_counts
+    columns:
+      - name: user_artist_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: artist_mbid
+        tests:
+          - not_null
+      - name: artist_name
+        tests:
+          - not_null
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: lifetime_recording_count
+        tests:
+          - not_null
+      - name: lifetime_release_group_count
+        tests:
+          - not_null
+      - name: recency_score
+        tests:
+          - not_null
+      - name: revisit_score
+        tests:
+          - not_null
+
+  - name: recording_listen_counts
+    columns:
+      - name: user_recording_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: recording_mbid
+        tests:
+          - not_null
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: recency_score
+        tests:
+          - not_null
+      - name: revisit_score
+        tests:
+          - not_null
+
+  - name: release_group_listen_counts
+    columns:
+      - name: user_release_group_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: release_group_mbid
+        tests:
+          - not_null
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: lifetime_recording_count
+        tests:
+          - not_null
+      - name: recency_score
+        tests:
+          - not_null
+      - name: revisit_score
+        tests:
+          - not_null
+
+  - name: release_listen_counts
+    columns:
+      - name: user_release_key
+        tests:
+          - unique
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: release_mbid
+        tests:
+          - not_null
+      - name: lifetime_listen_count
+        tests:
+          - not_null
+      - name: lifetime_recording_count
+        tests:
+          - not_null
+      - name: recency_score
+        tests:
+          - not_null
+      - name: revisit_score
+        tests:
+          - not_null

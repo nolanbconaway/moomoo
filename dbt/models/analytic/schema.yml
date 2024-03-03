@@ -3,43 +3,6 @@ version: 2
 
 
 models:
-  - name: artist_listen_counts
-    description: Analytic table of artist listen data for each user.
-    columns:
-      - name: user_artist_key
-        tests:
-          - unique
-          - not_null
-      - name: username
-        tests:
-          - not_null
-      - name: artist_mbid
-        tests:
-          - not_null
-      - name: artist_name
-        tests:
-          - not_null
-      - name: lifetime_listen_count
-        tests:
-          - not_null
-      - name: lifetime_recording_count
-        tests:
-          - not_null
-      - name: lifetime_release_group_count
-        tests:
-          - not_null
-
-      # just testing one N
-      - name: last30_listen_count
-        tests:
-          - not_null
-      - name: last30_recording_count
-        tests:
-          - not_null
-      - name: last30_release_group_count
-        tests:
-          - not_null
-
   - name: track_play_spikes
     description: Records of play spikes (cases where one track was played >=5 times in 24h).
     columns:
