@@ -20,6 +20,7 @@ def populate_revisit_releases(session: Session, data: list[dict]):
         release_group_title : str
         artist_name : str
         username: str
+        revisit_score: float (optional)
     """
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
@@ -27,17 +28,30 @@ def populate_revisit_releases(session: Session, data: list[dict]):
             release_group_mbid uuid,
             release_group_title text,
             artist_name text,
-            username text
+            username text,
+            revisit_score float
         )
     """
     session.execute(text(sql))
 
     for row in data:
         row["release_group_mbid"] = row.get("release_group_mbid", uuid4())
+        row["revisit_score"] = row.get("revisit_score", 2.0)
         sql = f"""
-            insert into {schema}.revisit_releases
-            (release_group_mbid, release_group_title, artist_name, username)
-            values (:release_group_mbid, :release_group_title, :artist_name, :username)
+            insert into {schema}.revisit_releases (
+                    release_group_mbid
+                    , release_group_title
+                    , artist_name
+                    , username
+                    , revisit_score
+                )
+            values (
+                :release_group_mbid
+                , :release_group_title
+                , :artist_name
+                , :username
+                , :revisit_score
+            )
         """
         session.execute(text(sql), row)
 
