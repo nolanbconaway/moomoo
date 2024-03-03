@@ -24,7 +24,7 @@ models:
             - username
 
   - name: revisit_releases
-    description: Ablums with historically high listens but not many recent listens.
+    description: Albums with historically high listens but not many recent listens.
     tests:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
@@ -44,6 +44,33 @@ models:
         tests:
           - not_null
   
+  - name: revisit_tracks
+    description: Tracks with historically high listens but not many recent listens.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - recording_mbid
+            - username
+    columns:
+      - name: recording_mbid
+        tests:
+          - not_null
+      - name: username
+        tests:
+          - not_null
+      - name: recording_title
+        tests:
+          - not_null
+      - name: artist_name
+        tests:
+          - not_null
+      - name: filepath
+        tests:
+          - not_null
+      - name: artist_mbid
+        tests:
+          - not_null
+
   - name: file_listen_counts
     description: Analytic table of listen data for each file for each user.
     columns:
