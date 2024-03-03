@@ -24,7 +24,7 @@ The general setup is:
 
 - [`ml`](ml/), [`ingest`](ingest/) populate base tables in postgres (with some exception in `ingest`). These modules are run via a scheduler like airflow, etc.
 - [`dbt`](dbt/) merges tables and populates tested/consumable data. It also populates a main list of [mbids](https://musicbrainz.org/doc/MusicBrainz_Identifier) which are consumed by some `ingest` jobs.
-- [`playlist`](playlist/) contains a combination of library code for creating playlists (for eventual re-use in [`http`](http/)) and CLI handlers for saving "collections" of playlists to the database.
+- [`playlist`](playlist/) contains a combination of library code for creating playlists (for re-use in [`http`](http/)) and CLI handlers for saving collections of playlists to the database.
 - [`http`](http/) provides a webserver through which playlists are requested. Database access from the client is managed exclusively through the `http` api.
 - [`client`](client/) provides an installable (via pipx, etc) package for local clients. Its requirements are minimal and should be lightweight. It currently only contains a CLI to generate playlists, but will likely evolve into a larger GUI application.
 
