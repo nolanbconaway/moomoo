@@ -14,6 +14,7 @@ logger.info("listenbrainz_username", username=USERNAME)
 # order in the table
 PLIST_ORDER = [
     "loved",
+    "revisit-tracks",
     "smart-mix",
     "suggest-by-artist",
     "revisit-releases",
@@ -151,6 +152,14 @@ class MoomooApp(toga.App):
 
         playlists_list.sort_table()
 
+    async def populate_revisit_tracks(self, app: "MoomooApp"):
+        logger.info("populate_revisit_tracks")
+        playlists_list: PlaylistTable = app.widgets["playlists_list"]
+        requester = PlaylistRequester()
+        playlist = await requester.request_revisit_tracks(USERNAME)
+        playlists_list.add_playlist(playlist)
+        playlists_list.sort_table()
+
 
 def create_app() -> MoomooApp:
     logger.info("create_app")
@@ -159,6 +168,7 @@ def create_app() -> MoomooApp:
     app.add_background_task(app.populate_loved_tracks)
     app.add_background_task(app.populate_revisit_releases)
     app.add_background_task(app.populate_smart_mix)
+    app.add_background_task(app.populate_revisit_tracks)
     return app
 
 

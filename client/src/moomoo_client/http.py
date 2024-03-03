@@ -122,6 +122,21 @@ class PlaylistRequester:
             for plist in data["playlists"]
         ]
 
+    async def request_revisit_tracks(self, username: str) -> list[Playlist]:
+        """Asynchronously request playlists of revisit releases."""
+        endpoint = f"/playlist/revisit-tracks/{username}"
+        data = await self.make_request(endpoint)
+
+        # expect only one playlist if success
+        plist = data["playlists"][0]
+        return Playlist(
+            playlist=[
+                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
+            ],
+            description=plist.get("description"),
+            generator="revisit-tracks",
+        )
+
     async def request_user_artist_suggestions(self, username: str) -> list[Playlist]:
         """Asynchronously request user artist playlist suggestions."""
         endpoint = f"/playlist/suggest/by-artist/{username}"
