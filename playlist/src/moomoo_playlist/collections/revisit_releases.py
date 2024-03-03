@@ -2,10 +2,10 @@
 
 import dataclasses
 import os
-import random
 from uuid import UUID
 
 import click
+import numpy as np
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
@@ -27,6 +27,7 @@ class Release:
     mbid: UUID
     title: str
     artist_name: str
+    revisit_score: float
 
     def __post__init__(self):
         """Post init."""
@@ -46,7 +47,7 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-        select release_group_mbid, release_group_title, artist_name
+        select release_group_mbid, release_group_title, artist_name, revisit_score
         from {schema}.revisit_releases
         where username = :username
         order by release_group_mbid
@@ -56,7 +57,16 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
     )
 
     if len(rows) > count:
-        rows = random.sample(rows, count)
+        # sample relative to exp(revisit score)
+        logger.info(f"Sampling down to {count} releases from {len(rows)}.")
+        max_score = max(row["revisit_score"] for row in rows)
+        scores = np.exp([max_score - row["revisit_score"] for row in rows])
+        scores /= scores.sum()
+
+        idx = np.random.choice(range(len(rows)), size=count, replace=False, p=scores)
+        rows = sorted(
+            [rows[i] for i in idx], key=lambda x: x["revisit_score"], reverse=True
+        )
 
     logger.info(f"Found {len(rows)} releases.", extra=dict(releases=rows))
     res = [
@@ -64,6 +74,7 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
             mbid=row["release_group_mbid"],
             title=row["release_group_title"],
             artist_name=row["artist_name"],
+            revisit_score=row["revisit_score"],
         )
         for row in rows
     ]
