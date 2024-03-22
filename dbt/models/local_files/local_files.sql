@@ -51,7 +51,7 @@ select
 
   , embeds.success as embedding_success
   , embeds.duration_seconds as embedding_duration_seconds
-  , embeds.embedding as embedding
+  , embeds.embedding
   , embeds.insert_ts_utc as embedding_insert_ts_utc
 
 from metadata

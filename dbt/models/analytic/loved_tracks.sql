@@ -14,13 +14,13 @@ with recordings as (
   from {{ ref('track_play_spikes') }}
 )
 
-, dedupe as (
-  select username, recording_mbid, min(love_at) as love_at
-  from recordings
-  group by username, recording_mbid
-)
+select
+  recordings.username
+  , file_map.filepath
+  , array_agg(distinct recordings.recording_mbid) as recording_mbids
+  , min(recordings.love_at) as love_at
 
-select distinct recordings.username, file_map.filepath, recordings.love_at
-from dedupe as recordings
+from recordings
 inner join {{ ref('map__file_recording') }} as file_map using (recording_mbid)
-order by recordings.username, recordings.love_at
+group by recordings.username, file_map.filepath
+order by recordings.username, min(recordings.love_at) desc

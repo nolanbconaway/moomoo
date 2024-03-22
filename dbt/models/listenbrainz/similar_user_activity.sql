@@ -40,7 +40,7 @@ Sample payload:
 
 with exploded as (
   select
-    base."payload_id" as "payload_id"
+    base."payload_id"
     , case base.entity
       when 'artists' then {{ json_get('rows_.value', ['artist_mbid']) }}
       when 'releases' then {{ json_get('rows_.value', ['release_mbid']) }}
@@ -67,13 +67,13 @@ with exploded as (
 select
   {{ dbt_utils.generate_surrogate_key(['base.payload_id', 'exploded.mbid']) }} as "similar_user_activity_id"
   , exploded."mbid"::uuid as "mbid"
-  , exploded."listen_count" as "listen_count"
+  , exploded."listen_count"
 
-  , base."from_username" as "from_username"
-  , base."to_username" as "to_username"
-  , base."user_similarity" as "user_similarity"
+  , base."from_username"
+  , base."to_username"
+  , base."user_similarity"
 
-  , base."time_range" as "time_range"
+  , base."time_range"
   , to_timestamp({{ json_get('base.json_data', ['from_ts']) }}::int) as "activity_from_ts"
   , to_timestamp({{ json_get('base.json_data', ['to_ts']) }}::int) as "activity_to_ts"
 
@@ -85,7 +85,7 @@ select
   end as "entity"
 
   , base."payload_id" as "ingest_payload_id"
-  , base."insert_ts_utc" as "insert_ts_utc"
+  , base."insert_ts_utc"
 
 from {{ source('pyingest', 'listenbrainz_similar_user_activity') }} as base
 inner join exploded on exploded."payload_id" = base."payload_id"
