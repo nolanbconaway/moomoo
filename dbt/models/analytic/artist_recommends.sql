@@ -49,7 +49,7 @@ with similar_users as (
     , artist_mbid
     , similar_users.score as similarity
     , novelty.score as novelty
-    , rank() over (
+    , row_number() over (
       partition by username
       order by novelty.score * similar_users.score desc
     ) as rank

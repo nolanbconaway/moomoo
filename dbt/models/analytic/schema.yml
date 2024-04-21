@@ -23,6 +23,23 @@ models:
             - artist_mbid
             - username
 
+  - name: library_release_additions
+    description: |
+      Releases which similar users listen to a lot, but which are not in the library already.
+      May be good candidates for adding to the library.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - time_range
+            - rank
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - release_mbid
+            - time_range
+            - username
+
+
   - name: revisit_releases
     description: Albums with historically high listens but not many recent listens.
     tests:
