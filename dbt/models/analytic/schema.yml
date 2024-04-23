@@ -35,7 +35,7 @@ models:
             - rank
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns:
-            - release_mbid
+            - release_group_mbid
             - time_range
             - username
 
