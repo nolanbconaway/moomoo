@@ -32,7 +32,7 @@ with similar_users as (
     similar_users.username
     , similar_users.time_range
     , similar_users.release_group_mbid
-    , similar_users.score as score
+    , similar_users.score
     , row_number() over (
       partition by similar_users.username, similar_users.time_range
       order by similar_users.score desc
