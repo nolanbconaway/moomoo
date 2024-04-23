@@ -32,7 +32,7 @@ with similar_users as (
     similar_users.username
     , similar_users.time_range
     , similar_users.release_group_mbid
-    , similar_users.score as similarity
+    , similar_users.score as score
     , row_number() over (
       partition by similar_users.username, similar_users.time_range
       order by similar_users.score desc
@@ -51,8 +51,7 @@ select
   , scores.release_group_mbid
   , release_groups.artist_credit_phrase
   , release_groups.release_group_title
-
-  , scores.similarity
+  , scores.score
 
 from scores
 inner join {{ ref('release_groups') }} as release_groups using (release_group_mbid)
