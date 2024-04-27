@@ -51,6 +51,7 @@ select
   , scores.release_group_mbid
   , release_groups.artist_credit_phrase
   , release_groups.release_group_title
+  , release_groups.release_group_year
   , scores.score
 
 from scores
