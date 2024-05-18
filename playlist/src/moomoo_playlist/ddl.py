@@ -14,6 +14,14 @@ from .playlist import Playlist, Track
 logger = get_logger().bind(module=__name__)
 
 
+def now_utc() -> datetime.datetime:
+    """Get the current time in UTC.
+
+    Split out into a function for easier mocking in tests.
+    """
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class BaseTable(DeclarativeBase):
     """Base class for all database models."""
 
@@ -21,6 +29,7 @@ class BaseTable(DeclarativeBase):
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
         list: postgresql.JSONB,
+        list[int]: postgresql.ARRAY(postgresql.INTEGER),
     }
 
 
@@ -34,11 +43,11 @@ class PlaylistCollection(BaseTable):
     )
     collection_name: Mapped[str] = mapped_column(nullable=False, index=True)
     username: Mapped[str] = mapped_column(nullable=False, index=True)
-    refresh_interval_hours: Mapped[int] = mapped_column(nullable=True)
+    refresh_at_hours_utc: Mapped[list[int]] = mapped_column(nullable=True)
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
-    playlists_refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(
+    refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=True, index=True
     )
 
@@ -56,17 +65,9 @@ class PlaylistCollection(BaseTable):
 
     @classmethod
     def get_collection_by_name(
-        cls,
-        username: str,
-        collection_name: str,
-        session: Session,
-        refresh_interval_hours: int | None = None,
+        cls, username: str, collection_name: str, session: Session
     ) -> "PlaylistCollection":
-        """Get a playlist collection by name, creating it if it doesn't exist.
-
-        kwargs are passed to the constructor if the collection is created. This is where
-        the refresh_interval_hours can be set.
-        """
+        """Get a playlist collection by name, raising an error if it does not exist."""
         collection = (
             session.query(cls)
             .filter_by(username=username, collection_name=collection_name)
@@ -74,44 +75,47 @@ class PlaylistCollection(BaseTable):
         )
 
         if collection is None:
-            logger.info(
-                f"Creating collection '{collection_name}' for user '{username}'."
+            raise ValueError(
+                f"Collection '{collection_name}' for user '{username}' does not exist."
             )
-            collection = cls(
-                username=username,
-                collection_name=collection_name,
-                refresh_interval_hours=refresh_interval_hours,
-            )
-            session.add(collection)
-            session.commit()
-
-        elif refresh_interval_hours is not None:
-            # raise warning if the refresh interval was supplied and is not the
-            # same as the existing collection's refresh interval
-            if collection.refresh_interval_hours != refresh_interval_hours:
-                logger.warning(
-                    f"Collection '{collection_name}' for user '{username}' already "
-                    + "exists with a different refresh interval. "
-                    + f"{refresh_interval_hours} != {collection.refresh_interval_hours}"
-                )
 
         return collection
+
+    @property
+    def last_refresh_target(self) -> datetime.datetime | None:
+        """Get the most recent refresh target time for this collection."""
+        if not self.refresh_at_hours_utc:
+            return None
+
+        # check all possible refresh times for the last two days, in case we run this at
+        # like 00:01 or something
+        now = now_utc()
+        refresh_times = [
+            datetime.datetime(
+                year=date.year,
+                month=date.month,
+                day=date.day,
+                hour=hour,
+                tzinfo=datetime.timezone.utc,
+            )
+            for hour in list(set(self.refresh_at_hours_utc))
+            for date in [now - datetime.timedelta(days=1), now]
+            if 0 <= hour < 24
+        ]
+
+        return max([i for i in refresh_times if i <= now])
 
     @property
     def is_stale(self) -> bool:
         """Check if the collection is stale and needs to be refreshed.
 
-        This is always True if the refresh interval is None.
+        This is always True if the refresh_at_hours_utc is None, or if the playlists
+        have never been refreshed.
         """
-        if self.refresh_interval_hours is None:
+        if not self.refreshed_at_utc or not self.refresh_at_hours_utc:
             return True
 
-        if self.playlists_refreshed_at_utc is None:
-            return True
-
-        now = datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
-        delta_hours = (now - self.playlists_refreshed_at_utc).total_seconds() / 3600
-        return delta_hours >= self.refresh_interval_hours
+        return self.refreshed_at_utc < self.last_refresh_target
 
     @property
     def is_fresh(self) -> bool:
@@ -157,7 +161,7 @@ class PlaylistCollection(BaseTable):
         session.add_all(items)
 
         # update the collection's refreshed at time
-        self.playlists_refreshed_at_utc = func.current_timestamp()
+        self.refreshed_at_utc = func.current_timestamp()
         session.commit()
 
         logger.info(f"Saved {len(playlists)} playlist(s) to database.")

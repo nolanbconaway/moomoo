@@ -4,6 +4,7 @@ from pathlib import Path
 
 import click
 
+from .collections.create_collections import main as create_collections_main
 from .collections.loved_tracks import main as loved_tracks_main
 from .collections.revisit_releases import main as revisit_releases_main
 from .collections.revisit_tracks import main as revisit_tracks_main
@@ -34,6 +35,7 @@ def create_db():
         BaseTable.metadata.create_all(engine)
 
 
+cli.add_command(create_collections_main)
 cli.add_command(top_artists_main)
 cli.add_command(revisit_releases_main)
 cli.add_command(loved_tracks_main)
