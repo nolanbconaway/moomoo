@@ -25,7 +25,6 @@ refresh_hours = {
 def create_collections(username: str, session: Session, replace: bool = False) -> None:
     """Create collections for the given user if they do not exist."""
     for collection_name, refresh_at_hours_utc in refresh_hours.items():
-
         try:
             collection = PlaylistCollection.get_collection_by_name(
                 username=username, collection_name=collection_name, session=session
