@@ -15,8 +15,6 @@ from ..generator import NoFilesRequestedError, QueryPlaylistGenerator
 from ..logger import get_logger
 
 collection_name = "revisit-releases"
-refresh_interval_hours = 24
-
 logger = get_logger().bind(module=__name__)
 
 
@@ -101,10 +99,7 @@ def main(username: str, count: int, force: bool):
     """Create playlists based on the top artists in the user's listening history."""
     session = get_session()
     collection = PlaylistCollection.get_collection_by_name(
-        username=username,
-        collection_name=collection_name,
-        session=session,
-        refresh_interval_hours=refresh_interval_hours,
+        username=username, collection_name=collection_name, session=session
     )
 
     if collection.is_fresh and not force:
