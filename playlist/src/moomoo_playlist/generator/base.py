@@ -64,7 +64,8 @@ class BasePlaylistGenerator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_playlist(self) -> Playlist: ...
+    def get_playlist(self) -> Playlist:
+        ...
 
     @staticmethod
     def listen_count_to_weight(x: int) -> float:
