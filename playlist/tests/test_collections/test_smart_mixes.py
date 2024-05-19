@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from moomoo_playlist.collections.smart_mix import (
     DIMS,
     Track,
+    cluster_avg_distance,
     fetch_tracks,
     make_clusters,
 )
@@ -113,6 +114,11 @@ def test_fetch_tracks(session: Session):
     assert res[1].artist_name == "album_artist_name"
 
 
+def test_cluster_avg_distance():
+    tracks = [make_track(str(i), embedding=[i, i]) for i in range(2)]
+    assert cluster_avg_distance(tracks) == 2**0.5
+
+
 def test_make_clusters__not_enough_data():
     """Test make_clusters with no data."""
     with pytest.raises(RuntimeError) as e:
@@ -159,7 +165,7 @@ def test_make_clusters__post_cluster_logic():
         mock.assert_called_once()
         assert len(res) == 1
         assert len(res[0]) == 3
-        assert [t.filepath.name for t in res[0]] == ["0", "2", "3"]
+        assert set([t.filepath.name for t in res[0]]) == set(["0", "2", "3"])
 
     # select top 1 cluster by track count
     with patch(
@@ -218,6 +224,40 @@ def test_main__playlist_error(patch_cluster, patch_fetch):
     assert "Saved 4 playlist(s) to database." in res.output
     assert patch_fetch.call_count == 1
     assert patch_cluster.call_count == 1
+
+
+@patch(
+    "moomoo_playlist.collections.smart_mix.make_clusters",
+    return_value=[[make_track("a")]] * 3,
+)
+@patch.object(
+    FromFilesPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+)
+def test_main__downsample(patch_get_playlist, patch_cluster):
+    """Test the downsample logic in main."""
+    runner = CliRunner()
+
+    with patch(
+        "moomoo_playlist.collections.smart_mix.fetch_tracks",
+        return_value=[make_track(str(i)) for i in range(2000)],
+    ) as patch_fetch:
+        runner.invoke(smart_mix_main, ["test", "--count=3"])
+
+    # patch_cluster should have been called with 2/3 of the tracks
+    assert patch_fetch.call_count == 1
+    assert patch_cluster.call_count == 1
+    assert len(patch_cluster.call_args[1]["tracks"]) == 2000 * 2 // 3
+
+    with patch(
+        "moomoo_playlist.collections.smart_mix.fetch_tracks",
+        return_value=[make_track(str(i)) for i in range(1001)],
+    ) as patch_fetch:
+        runner.invoke(smart_mix_main, ["test", "--count=3"])
+
+    # patch_cluster should have been called with 1000 tracks
+    assert patch_fetch.call_count == 1
+    assert patch_cluster.call_count == 2
+    assert len(patch_cluster.call_args[1]["tracks"]) == 1000
 
 
 @patch("moomoo_playlist.collections.smart_mix.fetch_tracks", return_value=[])

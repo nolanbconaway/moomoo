@@ -37,6 +37,18 @@ MASHUP_ARTISTS = {
     UUID("24e36781-1f4a-40af-bd18-c5de61f10c66"),  # girl talk
 }
 
+# A list of recording mbids that appear all over the place for some reason. The system
+# should not include these in playlists.
+EARWORMS = {
+    UUID("27f83ca8-bce1-4643-99ac-3877cc4984a4"),
+    UUID("a7974276-20a6-4438-975b-3328fbf81668"),
+    UUID("0eaf0546-0a86-419d-b7cb-fac6a77eb55a"),
+    UUID("666148da-9889-470c-a2cd-efc9fb0c7199"),
+    UUID("bdc55bab-f300-42f9-b2dc-10f035e536a9"),
+    UUID("f12b4b53-d5ba-45b8-b074-b840199db707"),
+    UUID("0a16e140-4767-4da4-87c1-ae32b0321777"),
+}
+
 
 class NoFilesRequestedError(Exception):
     """No files requested by the user."""
@@ -52,8 +64,7 @@ class BasePlaylistGenerator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_playlist(self) -> Playlist:
-        ...
+    def get_playlist(self) -> Playlist: ...
 
     @staticmethod
     def listen_count_to_weight(x: int) -> float:
@@ -212,6 +223,7 @@ def stream_similar_tracks(
         inner join {schema}.local_files as f using (filepath)
         where f.artist_mbid != any(:mashup_artists)
           and coalesce(f.album_artist_mbid, f.artist_mbid) != any(:mashup_artists)
+          and f.recording_mbid != any(:earworms)
         order by d.distance asc
         limit :limit
     """
@@ -221,6 +233,7 @@ def stream_similar_tracks(
             "filepaths": list(set(map(str, filepaths))),
             "limit": limit,
             "mashup_artists": list(MASHUP_ARTISTS),
+            "earworms": list(EARWORMS),
         },
         execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
     )
