@@ -9,6 +9,7 @@ from uuid import UUID
 
 import click
 import numpy as np
+from scipy.spatial.distance import pdist
 from sklearn.cluster import HDBSCAN
 from sklearn.decomposition import PCA
 from sqlalchemy.orm import Session
@@ -17,6 +18,7 @@ from tqdm import tqdm
 from ..db import db_retry, execute_sql_fetchall, get_session
 from ..ddl import PlaylistCollection
 from ..generator import FromFilesPlaylistGenerator, NoFilesRequestedError
+from ..generator.base import EARWORMS, MASHUP_ARTISTS
 from ..logger import get_logger
 
 collection_name = "smart-mixes"
@@ -24,7 +26,7 @@ logger = get_logger().bind(module=__name__)
 
 # ml model constants
 MIN_LISTENS = 2
-DIMS = 300
+DIMS = 50
 
 
 @dataclasses.dataclass
@@ -78,13 +80,20 @@ def fetch_tracks(username: str, session: Session) -> list[Track]:
         where lf.embedding_success
           and lf.embedding_duration_seconds > 60
           and lf.artist_mbid is not null
+          and coalesce(lf.album_artist_mbid, lf.artist_mbid) != any(:mashup_artists)
+          and lf.recording_mbid != any(:earworms)
 
         order by filepath
     """
 
     res = execute_sql_fetchall(
         sql=sql,
-        params=dict(username=username, min_listens=MIN_LISTENS),
+        params=dict(
+            username=username,
+            min_listens=MIN_LISTENS,
+            earworms=list(EARWORMS),
+            mashup_artists=list(MASHUP_ARTISTS),
+        ),
         session=session,
     )
     logger.info(f"Fetched {len(res)} tracks.")
@@ -114,10 +123,14 @@ def _run_clusterer(tracks: list[Track], n_jobs: int) -> np.ndarray:
         max_cluster_size=15,
         n_jobs=n_jobs,
         cluster_selection_method="eom",
-        algorithm="brute",
     )
     clusterer.fit(pca.transform(embeddings))
     return clusterer.labels_
+
+
+def cluster_avg_distance(cluster: list[Track]) -> float:
+    """Calculate the average distance between tracks in a cluster."""
+    return pdist(np.array([track.embedding for track in cluster])).mean()
 
 
 def make_clusters(
@@ -130,7 +143,7 @@ def make_clusters(
         1. PCA is used to reduce the dimensionality of the embeddings.
         2. HDBSCAN is used to cluster the embeddings.
         3. Clusters filtered to remove clusters with < 3 artists.
-        4. Return the top N, ranked by most tracks in the cluster.
+        4. Return the best N clusters, by average distance between tracks.
 
     """
     logger.info("Clustering tracks.")
@@ -154,8 +167,10 @@ def make_clusters(
     if not clusters:
         raise RuntimeError("No clusters with > 2 artists.")
 
-    # return the top N clusters by size
-    return sorted(clusters, key=len, reverse=True)[:max_clusters]
+    if len(clusters) <= max_clusters:
+        return clusters
+
+    return sorted(clusters, key=cluster_avg_distance)[:max_clusters]
 
 
 @click.command("smart-mixes")
@@ -191,6 +206,14 @@ def main(username: str, count: int, force: bool, n_jobs: int):
         return
 
     tracks = fetch_tracks(username=username, session=session)
+
+    # downsample to random 1000 or 2/3 of the tracks. whatever is bigger.
+    # this adds some variance to more slowly changing clusters.
+    if len(tracks) > 1000:
+        n = max(1000, len(tracks) * 2 // 3)
+        idx = np.random.choice(np.arange(len(tracks)), size=n, replace=False)
+        tracks = [tracks[i] for i in idx]
+
     clusters = make_clusters(tracks=tracks, n_jobs=n_jobs, max_clusters=count)
 
     logger.info(f"Generating playlists for {len(clusters)} clusters.")

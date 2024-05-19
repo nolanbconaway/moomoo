@@ -22,7 +22,9 @@ refresh_hours = {
 }
 
 
-def create_collections(username: str, session: Session, replace: bool = False) -> None:
+def create_collections(
+    username: str, session: Session, replace: bool = False, silent: bool = False
+) -> None:
     """Create collections for the given user if they do not exist."""
     for collection_name, refresh_at_hours_utc in refresh_hours.items():
         try:
@@ -34,15 +36,17 @@ def create_collections(username: str, session: Session, replace: bool = False) -
 
         # continue if collection exists and we are not replacing
         if collection and not replace:
-            click.echo(
-                f"Collection '{collection_name}' for user '{username}' already exists, "
-                + "skipping."
-            )
+            if not silent:
+                click.echo(
+                    f"Collection '{collection_name}' for user '{username}' already "
+                    + "exists, skipping."
+                )
             continue
 
         # if here and collection exists, drop it
         if collection:
-            click.echo(f"Dropping '{collection_name}' for user '{username}'.")
+            if not silent:
+                click.echo(f"Dropping '{collection_name}' for user '{username}'.")
             session.delete(collection)
             session.commit()
 
@@ -53,7 +57,9 @@ def create_collections(username: str, session: Session, replace: bool = False) -
         )
         session.add(collection)
         session.commit()
-        click.echo(f"Created collection '{collection_name}' for user '{username}'.")
+
+        if not silent:
+            click.echo(f"Created collection '{collection_name}' for user '{username}'.")
 
 
 @click.command("create-collections")
