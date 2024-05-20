@@ -1,6 +1,8 @@
 """Cli handlers for moomoo machine learning."""
+
 import datetime
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
-from .db import BaseTable, FileEmbedding, get_session
+from .db import BaseTable, FileEmbedding, LocalFileExcludeRegex, get_session
 from .scorer import Model
 
 MODEL_INFO = json.loads((Path(__file__).parent / "model-info.json").read_text())
@@ -19,11 +21,15 @@ VERSION = (Path(__file__).parent / "version").read_text().strip()
 
 def list_audio_files(src_dir: Path) -> list[Path]:
     """List all audio files in the directories."""
-    return [
-        p
-        for p in src_dir.rglob("**/*")
-        if p.is_file() and p.suffix.lower() in EXTENSIONS
-    ]
+    return [p for p in src_dir.rglob("**/*") if p.is_file() and p.suffix.lower() in EXTENSIONS]
+
+
+def pass_all_exclude_rules(path: Path, src_dir: Path, regexes: list[re.Pattern[str]]) -> bool:
+    """Return True if the path passes all the exclude regexes.
+
+    Split out in this way to support multiprocessing, testing.
+    """
+    return not any(regex.match(str(path.relative_to(src_dir))) for regex in regexes)
 
 
 @click.group()
@@ -43,7 +49,7 @@ def create_db():
     """Create the database."""
     with get_session() as session:
         engine = session.get_bind()
-        BaseTable.metadata.create_all(engine)
+        BaseTable.metadata.create_all(engine, tables=[FileEmbedding.__table__])
 
 
 @cli.command("save-artifacts")
@@ -70,9 +76,7 @@ def save_artifacts(output: Path, model_name: str, revision: str):
 
 
 @cli.command("score")
-@click.argument(
-    "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
-)
+@click.argument("src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
     "--artifacts",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -87,13 +91,19 @@ def score_local_files(src_dir: Path, artifacts: Path):
     """
     click.echo("Listing unscored media files.")
     with get_session() as session:
-        already_scored = set(
-            [src_dir / i for (i,) in session.query(FileEmbedding.filepath)]
-        )
+        already_scored = set([src_dir / i for (i,) in session.query(FileEmbedding.filepath)])
     all_files = set(list_audio_files(src_dir))
     unscored_files = all_files - already_scored
 
     click.echo(f"Found {len(unscored_files)} unscored file(s).")
+
+    # filter out files that match the exclude regexes
+    exclude_regexes = LocalFileExcludeRegex.fetch_all_regex()
+    unscored_files = set(
+        [p for p in unscored_files if pass_all_exclude_rules(p, src_dir, exclude_regexes)]
+    )
+    click.echo(f"Found {len(unscored_files)} file(s) after filtering by regex.")
+
     if len(unscored_files) == 0:
         click.echo("Nothing to do.")
         sys.exit(0)

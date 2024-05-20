@@ -1,4 +1,5 @@
 """Scoring utilities for the model."""
+
 import dataclasses
 import math
 import os
@@ -28,9 +29,7 @@ class EmbeddingResult:
             "success": self.success,
             "fail_reason": self.fail_reason,
             "duration_seconds": self.duration_seconds,
-            "embedding": (
-                self.embedding.tolist() if self.embedding is not None else None
-            ),
+            "embedding": (self.embedding.tolist() if self.embedding is not None else None),
         }
 
 
@@ -57,10 +56,14 @@ class Model:
     def from_artifacts(cls, artifacts: Path = Path("artifacts"), **kw) -> "Model":
         """Load the model from artifacts."""
         processor = Wav2Vec2FeatureExtractor.from_pretrained(
-            artifacts, trust_remote_code=True, revision="na"  # prevents warning
+            artifacts,
+            trust_remote_code=True,
+            revision="na",  # prevents warning
         )
         model = AutoModel.from_pretrained(
-            artifacts, trust_remote_code=True, revision="na"  # prevents warning
+            artifacts,
+            trust_remote_code=True,
+            revision="na",  # prevents warning
         )
         return cls(model=model, processor=processor, **kw)
 
@@ -104,13 +107,9 @@ class Model:
         try:
             inputs = self.get_input(p)
             if inputs is None:
-                return EmbeddingResult(
-                    success=False, fail_reason="Failed to parse input"
-                )
+                return EmbeddingResult(success=False, fail_reason="Failed to parse input")
 
-            duration_seconds: float = round(
-                inputs.input_values.shape[1] / self.sampling_rate, 3
-            )
+            duration_seconds: float = round(inputs.input_values.shape[1] / self.sampling_rate, 3)
 
             with torch.no_grad():
                 output = self.model(**inputs)
@@ -125,12 +124,7 @@ class Model:
             output = self.aggregate(output)
 
         except Exception as e:
-            if str(e):
-                fail_reason = f"{type(e).__name__}: {e}"
-            else:
-                fail_reason = f"{type(e).__name__}"
+            fail_reason = f"{type(e).__name__}: {e}" if str(e) else f"{type(e).__name__}"
             return EmbeddingResult(success=False, fail_reason=fail_reason)
 
-        return EmbeddingResult(
-            success=True, embedding=output, duration_seconds=duration_seconds
-        )
+        return EmbeddingResult(success=True, embedding=output, duration_seconds=duration_seconds)

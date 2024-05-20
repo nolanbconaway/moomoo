@@ -1,5 +1,4 @@
 import psycopg
-
 from moomoo_ml import db
 
 

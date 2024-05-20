@@ -28,8 +28,7 @@ setup(
     ],
     extras_require=dict(
     test=[
-        "black==23.10.0",
-        "ruff==0.1.1",
+        "ruff==0.4.4",
         "pytest==7.4.2",
         "pytest-postgresql==5.0.0",
     ],
