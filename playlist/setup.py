@@ -29,7 +29,7 @@ setup(
     ],
     extras_require=dict(
         test=[
-            "ruff==0.1.14",
+            "ruff==0.4.4",
             "pytest==7.4.4",
             "pytest-postgresql==5.0.0",
         ],

@@ -51,8 +51,7 @@ def test_cli_main__valid_data():
 
     res = ListenBrainzSimilarUserActivity.select_star()
     assert len(res) == (
-        len(collect_similar_user_activity.ENTITIES)
-        * len(collect_similar_user_activity.TIME_RANGES)
+        len(collect_similar_user_activity.ENTITIES) * len(collect_similar_user_activity.TIME_RANGES)
     )
     assert res[0]["from_username"] == "FAKE_NAME"
     assert res[0]["to_username"] == "FAKE_NAME_2"

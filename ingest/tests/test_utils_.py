@@ -1,4 +1,5 @@
 """Test utils functinos."""
+
 import datetime
 
 import pytest

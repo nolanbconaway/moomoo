@@ -118,18 +118,13 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         if seed_count == 0:
             seed_tracks = []
         else:
-            seed_tracks = [
-                Track(filepath=p) for p in random.sample(source_paths, seed_count)
-            ]
+            seed_tracks = [Track(filepath=p) for p in random.sample(source_paths, seed_count)]
 
         if self.username is not None:
             listen_counts = fetch_user_listen_counts(
                 filepaths=source_paths, session=session, username=self.username
             )
-            weights = [
-                self.listen_count_to_weight(listen_counts.get(fp, 0))
-                for fp in source_paths
-            ]
+            weights = [self.listen_count_to_weight(listen_counts.get(fp, 0)) for fp in source_paths]
         else:
             weights = None
 

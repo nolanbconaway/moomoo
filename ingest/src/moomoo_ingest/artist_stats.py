@@ -12,6 +12,7 @@ that were enriched long ago, but may have new data available in MusicBrainz.
 In practice, it takes roughly ~0.5s to annotate a single mbid. Use this with the --limit
 option to limit the total run time.
 """
+
 import datetime
 import os
 import random
@@ -139,9 +140,9 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
             disable=None,
             total=len(to_ingest),
         ):
-            ListenBrainzArtistStats(
-                mbid=mbid, payload_json=res, ts_utc=utils_.utcnow()
-            ).upsert(session=session)
+            ListenBrainzArtistStats(mbid=mbid, payload_json=res, ts_utc=utils_.utcnow()).upsert(
+                session=session
+            )
 
     click.echo("Done.")
 

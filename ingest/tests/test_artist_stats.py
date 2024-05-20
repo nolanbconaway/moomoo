@@ -1,4 +1,5 @@
 """Test the artist_stats module."""
+
 import uuid
 from unittest.mock import Mock, patch
 
@@ -69,9 +70,7 @@ def cli_run(new_: list[dict], old_: list[dict], args: list[str]) -> Result:
     runner = CliRunner()
     patch_get_new_mbids = patch.object(artist_stats, "get_new_mbids", return_value=new_)
     patch_get_old_mbids = patch.object(artist_stats, "get_old_mbids", return_value=old_)
-    patch_artist_stats = patch.object(
-        artist_stats, "_get_artist_stats", return_value=dict(a="ok")
-    )
+    patch_artist_stats = patch.object(artist_stats, "_get_artist_stats", return_value=dict(a="ok"))
     with patch_get_new_mbids, patch_get_old_mbids, patch_artist_stats:
         return runner.invoke(artist_stats.main, args)
 

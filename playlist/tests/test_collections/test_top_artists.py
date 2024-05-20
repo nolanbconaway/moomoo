@@ -74,9 +74,7 @@ def test_list_top_artists__count(session: Session, count: int):
             for i in range(10)
         ],
     )
-    res = list_top_artists(
-        username="test", history_length="lifetime", count=count, session=session
-    )
+    res = list_top_artists(username="test", history_length="lifetime", count=count, session=session)
     assert len(res) == count
 
 
@@ -95,30 +93,22 @@ def test_list_top_artists__history_length(session: Session):
         ],
     )
     # lifetime does not have enough listens, but 90 does.
-    res = list_top_artists(
-        username="test", history_length="lifetime", count=5, session=session
-    )
+    res = list_top_artists(username="test", history_length="lifetime", count=5, session=session)
     assert res == []
 
     # lifetime does not have enough listens, but 90 does.
-    res = list_top_artists(
-        username="test", history_length="90", count=5, session=session
-    )
+    res = list_top_artists(username="test", history_length="90", count=5, session=session)
     assert len(res) == 5
 
     # test invalid history length
     with pytest.raises(ValueError):
-        list_top_artists(
-            username="test", history_length="invalid", count=5, session=session
-        )
+        list_top_artists(username="test", history_length="invalid", count=5, session=session)
 
 
 def test_list_top_artists__no_results(session: Session):
     """Test handling of no results."""
     populate_artist_listen_counts(session, [])
-    res = list_top_artists(
-        username="test", history_length="lifetime", count=5, session=session
-    )
+    res = list_top_artists(username="test", history_length="lifetime", count=5, session=session)
     assert len(res) == 0
 
 
@@ -136,9 +126,7 @@ def test_main__playlist_error(session: Session):
     populate_artist_listen_counts(
         session,
         [
-            dict(
-                artist_name=f"test_{i}", username="test", lifetime_listen_count=i + 100
-            )
+            dict(artist_name=f"test_{i}", username="test", lifetime_listen_count=i + 100)
             for i in range(10)
         ],
     )
@@ -199,9 +187,7 @@ def test_main__storage(session: Session):
     populate_artist_listen_counts(
         session,
         [
-            dict(
-                artist_name=f"test_{i}", username="test", lifetime_listen_count=1000 - i
-            )
+            dict(artist_name=f"test_{i}", username="test", lifetime_listen_count=1000 - i)
             for i in range(10)
         ],
     )

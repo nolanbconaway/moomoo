@@ -1,4 +1,5 @@
 """Playlist generation utilities for exact files provided by the user."""
+
 from pathlib import Path
 from typing import Optional
 
@@ -33,9 +34,7 @@ class QueryPlaylistGenerator(BasePlaylistGenerator):
         """List the paths requested by the user that are in the database."""
         return [
             Path(row["filepath"])
-            for row in execute_sql_fetchall(
-                session=session, sql=self.sql, params=self.params
-            )
+            for row in execute_sql_fetchall(session=session, sql=self.sql, params=self.params)
         ]
 
     def get_playlist(self, session: Session, *_, **__) -> Playlist:

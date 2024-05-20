@@ -18,7 +18,6 @@ from tqdm import tqdm
 from ..db import db_retry, execute_sql_fetchall, get_session
 from ..ddl import PlaylistCollection
 from ..generator import FromFilesPlaylistGenerator, NoFilesRequestedError
-from ..generator.base import EARWORMS, MASHUP_ARTISTS
 from ..logger import get_logger
 
 collection_name = "smart-mixes"
@@ -80,20 +79,13 @@ def fetch_tracks(username: str, session: Session) -> list[Track]:
         where lf.embedding_success
           and lf.embedding_duration_seconds > 60
           and lf.artist_mbid is not null
-          and coalesce(lf.album_artist_mbid, lf.artist_mbid) != any(:mashup_artists)
-          and lf.recording_mbid != any(:earworms)
 
         order by filepath
     """
 
     res = execute_sql_fetchall(
         sql=sql,
-        params=dict(
-            username=username,
-            min_listens=MIN_LISTENS,
-            earworms=list(EARWORMS),
-            mashup_artists=list(MASHUP_ARTISTS),
-        ),
+        params=dict(username=username, min_listens=MIN_LISTENS),
         session=session,
     )
     logger.info(f"Fetched {len(res)} tracks.")
@@ -107,8 +99,7 @@ def _run_clusterer(tracks: list[Track], n_jobs: int) -> np.ndarray:
     """
     if len(tracks) <= DIMS:
         raise RuntimeError(
-            "Not enough tracks to cluster."
-            + f"Got {len(tracks)} tracks, need > {DIMS}."
+            "Not enough tracks to cluster." + f"Got {len(tracks)} tracks, need > {DIMS}."
         )
 
     embeddings = np.stack([track.embedding for track in tracks]).astype(np.float16)
@@ -133,9 +124,7 @@ def cluster_avg_distance(cluster: list[Track]) -> float:
     return pdist(np.array([track.embedding for track in cluster])).mean()
 
 
-def make_clusters(
-    tracks: list[Track], n_jobs: int, max_clusters: int
-) -> list[list[Path]]:
+def make_clusters(tracks: list[Track], n_jobs: int, max_clusters: int) -> list[list[Path]]:
     """Make clusters, and return the resulting clustered tracks.
 
     The model is conducted in the following steps:

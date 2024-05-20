@@ -1,4 +1,5 @@
 """Test the collect_msid_map module."""
+
 import datetime
 import uuid
 
@@ -131,9 +132,7 @@ def test_get_old_recordings__any_data(fake_recordings: list[dict]):
 
     # add some recordings
     for i in fake_recordings:
-        MessyBrainzNameMap(
-            **i, success=True, payload_json=dict(a=1), ts_utc=ts
-        ).insert()
+        MessyBrainzNameMap(**i, success=True, payload_json=dict(a=1), ts_utc=ts).insert()
 
     # all recordings are older than the target before
     res = collect_msid_map.get_old_recordings(before=datetime.datetime.now())
@@ -200,9 +199,7 @@ def test_cli_main__old(fake_recordings: list[dict]):
 
     # add annotations for before 2021-01-01
     for i in fake_recordings:
-        MessyBrainzNameMap(
-            **i, success=True, payload_json=dict(a=1), ts_utc="2020-01-01"
-        ).insert()
+        MessyBrainzNameMap(**i, success=True, payload_json=dict(a=1), ts_utc="2020-01-01").insert()
 
     runner = CliRunner()
     result = runner.invoke(collect_msid_map.main, ["--before=2021-01-01"])

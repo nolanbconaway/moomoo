@@ -7,6 +7,7 @@ run given the number of HTTP requests.
 
 
 """
+
 import hashlib
 import json
 import sys
@@ -61,9 +62,7 @@ def get_user_top_activity(
     endpoint = f"/1/stats/user/{username}/{entity}"
     click.echo(f"Getting top {entity} for {username} in the {time_range} range.")
     try:
-        return client._get(endpoint, params={"range": time_range, "count": count})[
-            "payload"
-        ]
+        return client._get(endpoint, params={"range": time_range, "count": count})["payload"]
     except ListenBrainzAPIException as e:
         if e.status_code == 204:
             return []  # no data in range
@@ -90,9 +89,7 @@ def main(username: str):
         records.append(
             {
                 "payload_id": hashlib.md5(
-                    json.dumps(
-                        [username, user["user_name"], entity, time_range]
-                    ).encode()
+                    json.dumps([username, user["user_name"], entity, time_range]).encode()
                 ).hexdigest(),
                 "from_username": username,
                 "to_username": user["user_name"],
@@ -118,9 +115,9 @@ def main(username: str):
         click.echo(f"Deleted {deleted} records for {username}.")
 
         for row in records:
-            ListenBrainzSimilarUserActivity(
-                **row, insert_ts_utc=utils_.utcnow()
-            ).upsert(session=session)
+            ListenBrainzSimilarUserActivity(**row, insert_ts_utc=utils_.utcnow()).upsert(
+                session=session
+            )
 
         click.echo("Insert complete.")
     click.echo("Done.")

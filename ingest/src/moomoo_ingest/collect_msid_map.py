@@ -1,6 +1,6 @@
 """Query the ListenBrainz listens api to map local files to msids.
 
-Requires that the LocalFile table has been populated, as we need to use the file 
+Requires that the LocalFile table has been populated, as we need to use the file
 metadata for artist and track names.
 
 Because track metadata can change, we map msids to a hash of the artist and track name.
@@ -9,6 +9,7 @@ scrobbled.
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/metadata.html#get--1-metadata-lookup-
 """
+
 import datetime
 import random
 import sys

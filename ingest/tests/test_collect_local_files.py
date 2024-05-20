@@ -1,11 +1,19 @@
+import re
 import shutil
+from functools import partial
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 from moomoo_ingest import collect_local_files
-from moomoo_ingest.db import LocalFile
+from moomoo_ingest.db import LocalFile, LocalFileExcludeRegex
 
 from .conftest import RESOURCES
+
+
+@pytest.fixture(autouse=True)
+def make_exclude_table():
+    LocalFileExcludeRegex.create()
 
 
 def test_parse_audio_file():
@@ -23,6 +31,16 @@ def test_list_audio_files():
     assert res[0].name == "test.mp3"
 
 
+def test_pass_all_exclude_rules():
+    src_dir = Path("src")
+    regexes = [re.compile(r"^ex1"), re.compile(r"^ex2")]
+    fn = partial(collect_local_files.pass_all_exclude_rules, src_dir=src_dir, regexes=regexes)
+    assert fn(Path("src/include"))
+    assert not fn(Path("src/ex1"))
+    assert not fn(Path("src/ex2"))
+    assert not fn(Path("src/ex2/aaa"))
+
+
 def test_cli_main__not_table_exists_error():
     runner = CliRunner()
     result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
@@ -38,6 +56,21 @@ def test_cli_main__no_files(monkeypatch):
     result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
     assert result.exit_code == 0
     assert "No audio files found. Exiting." in result.output
+
+
+def test_cli_main__regex_exclude():
+    runner = CliRunner()
+    LocalFile.create()
+    LocalFileExcludeRegex(pattern="^test").insert()
+
+    result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
+    assert result.exit_code == 0
+    assert "Found 1 audio files" in result.output
+    assert "Filtered down to 0 audio files after regex exclusion." in result.output
+    assert "No audio files found. Exiting." in result.output
+
+    rows = LocalFile.select_star()
+    assert len(rows) == 0
 
 
 def test_cli_main__insert_serial():

@@ -38,22 +38,16 @@ class PlaylistCollection(BaseTable):
 
     __tablename__ = "moomoo_playlist_collections"
 
-    collection_id: Mapped[UUID] = mapped_column(
-        nullable=False, primary_key=True, default=uuid4
-    )
+    collection_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
     collection_name: Mapped[str] = mapped_column(nullable=False, index=True)
     username: Mapped[str] = mapped_column(nullable=False, index=True)
     refresh_at_hours_utc: Mapped[list[int]] = mapped_column(nullable=True)
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
-    refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=True, index=True
-    )
+    refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(nullable=True, index=True)
 
-    items: Mapped[list["PlaylistCollectionItem"]] = relationship(
-        back_populates="collection"
-    )
+    items: Mapped[list["PlaylistCollectionItem"]] = relationship(back_populates="collection")
 
     # add unique constraint for username and collection_name
     __table_args__ = (UniqueConstraint("username", "collection_name"), {})
@@ -133,8 +127,7 @@ class PlaylistCollection(BaseTable):
         False = skipped).
         """
         logger.info(
-            f"Replacing playlists in collection '{self.collection_name}' for user "
-            + self.username
+            f"Replacing playlists in collection '{self.collection_name}' for user " + self.username
         )
 
         if self.is_fresh and not force:
@@ -145,9 +138,7 @@ class PlaylistCollection(BaseTable):
             return False
 
         # drop all existing playlists for this user and collection
-        session.query(PlaylistCollectionItem).filter_by(
-            collection_id=self.collection_id
-        ).delete()
+        session.query(PlaylistCollectionItem).filter_by(collection_id=self.collection_id).delete()
 
         items = [
             PlaylistCollectionItem.from_playlist(
@@ -173,12 +164,8 @@ class PlaylistCollectionItem(BaseTable):
 
     __tablename__ = "moomoo_playlist_collection_items"
 
-    playlist_id: Mapped[UUID] = mapped_column(
-        nullable=False, primary_key=True, default=uuid4
-    )
-    collection_id: Mapped[UUID] = mapped_column(
-        ForeignKey(PlaylistCollection.collection_id)
-    )
+    playlist_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
+    collection_id: Mapped[UUID] = mapped_column(ForeignKey(PlaylistCollection.collection_id))
     collection_order_index: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(nullable=True)

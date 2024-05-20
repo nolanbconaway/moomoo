@@ -1,4 +1,5 @@
 """Common fixtures for all tests."""
+
 import os
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ def remove_env_variables(monkeypatch):
     """Remove relevant environment variables before each test."""
     monkeypatch.setenv("MOOMOO_CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
+    monkeypatch.delenv("MOOMOO_MEDIA_LIBRARY", raising=False)
 
 
 @pytest.fixture(autouse=True)
@@ -45,12 +47,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
-        postgresql.info.user,
-        postgresql.info.host,
-        postgresql.info.port,
-        postgresql.info.dbname,
-    )
+    uri = f"postgresql+psycopg://{postgresql.info.user}@{postgresql.info.host}:{postgresql.info.port}/{postgresql.info.dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
 
     # make sure the test schema exists and the vector extension is loaded

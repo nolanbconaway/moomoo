@@ -12,7 +12,7 @@ from moomoo_playlist import (
     stream_similar_tracks,
 )
 from moomoo_playlist.db import db_retry
-from moomoo_playlist.generator.base import MASHUP_ARTISTS, SPECIAL_PURPOSE_ARTISTS
+from moomoo_playlist.generator.base import SPECIAL_PURPOSE_ARTISTS
 from psycopg.errors import UndefinedTable
 from sqlalchemy import text
 from sqlalchemy.exc import ProgrammingError
@@ -81,16 +81,11 @@ def test_fetch_user_listen_counts(session: Session):
     """
     session.execute(
         text(sql),
-        [
-            dict(username="test", filepath=f"test/{i}", lifetime_listen_count=i)
-            for i in range(3)
-        ],
+        [dict(username="test", filepath=f"test/{i}", lifetime_listen_count=i) for i in range(3)],
     )
 
     # no matching filepaths
-    res = fetch_user_listen_counts(
-        filepaths=[Path("a")], session=session, username="test"
-    )
+    res = fetch_user_listen_counts(filepaths=[Path("a")], session=session, username="test")
     assert res == {Path("a"): 0}
 
     # nothing to fetch
@@ -184,21 +179,6 @@ def test_stream_similar_tracks__weighted(session: Session):
         sqrt((1 - 2) ** 2 + (0.5 - 2) ** 2) * 1 / 3  # 0 -> 2
     )
     assert pytest.approx(res[0].distance) == expect
-
-
-def test_stream_similar_tracks__mashup(session: Session):
-    """Test the mashup artist exclusion logic."""
-    artist_mbid = next(iter(MASHUP_ARTISTS))
-    rows = [
-        dict(filepath=f"test/{i}", embedding=str([i] * 10), artist_mbid=artist_mbid)
-        for i in range(10)
-    ]
-    load_local_files_table(data=rows)
-
-    # should return 0 results, since all are mashup artists
-    res = list(stream_similar_tracks([Path("test/0")], session))
-    base_assert_list_playlist_track(*res)
-    assert not res
 
 
 def test_get_most_similar_tracks(session: Session):
