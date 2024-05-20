@@ -43,9 +43,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         self.username = username
 
     @classmethod
-    def _files_for_recording_mbids(
-        cls, mbids: list[UUID], session: Session
-    ) -> list[Path]:
+    def _files_for_recording_mbids(cls, mbids: list[UUID], session: Session) -> list[Path]:
         """Get all files for a list of recording mbids."""
         if not mbids:
             return []
@@ -58,16 +56,12 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         """
         res = [
             Path(r["filepath"])
-            for r in execute_sql_fetchall(
-                sql, params=dict(mbids=mbids), session=session
-            )
+            for r in execute_sql_fetchall(sql, params=dict(mbids=mbids), session=session)
         ]
         return sorted(res)
 
     @classmethod
-    def _files_for_release_mbids(
-        cls, mbids: list[UUID], session: Session
-    ) -> list[Path]:
+    def _files_for_release_mbids(cls, mbids: list[UUID], session: Session) -> list[Path]:
         """Get all files for a list of release mbids."""
         if not mbids:
             return []
@@ -80,16 +74,12 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         """
         res = [
             Path(r["filepath"])
-            for r in execute_sql_fetchall(
-                sql, params=dict(mbids=mbids), session=session
-            )
+            for r in execute_sql_fetchall(sql, params=dict(mbids=mbids), session=session)
         ]
         return sorted(res)
 
     @classmethod
-    def _files_for_release_group_mbids(
-        cls, mbids: list[UUID], session: Session
-    ) -> list[Path]:
+    def _files_for_release_group_mbids(cls, mbids: list[UUID], session: Session) -> list[Path]:
         """Get all files for a list of release group mbids."""
         if not mbids:
             return []
@@ -102,9 +92,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         """
         res = [
             Path(r["filepath"])
-            for r in execute_sql_fetchall(
-                sql, params=dict(mbids=mbids), session=session
-            )
+            for r in execute_sql_fetchall(sql, params=dict(mbids=mbids), session=session)
         ]
         return sorted(res)
 
@@ -122,9 +110,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         """
         res = [
             Path(r["filepath"])
-            for r in execute_sql_fetchall(
-                sql, params=dict(mbids=mbids), session=session
-            )
+            for r in execute_sql_fetchall(sql, params=dict(mbids=mbids), session=session)
         ]
         return sorted(res)
 
@@ -141,9 +127,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         sql = f"select mbid, entity from {schema}.mbids where mbid = any(:mbids)"
         entity_types = {
             r["mbid"]: r["entity"]
-            for r in execute_sql_fetchall(
-                sql=sql, params={"mbids": self.mbids}, session=session
-            )
+            for r in execute_sql_fetchall(sql=sql, params={"mbids": self.mbids}, session=session)
         }
 
         # if no mbids were found, return empty
@@ -199,18 +183,13 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         if seed_count == 0:
             seed_tracks = []
         else:
-            seed_tracks = [
-                Track(filepath=p) for p in random.sample(source_paths, seed_count)
-            ]
+            seed_tracks = [Track(filepath=p) for p in random.sample(source_paths, seed_count)]
 
         if self.username is not None:
             listen_counts = fetch_user_listen_counts(
                 filepaths=source_paths, session=session, username=self.username
             )
-            weights = [
-                self.listen_count_to_weight(listen_counts.get(fp, 0))
-                for fp in source_paths
-            ]
+            weights = [self.listen_count_to_weight(listen_counts.get(fp, 0)) for fp in source_paths]
         else:
             weights = None
 

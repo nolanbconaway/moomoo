@@ -2,6 +2,7 @@
 
 import os
 from copy import deepcopy
+from typing import Generator
 from uuid import uuid4
 
 import psycopg
@@ -25,13 +26,14 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection) -> str:
 
     Returns an endless supply of connections to the test db.
     """
-    # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
+    user, host, port, dbname = (
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
         postgresql.info.dbname,
     )
+    # convert the dsn into a sqlalchemy uri
+    uri = f"postgresql+psycopg://{user}@{host}:{port}/{dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
 
@@ -50,7 +52,7 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection) -> str:
 
 
 @pytest.fixture
-def session(mock_db: str) -> Session:
+def session(mock_db: str) -> Generator[Session, None, None]:
     """Return a fresh session to the test db."""
     # require mock_db to ensure it's set up
     assert mock_db

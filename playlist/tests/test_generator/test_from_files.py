@@ -25,9 +25,7 @@ def test_list_source_paths__multi_paths(paths, expect, session: Session):
     """
     rows = [dict(filepath=p, embedding=None) for p in paths]
     load_local_files_table(rows)
-    ps = FromFilesPlaylistGenerator(Path("test1"), Path("test2")).list_source_paths(
-        session
-    )
+    ps = FromFilesPlaylistGenerator(Path("test1"), Path("test2")).list_source_paths(session)
     assert set(ps) == set(expect)
 
 

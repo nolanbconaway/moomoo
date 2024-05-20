@@ -30,9 +30,7 @@ def list_loved_tracks(username: str, session: Session) -> list[Path]:
         where username = :username
         order by love_at desc
     """
-    rows = execute_sql_fetchall(
-        session=session, sql=sql, params=dict(username=username)
-    )
+    rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
 
     logger.info(f"Found {len(rows)} tracks.")
     return [Path(row["filepath"]) for row in rows]

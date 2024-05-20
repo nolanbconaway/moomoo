@@ -62,10 +62,7 @@ def test_list_revisit_releases__count_and_seed(session: Session):
     """Test handling of the count parameter, as well as the random seed."""
     populate_revisit_releases(
         session,
-        [
-            dict(release_group_title="test", artist_name="test", username="test")
-            for _ in range(10)
-        ],
+        [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
 
     res = list_revisit_releases(username="test", count=5, session=session)
@@ -99,10 +96,7 @@ def test_main__playlist_error(session: Session):
     """Test CLI with a playlist error."""
     populate_revisit_releases(
         session,
-        [
-            dict(release_group_title="test", artist_name="test", username="test")
-            for _ in range(10)
-        ],
+        [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
     runner = CliRunner()
     playlist = Playlist(tracks=[])
@@ -122,10 +116,7 @@ def test_main__stale_handler(session: Session):
     """The stale handler should skip when the collection is not stale."""
     populate_revisit_releases(
         session,
-        [
-            dict(release_group_title="test", artist_name="test", username="test")
-            for _ in range(10)
-        ],
+        [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
 
     runner = CliRunner()
@@ -164,10 +155,7 @@ def test_main__storage(session: Session):
     """Test CLI storage is replaced / correct."""
     populate_revisit_releases(
         session,
-        [
-            dict(release_group_title="test", artist_name="test", username="test")
-            for _ in range(10)
-        ],
+        [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
     runner = CliRunner()
     with patch.object(

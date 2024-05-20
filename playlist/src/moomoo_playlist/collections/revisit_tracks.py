@@ -34,9 +34,7 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
     order by revisit_score desc, recording_mbid
     limit 1000
     """
-    rows = execute_sql_fetchall(
-        session=session, sql=sql, params=dict(username=username)
-    )
+    rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
 
     logger.info(f"Found {len(rows)} tracks.")
     return [

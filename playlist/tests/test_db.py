@@ -15,9 +15,7 @@ def test_make_temp_table(session: Session):
         )
 
     # empty data
-    tmp_name = make_temp_table(
-        types={"a": "text", "b": "int"}, data=[], session=session
-    )
+    tmp_name = make_temp_table(types={"a": "text", "b": "int"}, data=[], session=session)
     assert execute_sql_fetchall(f"select * from {tmp_name}", session=session) == []
 
     # correct entry

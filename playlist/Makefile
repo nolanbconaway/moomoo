@@ -12,7 +12,7 @@ lint:
 
 .PHONY: 
 format:
-	@ ruff check --select I --fix .
+	@ ruff check --select I --fix
 	@ ruff format
 
 .PHONY: 

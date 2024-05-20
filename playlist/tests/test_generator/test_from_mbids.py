@@ -88,9 +88,7 @@ def test__files_for_release_group_mbids(session: Session):
     """Test that _files_for_release_group_mbids works."""
     # populate {schema}.map__file_release_group
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    records = [
-        dict(filepath=f"test/{i}", release_group_mbid=uuid4()) for i in range(10)
-    ]
+    records = [dict(filepath=f"test/{i}", release_group_mbid=uuid4()) for i in range(10)]
 
     execute_sql_fetchall(
         f"""
@@ -158,13 +156,9 @@ def test__files_for_artist_mbids(session: Session):
     assert Gen._files_for_artist_mbids(mbids=mbids, session=session) == []
 
 
-@patch(
-    "moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_recording_mbids"
-)
+@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_recording_mbids")
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_release_mbids")
-@patch(
-    "moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids"
-)
+@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids")
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_artist_mbids")
 def test_list_source_paths(
     patch_artist, patch_release_group, patch_release, patch_recording, session: Session

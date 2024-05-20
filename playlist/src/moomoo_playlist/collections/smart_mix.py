@@ -99,8 +99,7 @@ def _run_clusterer(tracks: list[Track], n_jobs: int) -> np.ndarray:
     """
     if len(tracks) <= DIMS:
         raise RuntimeError(
-            "Not enough tracks to cluster."
-            + f"Got {len(tracks)} tracks, need > {DIMS}."
+            "Not enough tracks to cluster." + f"Got {len(tracks)} tracks, need > {DIMS}."
         )
 
     embeddings = np.stack([track.embedding for track in tracks]).astype(np.float16)
@@ -125,9 +124,7 @@ def cluster_avg_distance(cluster: list[Track]) -> float:
     return pdist(np.array([track.embedding for track in cluster])).mean()
 
 
-def make_clusters(
-    tracks: list[Track], n_jobs: int, max_clusters: int
-) -> list[list[Path]]:
+def make_clusters(tracks: list[Track], n_jobs: int, max_clusters: int) -> list[list[Path]]:
     """Make clusters, and return the resulting clustered tracks.
 
     The model is conducted in the following steps:

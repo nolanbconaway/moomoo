@@ -50,9 +50,7 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
         where username = :username
         order by release_group_mbid
     """
-    rows = execute_sql_fetchall(
-        session=session, sql=sql, params=dict(username=username)
-    )
+    rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
 
     if len(rows) > count:
         # sample relative to exp(revisit score)
@@ -62,9 +60,7 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
         scores /= scores.sum()
 
         idx = np.random.choice(range(len(rows)), size=count, replace=False, p=scores)
-        rows = sorted(
-            [rows[i] for i in idx], key=lambda x: x["revisit_score"], reverse=True
-        )
+        rows = sorted([rows[i] for i in idx], key=lambda x: x["revisit_score"], reverse=True)
 
     logger.info(f"Found {len(rows)} releases.", extra=dict(releases=rows))
     res = [

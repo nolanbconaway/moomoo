@@ -81,16 +81,11 @@ def test_fetch_user_listen_counts(session: Session):
     """
     session.execute(
         text(sql),
-        [
-            dict(username="test", filepath=f"test/{i}", lifetime_listen_count=i)
-            for i in range(3)
-        ],
+        [dict(username="test", filepath=f"test/{i}", lifetime_listen_count=i) for i in range(3)],
     )
 
     # no matching filepaths
-    res = fetch_user_listen_counts(
-        filepaths=[Path("a")], session=session, username="test"
-    )
+    res = fetch_user_listen_counts(filepaths=[Path("a")], session=session, username="test")
     assert res == {Path("a"): 0}
 
     # nothing to fetch

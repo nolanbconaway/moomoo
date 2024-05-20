@@ -51,9 +51,7 @@ def list_top_artists(
     Order is determined by the listen count for the specified history length, in
     descending order.
     """
-    logger.info(
-        f"Listing top artists for {username} with history length '{history_length}'."
-    )
+    logger.info(f"Listing top artists for {username} with history length '{history_length}'.")
     if history_length not in HISTORY_CONFIG:
         raise ValueError(f"Invalid history length: {history_length}")
 

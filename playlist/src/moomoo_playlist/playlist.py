@@ -39,9 +39,7 @@ class Track:
         if isinstance(self.filepath, str):
             self.filepath = Path(self.filepath)
 
-    def add_if_not_none(
-        self, data: dict, key: str, type: Callable | None = None
-    ) -> dict:
+    def add_if_not_none(self, data: dict, key: str, type: Callable | None = None) -> dict:
         """Append a key from this object to a dictionary if it is not None."""
         if hasattr(self, key) and getattr(self, key) is not None:
             value = getattr(self, key)
@@ -88,8 +86,7 @@ class Playlist:
 
         # cast tracks to Track objects if they are dicts
         self.tracks = [
-            Track(**track) if isinstance(track, dict) else track
-            for track in self.tracks
+            Track(**track) if isinstance(track, dict) else track for track in self.tracks
         ]
 
         if not all(isinstance(track, Track) for track in self.tracks):

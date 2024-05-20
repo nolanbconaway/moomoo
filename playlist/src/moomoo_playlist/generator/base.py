@@ -98,9 +98,7 @@ def fetch_user_listen_counts(
     """
     rows = {
         Path(row["filepath"]): row["listens"]
-        for row in execute_sql_fetchall(
-            sql=sql, params={"username": username}, session=session
-        )
+        for row in execute_sql_fetchall(sql=sql, params={"username": username}, session=session)
     }
 
     # add any missing filepaths with 0 listens
@@ -148,11 +146,7 @@ def stream_similar_tracks(
     tmp_name = make_temp_table(
         session=session,
         types={"filepath": "text", "weight": "float"},
-        data=[
-            {"filepath": str(fp), "weight": w}
-            for fp, w in zip(filepaths, weights)
-            if w > 0
-        ],
+        data=[{"filepath": str(fp), "weight": w} for fp, w in zip(filepaths, weights) if w > 0],
         pk="filepath",
     )
 
@@ -272,10 +266,7 @@ def get_most_similar_tracks(
     # else, consume the generator and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
     for track in stream_similar_tracks(filepaths=filepaths, session=session):
-        if any(
-            getattr(track, attr) is None
-            for attr in ["artist_mbid", "album_artist_mbid"]
-        ):
+        if any(getattr(track, attr) is None for attr in ["artist_mbid", "album_artist_mbid"]):
             continue
 
         track_artists = list(set([track.artist_mbid, track.album_artist_mbid]))

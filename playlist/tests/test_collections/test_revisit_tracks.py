@@ -72,10 +72,7 @@ def test_list_revisit_tracks__sorting(session: Session):
     """Test sorting of revisit tracks."""
     populate_revisit_tracks(
         session,
-        [
-            dict(filepath=f"path/{i}", username="test", revisit_score=10 + i)
-            for i in range(5)
-        ],
+        [dict(filepath=f"path/{i}", username="test", revisit_score=10 + i) for i in range(5)],
     )
 
     res = list_revisit_tracks(username="test", session=session)
@@ -109,9 +106,7 @@ def test_create_playlist__dedupe():
     ]
 
     res = create_playlist(tracks, total_tracks=5)
-    assert set([str(i.filepath) for i in res.tracks]) == set(
-        ["path/1", "path/2", "path/4"]
-    )
+    assert set([str(i.filepath) for i in res.tracks]) == set(["path/1", "path/2", "path/4"])
 
 
 def test_main__no_results(session: Session):
@@ -127,10 +122,7 @@ def test_main__storage(session: Session):
     """Test CLI storage is replaced / correct."""
     populate_revisit_tracks(
         session,
-        [
-            dict(filepath=f"path/{i}", username="test", revisit_score=i + 10)
-            for i in range(5)
-        ],
+        [dict(filepath=f"path/{i}", username="test", revisit_score=i + 10) for i in range(5)],
     )
     runner = CliRunner()
     res = runner.invoke(revisit_tracks_main, ["test"])
