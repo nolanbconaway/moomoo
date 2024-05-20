@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 
 from ..db import db_retry, execute_sql_fetchall, get_session
 from ..ddl import PlaylistCollection
-from ..generator.base import EARWORMS
 from ..logger import get_logger
 from ..playlist import Playlist, Track
 
@@ -32,14 +31,11 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
     select filepath, recording_mbid, artist_mbid, album_artist_mbid
     from {schema}.revisit_tracks
     where username = :username
-      and recording_mbid != any(:earworms)
     order by revisit_score desc, recording_mbid
     limit 1000
     """
     rows = execute_sql_fetchall(
-        session=session,
-        sql=sql,
-        params=dict(username=username, earworms=list(EARWORMS)),
+        session=session, sql=sql, params=dict(username=username)
     )
 
     logger.info(f"Found {len(rows)} tracks.")

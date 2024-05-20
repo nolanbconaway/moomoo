@@ -12,7 +12,7 @@ from tqdm import tqdm
 from ..db import db_retry, execute_sql_fetchall, get_session
 from ..ddl import PlaylistCollection
 from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError
-from ..generator.base import MASHUP_ARTISTS
+from ..generator.base import SPECIAL_PURPOSE_ARTISTS
 from ..logger import get_logger
 
 collection_name = "top-artists"
@@ -65,7 +65,7 @@ def list_top_artists(
         from {schema}.artist_listen_counts
         where username = :username
           and {history_column} >= :min_listen_count
-          and artist_mbid != any(:mashup_artists)
+          and artist_mbid != any(:special_purpose_artists)
         order by artist_mbid
     """
     rows = execute_sql_fetchall(
@@ -74,7 +74,7 @@ def list_top_artists(
         params=dict(
             username=username,
             min_listen_count=min_listen_count,
-            mashup_artists=list(MASHUP_ARTISTS),
+            special_purpose_artists=list(SPECIAL_PURPOSE_ARTISTS),
         ),
     )
     if len(rows) > count:

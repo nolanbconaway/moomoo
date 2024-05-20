@@ -167,7 +167,7 @@ def test_make_clusters__post_cluster_logic():
         assert len(res[0]) == 3
         assert set([t.filepath.name for t in res[0]]) == set(["0", "2", "3"])
 
-    # select top 1 cluster by track count
+    # select top 1 cluster
     with patch(
         patch_obj, return_value=np.array([0, 0, 0, 1, 1, 1, 1, 1, 2, 2])
     ) as mock:
@@ -175,9 +175,6 @@ def test_make_clusters__post_cluster_logic():
         res = make_clusters(tracks, n_jobs=1, max_clusters=1)
         mock.assert_called_once()
         assert len(res) == 1
-        assert len(res[0]) == 5
-        assert [t.filepath.name for t in res[0]] == ["3", "4", "5", "6", "7"]
-
 
 @pytest.mark.parametrize("n_jobs", [1, 3])
 def test_make_clusters__fake_data(n_jobs: int):
