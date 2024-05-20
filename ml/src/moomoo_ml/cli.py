@@ -1,4 +1,5 @@
 """Cli handlers for moomoo machine learning."""
+
 import datetime
 import json
 import sys
@@ -19,11 +20,7 @@ VERSION = (Path(__file__).parent / "version").read_text().strip()
 
 def list_audio_files(src_dir: Path) -> list[Path]:
     """List all audio files in the directories."""
-    return [
-        p
-        for p in src_dir.rglob("**/*")
-        if p.is_file() and p.suffix.lower() in EXTENSIONS
-    ]
+    return [p for p in src_dir.rglob("**/*") if p.is_file() and p.suffix.lower() in EXTENSIONS]
 
 
 @click.group()
@@ -70,9 +67,7 @@ def save_artifacts(output: Path, model_name: str, revision: str):
 
 
 @cli.command("score")
-@click.argument(
-    "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
-)
+@click.argument("src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.option(
     "--artifacts",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -87,9 +82,7 @@ def score_local_files(src_dir: Path, artifacts: Path):
     """
     click.echo("Listing unscored media files.")
     with get_session() as session:
-        already_scored = set(
-            [src_dir / i for (i,) in session.query(FileEmbedding.filepath)]
-        )
+        already_scored = set([src_dir / i for (i,) in session.query(FileEmbedding.filepath)])
     all_files = set(list_audio_files(src_dir))
     unscored_files = all_files - already_scored
 

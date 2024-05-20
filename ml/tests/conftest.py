@@ -1,4 +1,5 @@
 """Common fixtures for all tests."""
+
 from pathlib import Path
 
 import psycopg
@@ -19,12 +20,13 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{0}@{1}:{2}/{3}".format(
+    user, host, port, dbname = (
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
         postgresql.info.dbname,
     )
+    uri = f"postgresql+psycopg://{user}@{host}:{port}/{dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
 
     # make sure the test schema exists and the vector extension is loaded

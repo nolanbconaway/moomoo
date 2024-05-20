@@ -1,7 +1,6 @@
 from click.testing import CliRunner
-
-from moomoo_ml.db import FileEmbedding, get_session, BaseTable
-from moomoo_ml.cli import version, score_local_files
+from moomoo_ml.cli import score_local_files, version
+from moomoo_ml.db import BaseTable, FileEmbedding, get_session
 
 from .conftest import RESOURCES
 

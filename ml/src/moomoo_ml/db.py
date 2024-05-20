@@ -1,6 +1,8 @@
 """Connectivity utils for the database."""
+
 import datetime
 import os
+from typing import ClassVar
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import create_engine, func
@@ -16,7 +18,7 @@ def get_session() -> Session:
 class BaseTable(DeclarativeBase):
     """Base class for all database models."""
 
-    type_annotation_map = {
+    type_annotation_map: ClassVar[dict] = {
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
         list[float]: Vector(1024),

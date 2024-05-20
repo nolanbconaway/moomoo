@@ -7,16 +7,17 @@ version:
 
 .PHONY:
 lint:
-	@ black tests src --check --verbose
-	@ ruff tests src
+	@ ruff check
+	@ ruff format --check
 
 .PHONY:
 format:
-	@ black tests src --verbose
+	@ ruff check --select I --fix
+	@ ruff format
 
 .PHONY:
 test:
-	@ CONTACT_EMAIL=FAKE pytest tests --verbose
+	@ pytest tests --verbose
 
 .PHONY:
 lint-test: lint test
