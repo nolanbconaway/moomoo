@@ -34,9 +34,7 @@ def test_list_audio_files():
 def test_pass_all_exclude_rules():
     src_dir = Path("src")
     regexes = [re.compile(r"^ex1"), re.compile(r"^ex2")]
-    fn = partial(
-        collect_local_files.pass_all_exclude_rules, src_dir=src_dir, regexes=regexes
-    )
+    fn = partial(collect_local_files.pass_all_exclude_rules, src_dir=src_dir, regexes=regexes)
     assert fn(Path("src/include"))
     assert not fn(Path("src/ex1"))
     assert not fn(Path("src/ex2"))

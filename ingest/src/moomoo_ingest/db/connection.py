@@ -1,4 +1,5 @@
 """Connectivity utils for the database."""
+
 import json
 import os
 from uuid import UUID

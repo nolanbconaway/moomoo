@@ -7,12 +7,13 @@ version:
 
 .PHONY:
 lint:
-	@ black tests src --check --verbose
-	@ ruff .
+	@ ruff check
+	@ ruff format --check
 
 .PHONY:
 format:
-	@ black tests src --verbose
+	@ ruff check --select I --fix .
+	@ ruff format
 
 .PHONY:
 test:

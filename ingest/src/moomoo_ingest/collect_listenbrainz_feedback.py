@@ -6,6 +6,7 @@ event; with duplicates being upserted.
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/recordings.html#get--1-feedback-user-(user_name)-get-feedback
 """
+
 import datetime
 import sys
 from dataclasses import dataclass
@@ -138,9 +139,9 @@ def main(username: str):
     click.echo(f"Inserting {len(loves)} record(s).")
     with get_session() as session:
         for row in loves:
-            ListenBrainzUserFeedback(
-                **row.to_dict(), insert_ts_utc=utils_.utcnow()
-            ).upsert(session=session)
+            ListenBrainzUserFeedback(**row.to_dict(), insert_ts_utc=utils_.utcnow()).upsert(
+                session=session
+            )
 
         click.echo("Insert complete.")
     click.echo("Done.")

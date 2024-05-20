@@ -1,4 +1,5 @@
 """Test the annotate_mbids module."""
+
 import datetime
 import uuid
 

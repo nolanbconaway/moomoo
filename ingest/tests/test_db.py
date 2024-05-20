@@ -88,14 +88,10 @@ def test_create_drop_exists(table: BaseTable):
 def test_table_insert():
     """Make sure the insert method works as expected."""
     FakeTable.create()
-    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [
-        {"count": 0}
-    ]
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [{"count": 0}]
 
     FakeTable(a=1, b="a").insert()
-    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [
-        {"count": 1}
-    ]
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [{"count": 1}]
 
     # error if primary key is violated
     with pytest.raises(IntegrityError):
@@ -106,9 +102,7 @@ def test_table_insert():
         FakeTable(a=2).insert()
 
     FakeTable(a=2, b="b").insert()
-    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [
-        {"count": 2}
-    ]
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [{"count": 2}]
 
 
 def test_table_bulk_insert():
@@ -157,9 +151,7 @@ def test_table_upsert():
 
     # adds a new row if primary key is not violated
     FakeTable(a=2, b="c").upsert(update_cols=["b"])
-    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [
-        {"count": 2}
-    ]
+    assert execute_sql_fetchall(f"select count(1) from {FakeTable.table_name()}") == [{"count": 2}]
 
 
 def test_ListenBrainzListen__last_listen_for_user():
@@ -180,9 +172,7 @@ def test_ListenBrainzListen__last_listen_for_user():
         listen.insert()
 
     # correct last listen if listens
-    assert ListenBrainzListen.last_listen_for_user("a") == datetime.datetime(
-        2022, 1, 1, tzinfo=tz
-    )
+    assert ListenBrainzListen.last_listen_for_user("a") == datetime.datetime(2022, 1, 1, tzinfo=tz)
 
 
 def test_ListenBrainzUserFeedback__last_love_for_user():
@@ -316,38 +306,27 @@ def test_cli__add_exclude_path(tmp_path: Path):
     # error if library does not exist
     res = runner.invoke(db_cli, ["add-exclude-path", str(target), "--library", "nope"])
     assert res.exit_code != 0
-    assert (
-        "Error: Invalid value for '--library': Directory 'nope' does not exist."
-        in res.stdout
-    )
+    assert "Error: Invalid value for '--library': Directory 'nope' does not exist." in res.stdout
 
     # error if path does not exist
-    res = runner.invoke(
-        db_cli, ["add-exclude-path", "nope", "--library", str(tmp_path)]
-    )
+    res = runner.invoke(db_cli, ["add-exclude-path", "nope", "--library", str(tmp_path)])
     assert res.exit_code != 0
     assert "Error: Invalid value for 'PATH': Path 'nope' does not exist." in res.stdout
 
     # error if path is the library
-    res = runner.invoke(
-        db_cli, ["add-exclude-path", str(tmp_path), "--library", str(tmp_path)]
-    )
+    res = runner.invoke(db_cli, ["add-exclude-path", str(tmp_path), "--library", str(tmp_path)])
     assert res.exit_code != 0
     assert "Cannot exclude the media library path." in res.stdout
 
     # add a path
-    res = runner.invoke(
-        db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)]
-    )
+    res = runner.invoke(db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)])
     assert res.exit_code == 0
     assert LocalFileExcludeRegex.fetch_all_regex() == [re.compile("^target")]
 
     # add one with special characters
     target = tmp_path / "target (1)"
     target.mkdir()
-    res = runner.invoke(
-        db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)]
-    )
+    res = runner.invoke(db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)])
     assert res.exit_code == 0
     assert LocalFileExcludeRegex.fetch_all_regex() == [
         re.compile("^target"),

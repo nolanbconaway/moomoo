@@ -1,11 +1,12 @@
 """Query the ListenBrainz listens api and store listen data in the db.
 
 This script is meant to be run periodically to update the db with recent tracks. It uses
-an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a 
+an md5 hash of the (listen user, timestamp, recording_msid) to uniquely identify a
 listen event; with duplicates being upserted.
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/core.html#get--1-user-(user_name)-listens
 """
+
 import datetime
 import hashlib
 import json

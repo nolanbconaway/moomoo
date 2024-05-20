@@ -10,6 +10,7 @@ that were enriched long ago, but may have new data available in MusicBrainz.
 In practice, it takes roughly ~1s to annotate a single mbid. Use this with the --limit
 option to limit the total run time.
 """
+
 import datetime
 import os
 import random
@@ -48,9 +49,7 @@ def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
             and mbids.entity = any(:entities)
         order by src.ts_utc
     """
-    return execute_sql_fetchall(
-        sql, params=dict(before=before, entities=utils_.ENTITIES)
-    )
+    return execute_sql_fetchall(sql, params=dict(before=before, entities=utils_.ENTITIES))
 
 
 @click.command(help=__doc__)
@@ -103,9 +102,7 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     click.echo("Annotating...")
     annotated = utils_.annotate_mbid_batch(to_ingest)
     with get_session() as session:
-        for args, res in tqdm(
-            zip(to_ingest, annotated), disable=None, total=len(to_ingest)
-        ):
+        for args, res in tqdm(zip(to_ingest, annotated), disable=None, total=len(to_ingest)):
             MusicBrainzAnnotation(
                 mbid=args["mbid"],
                 entity=args["entity"],

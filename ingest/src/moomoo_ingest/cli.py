@@ -1,4 +1,5 @@
 """Cli group for moomoo."""
+
 import click
 
 from .annotate_mbids import main as annotate_mbids_main

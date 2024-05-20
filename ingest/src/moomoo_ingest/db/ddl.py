@@ -51,16 +51,12 @@ class BaseTable(DeclarativeBase):
         """Create the table."""
         if drop:
             cls.drop(if_exists=True)
-        cls.metadata.create_all(
-            get_engine(), checkfirst=if_not_exists, tables=[cls.__table__]
-        )
+        cls.metadata.create_all(get_engine(), checkfirst=if_not_exists, tables=[cls.__table__])
 
     @classmethod
     def drop(cls, if_exists: bool = False) -> None:
         """Drop the table."""
-        cls.metadata.drop_all(
-            get_engine(), checkfirst=if_exists, tables=[cls.__table__]
-        )
+        cls.metadata.drop_all(get_engine(), checkfirst=if_exists, tables=[cls.__table__])
 
     @classmethod
     def exists(cls) -> bool:
@@ -97,9 +93,7 @@ class BaseTable(DeclarativeBase):
         else:
             f(session)
 
-    def upsert(
-        self, update_cols: list[str] | None = None, session: Session = None
-    ) -> None:
+    def upsert(self, update_cols: list[str] | None = None, session: Session = None) -> None:
         """Upsert a row into the table.
 
         Set update_cols to a list of columns to update on conflict. Defaults to all
@@ -292,9 +286,7 @@ class ListenBrainzUserFeedback(BaseTable):
         Returns None if the user has no loves.
         """
         stmt = (
-            select(func.max(cls.feedback_at))
-            .where(cls.username == username)
-            .where(cls.score == 1)
+            select(func.max(cls.feedback_at)).where(cls.username == username).where(cls.score == 1)
         )
         with get_session() as session:
             return session.execute(stmt).scalar()

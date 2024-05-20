@@ -77,9 +77,7 @@ def test_cli_main__since_last__date_buffer():
     ).insert()
 
     with patch("moomoo_ingest.collect_listen_data.run_ingest") as mocked:
-        result = runner.invoke(
-            collect_listen_data.main, ["--since-last", "--buffer-days=1", "a"]
-        )
+        result = runner.invoke(collect_listen_data.main, ["--since-last", "--buffer-days=1", "a"])
         assert result.exit_code == 0
         assert mocked.call_count == 1
         assert mocked.call_args[1]["from_dt"] == last_at - datetime.timedelta(days=1)

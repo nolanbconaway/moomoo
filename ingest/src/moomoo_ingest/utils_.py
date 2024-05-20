@@ -1,4 +1,5 @@
 """Utility functions for the good of all."""
+
 import datetime
 import hashlib
 import os
@@ -31,9 +32,7 @@ def utcfromisodate(iso_date: str) -> datetime.datetime:
 
 def utcfromunixtime(unixtime: int) -> datetime.datetime:
     """Convert unix timestamp to UTC datetime."""
-    return datetime.datetime.utcfromtimestamp(int(unixtime)).replace(
-        tzinfo=datetime.timezone.utc
-    )
+    return datetime.datetime.utcfromtimestamp(int(unixtime)).replace(tzinfo=datetime.timezone.utc)
 
 
 def utcnow() -> datetime.datetime:
