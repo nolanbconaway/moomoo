@@ -1,5 +1,7 @@
 """Define database ddl and dml operations."""
+
 import datetime
+import re
 from typing import Any, ClassVar
 from uuid import UUID
 
@@ -236,6 +238,24 @@ class LocalFile(BaseTable):
     )
 
 
+class LocalFileExcludeRegex(BaseTable):
+    """Model containing regex patterns to exclude from local music files."""
+
+    __tablename__ = "local_music_files_exclude_regex"
+
+    pattern: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    note: Mapped[str] = mapped_column(nullable=True)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+    @classmethod
+    def fetch_all_regex(cls) -> list[re.Pattern]:
+        """Return a list of compiled regex patterns."""
+        with get_session() as session:
+            return [re.compile(i.pattern) for i in session.query(cls).all()]
+
+
 class MessyBrainzNameMap(BaseTable):
     """Model for messybrainz_name_map table."""
 
@@ -283,6 +303,7 @@ class ListenBrainzUserFeedback(BaseTable):
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
+    LocalFileExcludeRegex,
     ListenBrainzSimilarUserActivity,
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,

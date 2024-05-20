@@ -1,5 +1,7 @@
 """Connectivity utils for the database."""
 
+import re
+from pathlib import Path
 
 import click
 
@@ -48,6 +50,34 @@ def cli_create_tables(table_name: str, drop: bool, if_not_exists: bool) -> None:
 
     click.echo(f"Creating table {table_name}...")
     table.create(if_not_exists=if_not_exists)
+
+
+@cli.command("add-exclude-path")
+@click.argument("path", type=click.Path(path_type=Path, exists=True, resolve_path=True))
+@click.option(
+    "--library",
+    type=click.Path(exists=True, file_okay=False, path_type=Path, resolve_path=True),
+    envvar="MOOMOO_MEDIA_LIBRARY",
+    required=True,
+)
+@click.option("--note", type=str, required=False, default=None)
+def cli_add_exclude_path(path: Path, library: Path, note: str | None) -> None:
+    """Add a path to the exclude list."""
+
+    if path == library:
+        raise click.UsageError("Cannot exclude the media library path.")
+
+    # make path relative to media library and escape it
+    pattern = re.escape(str(path.relative_to(library)))
+
+    # append to the string to ensure start of path is matched
+    pattern = f"^{pattern}"
+
+    click.echo(f"Adding {path} to the exclude list.")
+
+    ddl.LocalFileExcludeRegex(pattern=pattern, note=note).insert()
+
+    click.echo("Successfully added path to the exclude list.")
 
 
 if __name__ == "__main__":

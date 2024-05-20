@@ -1,4 +1,5 @@
 """Common fixtures for all tests."""
+
 import os
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ def remove_env_variables(monkeypatch):
     """Remove relevant environment variables before each test."""
     monkeypatch.setenv("MOOMOO_CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
+    monkeypatch.delenv("MOOMOO_MEDIA_LIBRARY", raising=False)
 
 
 @pytest.fixture(autouse=True)

@@ -1,4 +1,6 @@
 import datetime
+import re
+from pathlib import Path
 from uuid import uuid1
 
 import psycopg
@@ -11,6 +13,7 @@ from moomoo_ingest.db.ddl import (
     BaseTable,
     ListenBrainzListen,
     ListenBrainzUserFeedback,
+    LocalFileExcludeRegex,
 )
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Mapped, mapped_column
@@ -206,6 +209,28 @@ def test_ListenBrainzUserFeedback__last_love_for_user():
     )
 
 
+def test_LocalFileExcludeRegex__fetch_all_regex():
+    LocalFileExcludeRegex.create()
+
+    # none if no regexes
+    assert LocalFileExcludeRegex.fetch_all_regex() == []
+
+    # insert some regexes
+    for i in range(3):
+        record = LocalFileExcludeRegex(
+            pattern=f"^abc_{i}",
+            note=f"note_{i}",
+        )
+        record.insert()
+
+    # correct regexes if any
+    assert LocalFileExcludeRegex.fetch_all_regex() == [
+        re.compile("^abc_0"),
+        re.compile("^abc_1"),
+        re.compile("^abc_2"),
+    ]
+
+
 def test_cli__ddl():
     runner = CliRunner()
     valid_table = TABLES[0].__tablename__
@@ -274,3 +299,57 @@ def test_cli__create():
     assert res.exit_code != 0
     assert "Error: Invalid value for " in res.stdout
     assert "'nonexistent_table' is not one of" in res.stdout
+
+
+def test_cli__add_exclude_path(tmp_path: Path):
+    LocalFileExcludeRegex.create()
+    runner = CliRunner()
+
+    target = tmp_path / "target"
+    target.mkdir()
+
+    # error if no library is specified
+    res = runner.invoke(db_cli, ["add-exclude-path", str(target)])
+    assert res.exit_code != 0
+    assert "Error: Missing option '--library'" in res.stdout
+
+    # error if library does not exist
+    res = runner.invoke(db_cli, ["add-exclude-path", str(target), "--library", "nope"])
+    assert res.exit_code != 0
+    assert (
+        "Error: Invalid value for '--library': Directory 'nope' does not exist."
+        in res.stdout
+    )
+
+    # error if path does not exist
+    res = runner.invoke(
+        db_cli, ["add-exclude-path", "nope", "--library", str(tmp_path)]
+    )
+    assert res.exit_code != 0
+    assert "Error: Invalid value for 'PATH': Path 'nope' does not exist." in res.stdout
+
+    # error if path is the library
+    res = runner.invoke(
+        db_cli, ["add-exclude-path", str(tmp_path), "--library", str(tmp_path)]
+    )
+    assert res.exit_code != 0
+    assert "Cannot exclude the media library path." in res.stdout
+
+    # add a path
+    res = runner.invoke(
+        db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)]
+    )
+    assert res.exit_code == 0
+    assert LocalFileExcludeRegex.fetch_all_regex() == [re.compile("^target")]
+
+    # add one with special characters
+    target = tmp_path / "target (1)"
+    target.mkdir()
+    res = runner.invoke(
+        db_cli, ["add-exclude-path", str(target), "--library", str(tmp_path)]
+    )
+    assert res.exit_code == 0
+    assert LocalFileExcludeRegex.fetch_all_regex() == [
+        re.compile("^target"),
+        re.compile("^target\\ \\(1\\)"),
+    ]
