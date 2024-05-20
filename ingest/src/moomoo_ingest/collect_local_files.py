@@ -3,7 +3,9 @@
 Parses each audio file and extracts the metadata with mutagen. The metadata is then
 inserted into the database ast a JSON blob.
 """
+
 import multiprocessing
+import re
 import sys
 from pathlib import Path
 
@@ -12,7 +14,7 @@ import mutagen
 from tqdm.auto import tqdm
 
 from . import utils_
-from .db import LocalFile, get_session
+from .db import LocalFile, LocalFileExcludeRegex, get_session
 
 EXTENSIONS: set[str] = set([".mp3", ".flac"])
 
@@ -88,6 +90,16 @@ def parse_audio_file(path: Path) -> dict:
     return res
 
 
+def pass_all_exclude_rules(
+    path: Path, src_dir: Path, regexes: list[re.Pattern[str]]
+) -> bool:
+    """Return True if the path passes all the exclude regexes.
+
+    Split out in this way to support multiprocessing, testing.
+    """
+    return not any(regex.match(str(path.relative_to(src_dir))) for regex in regexes)
+
+
 @click.command(help=__doc__)
 @click.argument(
     "src_dir", type=click.Path(exists=True, file_okay=False, path_type=Path)
@@ -105,7 +117,18 @@ def main(
     """Ingest data from local files."""
     # get the list of files
     files = list_audio_files(src_dir)
+
     click.echo(f"Found {len(files)} audio files")
+
+    # filter out the files that match the exclude regexes
+    exclude_regexes = LocalFileExcludeRegex.fetch_all_regex()
+    files = [
+        f
+        for f in files
+        if pass_all_exclude_rules(path=f, src_dir=src_dir, regexes=exclude_regexes)
+    ]
+
+    click.echo(f"Filtered down to {len(files)} audio files after regex exclusion.")
 
     if not files:
         click.echo("No audio files found. Exiting.")

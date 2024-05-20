@@ -9,6 +9,7 @@ from .ddl import (
     ListenBrainzSimilarUserActivity,
     ListenBrainzUserFeedback,
     LocalFile,
+    LocalFileExcludeRegex,
     MessyBrainzNameMap,
     MusicBrainzAnnotation,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "TABLES",
     "ListenBrainzListen",
     "LocalFile",
+    "LocalFileExcludeRegex",
     "ListenBrainzSimilarUserActivity",
     "MusicBrainzAnnotation",
     "ListenBrainzArtistStats",
