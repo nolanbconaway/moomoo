@@ -1,6 +1,6 @@
 from click.testing import CliRunner
 from moomoo_ml.cli import score_local_files, version
-from moomoo_ml.db import BaseTable, FileEmbedding, get_session
+from moomoo_ml.db import BaseTable, FileEmbedding, get_session, LocalFileExcludeRegex
 
 from .conftest import RESOURCES
 
@@ -79,3 +79,19 @@ def test_main__skip_already_scored():
         assert res[0].filepath == "test.mp3"
         assert res[0].success is False
         assert res[0].fail_reason == "uhoh"
+
+
+def test_main__skip_regex_exclude():
+    """Test that it skips files that match the regex exclude."""
+    create_db()
+    exclude = LocalFileExcludeRegex(pattern="test", note="exclude test files")
+    with get_session() as session:
+        session.add(exclude)
+        session.commit()
+
+    runner = CliRunner()
+    result = runner.invoke(score_local_files, [str(RESOURCES)])
+    assert result.exit_code == 0
+    assert "Found 1 unscored file(s)." in result.output
+    assert "Found 0 file(s) after filtering by regex." in result.output
+    assert "Nothing to do" in result.output
