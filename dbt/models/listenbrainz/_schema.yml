@@ -113,6 +113,9 @@ models:
       - name: artist_name
         tests:
           - not_null
+      - name: release_name
+        tests:
+          - not_null
       - name: artist_mbids
       - name: recording_mbid
       - name: release_mbid
