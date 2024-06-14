@@ -3,6 +3,7 @@
     {'columns': ['recording_md5'], 'unique': True},
     {'columns': ['recording_name']},
     {'columns': ['artist_name']},
+    {'columns': ['release_name']},
     {'columns': ['recording_mbid']},
     {'columns': ['release_mbid']},
     {'columns': ['insert_ts_utc']},
@@ -40,6 +41,7 @@
 select
   recording_md5
   , recording_name
+  , release_name
   , artist_name
   , {{ json_get('payload_json', ['artist_mbids'], as_json=True) }} as artist_mbids
   , {{ try_cast_uuid(json_get('payload_json', ['recording_mbid'])) }} as recording_mbid
