@@ -32,12 +32,12 @@ def utcfromisodate(iso_date: str) -> datetime.datetime:
 
 def utcfromunixtime(unixtime: int) -> datetime.datetime:
     """Convert unix timestamp to UTC datetime."""
-    return datetime.datetime.utcfromtimestamp(int(unixtime)).replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.fromtimestamp(int(unixtime), tz=datetime.timezone.utc)
 
 
 def utcnow() -> datetime.datetime:
     """Get the current UTC datetime."""
-    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.now(datetime.timezone.utc)
 
 
 def md5(*args: str) -> str:

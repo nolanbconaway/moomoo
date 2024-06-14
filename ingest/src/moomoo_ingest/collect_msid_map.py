@@ -26,9 +26,11 @@ from .db import LocalFile, MessyBrainzNameMap, execute_sql_fetchall, get_session
 
 # base sql to extract artist names and hashes from the local files table
 RECORDINGS_BASE = f"""
-select distinct recording_md5, recording_name, artist_name
+select distinct recording_md5, recording_name, release_name, artist_name
 from {LocalFile.table_name()}
 where recording_md5 is not null
+  -- max is 250 but i am not sure if & signs are counted, etc.
+  and length(concat(artist_name, recording_name, release_name)) < 245
 """
 
 
@@ -66,7 +68,7 @@ def get_old_recordings(before: datetime.datetime) -> list[dict]:
     retry=retry_if_exception_type(ListenBrainzAPIException),
     reraise=True,
 )
-def lookup_msid(recording_name: str, artist_name: str) -> dict:
+def lookup_msid(recording_name: str, release_name: str, artist_name: str) -> dict:
     """Lookup data for a recording."""
     client = ListenBrainz()
     endpoint = "/1/metadata/lookup/"
@@ -76,6 +78,7 @@ def lookup_msid(recording_name: str, artist_name: str) -> dict:
         params={
             "artist_name": artist_name,
             "recording_name": recording_name,
+            "release_name": release_name,
             "metadata": True,
             "inc": "release",  # to get release group
         },
@@ -129,7 +132,11 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     click.echo("ingesting...")
     with get_session() as session:
         for recording in tqdm(to_ingest, disable=None, total=len(to_ingest)):
-            res = lookup_msid(recording["recording_name"], recording["artist_name"])
+            res = lookup_msid(
+                recording_name=recording["recording_name"],
+                release_name=recording["release_name"],
+                artist_name=recording["artist_name"],
+            )
             MessyBrainzNameMap(
                 **recording,
                 success="recording_name" in res,

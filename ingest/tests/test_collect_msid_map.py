@@ -27,6 +27,7 @@ def load_local_files_table(data: list[dict]):
                 filepath
                 , recording_md5
                 , recording_name
+                , release_name
                 , artist_name
                 , json_data
                 , file_created_at
@@ -37,6 +38,7 @@ def load_local_files_table(data: list[dict]):
                 :filepath
                 , :recording_md5
                 , :recording_name
+                , :release_name
                 , :artist_name
                 , :json_data
                 , :file_created_at
@@ -71,7 +73,12 @@ def monkeypatch_lb_get(monkeypatch):
 def fake_recordings() -> list[dict]:
     """Some fake recordings to work with."""
     return [
-        dict(recording_md5=str(uuid.uuid4()), recording_name="ok", artist_name="ok")
+        dict(
+            recording_md5=str(uuid.uuid4()),
+            recording_name="ok",
+            artist_name="ok",
+            release_name="ok",
+        )
         for _ in range(10)
     ]
 
