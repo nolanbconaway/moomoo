@@ -18,11 +18,12 @@ def make_exclude_table():
 
 def test_parse_audio_file():
     path = RESOURCES / "test.mp3"
-    res = collect_local_files.parse_audio_file(path)["json_data"]
-    assert res["title"] == "fake"
-    assert res["artist"] == "me"
-    assert res["album"] == "out"
-    assert res["album_artist"] == "please"
+    res = collect_local_files.parse_audio_file(path)
+    assert res["json_data"]["title"] == "fake"
+    assert res["json_data"]["artist"] == "me"
+    assert res["json_data"]["album"] == "out"
+    assert res["json_data"]["album_artist"] == "please"
+    assert res.get("recording_md5") is not None
 
 
 def test_list_audio_files():

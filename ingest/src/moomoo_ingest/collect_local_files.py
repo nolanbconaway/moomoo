@@ -78,11 +78,12 @@ def parse_audio_file(path: Path) -> dict:
         json_data=data,
     )
 
-    # add recording_md5, recording_name, artist_name if available
-    if "title" in data and "artist" in data:
-        res["recording_md5"] = utils_.md5(data.get("title"), data.get("artist"))
+    # add recording_md5, recording_name, release_name, artist_name if available
+    if data.get("title") and data.get("album") and data.get("artist"):
+        res["recording_md5"] = utils_.md5(data.get("title"), data.get("album"), data.get("artist"))
         res["recording_name"] = data.get("title")
         res["artist_name"] = data.get("artist")
+        res["release_name"] = data.get("album")
 
     return res
 
