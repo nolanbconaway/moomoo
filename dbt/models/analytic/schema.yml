@@ -174,3 +174,26 @@ models:
       - name: love_at
         tests:
           - not_null
+
+  - name: playlist_file_counts
+    description: Count the number of times a file is currently included across all user playlists.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - username
+            - filepath
+    columns:
+      - name: username
+        tests:
+          - not_null
+      - name: filepath
+        tests:
+          - not_null
+      - name: track_name
+      - name: album_name
+      - name: artist_name
+      - name: album_artist_name
+      - name: playlist_count
+        tests:
+          - not_null
+      - name: collection_names
