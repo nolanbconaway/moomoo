@@ -30,4 +30,4 @@ select
 from agg
 inner join {{ ref('local_files') }} as local_files using (filepath)
 
-  order by 1, 2 desc
+order by 1, 2 desc
