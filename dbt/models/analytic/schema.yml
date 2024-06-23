@@ -123,6 +123,12 @@ models:
       - name: last90_listen_count
         tests:
           - not_null
+      - name: recency_score
+        tests:
+          - not_null
+      - name: revisit_score
+        tests:
+          - not_null
 
   - name: daily_user_listen_stats
     description: Analytic table with listen stats for each user for each day.
