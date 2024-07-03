@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from moomoo_playlist import (
     Track,
+    fetch_recently_played_tracks,
     fetch_user_listen_counts,
     get_most_similar_tracks,
     stream_similar_tracks,
@@ -101,6 +102,40 @@ def test_fetch_user_listen_counts(session: Session):
     assert res == {Path("test/0"): 0, Path("test/1"): 1, Path("test/10"): 0}
 
 
+def test_fetch_recently_played_tracks(session: Session):
+    """Test that fetch_recently_played_tracks works as expected."""
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    ddl = f"""
+    create table {schema}.file_listen_counts (
+        username text, filepath text, last30_listen_count int, recency_score float
+    )
+    """
+    session.execute(text(ddl))
+
+    sql = f"""   
+    insert into {schema}.file_listen_counts (username, filepath, last30_listen_count, recency_score)
+    values (:username, :filepath, :last30_listen_count, :recency_score)
+    """
+    session.execute(
+        text(sql),
+        [
+            dict(username="test", filepath=f"test/{i}", last30_listen_count=i, recency_score=i)
+            for i in range(3)
+        ],
+    )
+
+    res = fetch_recently_played_tracks(session=session, username="nope")
+    assert res == {}
+
+    # only serve files with any listens
+    res = fetch_recently_played_tracks(session=session, username="test")
+    assert res == {Path(f"test/{i}"): float(i) for i in range(1, 3)}
+
+    # test limit is sorted by recency_score
+    res = fetch_recently_played_tracks(session=session, username="test", limit=1)
+    assert res == {Path("test/2"): 2.0}
+
+
 def test_stream_similar_tracks(session: Session):
     """Test that stream_similar_tracks works as expected."""
     rows = [dict(filepath=f"test/{i}", embedding=str([i] * 10)) for i in range(10)]
@@ -179,6 +214,59 @@ def test_stream_similar_tracks__weighted(session: Session):
         sqrt((1 - 2) ** 2 + (0.5 - 2) ** 2) * 1 / 3  # 0 -> 2
     )
     assert pytest.approx(res[0].distance) == expect
+
+
+def test_stream_similar_tracks__predicate_weights(session: Session):
+    """Test the predicate weights are correctly applied."""
+    rows = [
+        dict(filepath="test/0", embedding=str([1, 0.5])),
+        dict(filepath="test/1", embedding=str([1, 1])),
+        dict(filepath="test/2", embedding=str([2, 2])),
+        dict(filepath="test/3", embedding=str([2, 2.5])),
+    ]
+    load_local_files_table(data=rows)
+    targets = [Path("test/1"), Path("test/2")]
+
+    # with 1 weights, should have the same result as without weights
+    weights = {Path("test/0"): 1, Path("test/3"): 1}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert res == list(stream_similar_tracks(targets, session))
+
+    # setting weights to 0 should remove the track from the results
+    weights = {Path("test/0"): 0}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert not any(i.filepath == Path("test/0") for i in res)
+
+    # tracks more heavily weighted tracks should be first
+    weights = {Path("test/0"): 1, Path("test/1"): 2, Path("test/2"): 3, Path("test/3"): 4}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert [i.filepath for i in res] == [
+        Path("test/3"),
+        Path("test/2"),
+        Path("test/1"),
+        Path("test/0"),
+    ]
+
+    # do one with exact math
+    weights = {Path("test/0"): 2.4}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert res[0].filepath == Path("test/0")
+    # distance is l2 (euclidean). note that the weights are normalized
+    expect = (
+        (sqrt((1 - 1) ** 2 + (0.5 - 1) ** 2) / 2)  # 0 -> 1
+        + sqrt((1 - 2) ** 2 + (0.5 - 2) ** 2) / 2  # 0 -> 2
+    ) / 2.4  # weighting
+    assert pytest.approx(res[0].distance) == expect
+
+    # test case when the listen counts table does not contain the target
+    weights = {Path("test/x"): 5}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert not any(i.filepath == Path("test/x") for i in res)
 
 
 def test_get_most_similar_tracks(session: Session):

@@ -26,6 +26,7 @@ logger = get_logger().bind(module=__name__)
 # ml model constants
 MIN_LISTENS = 2
 DIMS = 50
+RECENCY_FAC = 0.5
 
 
 @dataclasses.dataclass
@@ -213,7 +214,9 @@ def main(username: str, count: int, force: bool, n_jobs: int):
             *[track.filepath for track in cluster], username=username
         )
         try:
-            playlist = generator.get_playlist(session=session, seed_count=1)
+            playlist = generator.get_playlist(
+                session=session, seed_count=1, recency_fac=RECENCY_FAC
+            )
         except NoFilesRequestedError:
             logger.exception("No files found for cluster.")
             continue

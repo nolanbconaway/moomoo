@@ -14,6 +14,7 @@ from .base import (
     Playlist,
     Track,
     db_retry,
+    fetch_recently_played_tracks,
     fetch_user_listen_counts,
     get_most_similar_tracks,
 )
@@ -94,6 +95,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         limit_per_artist: int = 2,
         shuffle: bool = True,
         seed_count: int = 0,
+        recency_fac: float = 0.0,
     ) -> Playlist:
         """Get a playlist of similar songs.
 
@@ -107,6 +109,9 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
                 the playlist. This count is included in the limit; so if limit=10 and
                 seed_count=2, 8 songs will be added to the playlist in addition to the
                 seed files.
+            recency_fac: Factor by which to multiply the distance to account for recency (recently
+                listened tracks are considered less similar). Default is 0.0, which means no
+                recency factor.
 
         Returns:
             A Playlist object.
@@ -128,12 +133,23 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         else:
             weights = None
 
+        if recency_fac > 0.0:
+            predicate_weights = {
+                k: self.recency_score_to_weight(v, recency_fac)
+                for k, v in fetch_recently_played_tracks(
+                    session=session, username=self.username
+                ).items()
+            }
+        else:
+            predicate_weights = None
+
         tracks = get_most_similar_tracks(
             filepaths=source_paths,
             session=session,
             limit=limit - seed_count,
             limit_per_artist=limit_per_artist,
             weights=weights,
+            predicate_weights=predicate_weights,
         )
 
         if shuffle:
