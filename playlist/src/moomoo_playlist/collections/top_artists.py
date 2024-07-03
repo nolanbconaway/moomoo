@@ -18,6 +18,8 @@ from ..logger import get_logger
 collection_name = "top-artists"
 logger = get_logger().bind(module=__name__)
 
+RECENCY_FAC = 0.5
+
 # mapping of length to config
 HISTORY_CONFIG = {
     "30": dict(col="last30_listen_count", min_n=15),
@@ -124,7 +126,9 @@ def main(username: str, history_length: str, count: int, force: bool):
     for artist in tqdm(artists, disable=None, total=len(artists)):
         generator = FromMbidsPlaylistGenerator(artist.mbid, username=username)
         try:
-            playlist = generator.get_playlist(session=session, seed_count=1)
+            playlist = generator.get_playlist(
+                session=session, seed_count=1, recency_fac=RECENCY_FAC
+            )
         except NoFilesRequestedError:
             logger.exception(f"No files found for {artist.name}/{artist.mbid}.")
             continue

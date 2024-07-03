@@ -3,6 +3,7 @@
 import abc
 import os
 from collections import Counter
+from itertools import islice
 from math import log
 from pathlib import Path
 from typing import Generator, Optional
@@ -54,12 +55,32 @@ class BasePlaylistGenerator(abc.ABC):
         zero weight via log(2 + x). I put it here to share across playlist generators.
 
         Args:
-            listen_count: Listen count.
+            x: Listen count.
 
         Returns:
             A weight for use in similarity calculations.
         """
         return log(2 + max(x, 0))
+
+    @staticmethod
+    def recency_score_to_weight(x: int, fac: float = 1.0) -> float:
+        """Convert a recency score to a weight.
+
+        Recency is defined as a >0 score, with higher scores indicating more recent listens.
+        We wish to make a weight multiplier which makes streaming recent tracks less likely, which
+        means we need to covert the recency score to a weight < 1.
+
+        This is done via transformation 1 / (1 + x * fac), which will return a weight between 0-1,
+        with higher recency scores resulting in lower weights.
+
+        Args:
+            x: Listen count.
+            fac: Factor to multiply the recency score by.
+
+        Returns:
+            A weight for use in similarity calculations.
+        """
+        return 1 / (1 + x * fac)
 
 
 @db_retry
@@ -105,12 +126,44 @@ def fetch_user_listen_counts(
     return {fp: rows.get(fp, 0) for fp in filepaths}
 
 
+def fetch_recently_played_tracks(
+    username: str, session: Session, limit: int = 1000
+) -> dict[Path, float]:
+    """Fetch the most recently played tracks for a user, along with the recency score.
+
+    Args:
+        username: Username to fetch listen counts for.
+        session: Sqlalchemy session.
+        limit: Number of tracks to fetch.
+
+    Returns:
+        A list of filepaths, ordered by most recently played.
+    """
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+        select filepath, recency_score
+        from {schema}.file_listen_counts
+        where username = :username
+          and last30_listen_count > 0
+          and recency_score is not null
+        order by recency_score desc
+        limit :limit
+    """
+    return {
+        Path(row["filepath"]): float(row["recency_score"])
+        for row in execute_sql_fetchall(
+            sql=sql, params={"username": username, "limit": limit}, session=session
+        )
+    }
+
+
 @db_retry
 def stream_similar_tracks(
     filepaths: list[Path],
     session: Session,
     limit: Optional[int] = 2000,
     weights: Optional[list[float]] = None,
+    predicate_weights: dict[Path, float] | None = None,
 ) -> Generator[Track, None, None]:
     """Stream similar tracks to filepaths.
 
@@ -125,6 +178,11 @@ def stream_similar_tracks(
         weights: List of weights for each filepath. If provided, the aggregate distance
             will be weighted (larger weights counted more). Must be the same length as
             filepaths. Must be non-negative.
+        predicate_weights: Dictionary of filepaths to weights. If provided, the distance between the
+            potentially streamed filepaths will be _divided_ by the weight. This is useful for
+            boosting/reducing the likelihood of certain tracks being included in the stream. Larger
+            weights will then decrease the distance between the tracks, so they are more likely to
+            be included in the stream.
 
     Returns:
         A generator of PlaylistTrack objects, in order of distance. Can be consumed
@@ -142,11 +200,24 @@ def stream_similar_tracks(
     else:
         weights = [1] * len(filepaths)
 
-    # upload files and weights to a temporary table to avoid a huge where clause
-    tmp_name = make_temp_table(
+    # check predicate weights
+    if any(w < 0 for w in (predicate_weights or dict()).values()):
+        raise ValueError("Predicate weights must be non-negative.")
+
+    # upload weights to temporary tables for later joining against the local_files table
+    base_weights_table = make_temp_table(
         session=session,
         types={"filepath": "text", "weight": "float"},
         data=[{"filepath": str(fp), "weight": w} for fp, w in zip(filepaths, weights) if w > 0],
+        pk="filepath",
+    )
+
+    predicate_weights_table = make_temp_table(
+        session=session,
+        types={"filepath": "text", "weight": "float"},
+        data=[
+            {"filepath": str(fp), "weight": w} for fp, w in (predicate_weights or dict()).items()
+        ],
         pk="filepath",
     )
 
@@ -155,7 +226,7 @@ def stream_similar_tracks(
         with base as (
             select filepath, tmp_.weight, local_files.embedding
             from {schema}.local_files
-            inner join {tmp_name} as tmp_ using (filepath)
+            inner join {base_weights_table} as tmp_ using (filepath)
             where local_files.embedding_success
               and local_files.embedding_duration_seconds >= 60
         )
@@ -169,7 +240,7 @@ def stream_similar_tracks(
                         sum((base.embedding <-> local_files.embedding) * base.weight)
                         / sum(base.weight)
                     )
-                  end  as distance
+                  end as distance
 
             from {schema}.local_files
             cross join base
@@ -191,19 +262,18 @@ def stream_similar_tracks(
             , f.release_group_mbid
             , f.artist_mbid
             , coalesce(f.album_artist_mbid, f.artist_mbid) as album_artist_mbid
-            , d.distance
+            , d.distance / coalesce(weights.weight, 1.0) as distance
 
         from distances as d
+        left join {predicate_weights_table} as weights using (filepath)
         inner join {schema}.local_files as f using (filepath)
-        order by d.distance asc
+        where coalesce(weights.weight, 1.0) > 0
+        order by d.distance / coalesce(weights.weight, 1.0) asc, md5(filepath)
         limit :limit
     """
     res = session.execute(
         text(sql),
-        params={
-            "filepaths": list(set(map(str, filepaths))),
-            "limit": limit,
-        },
+        params={"limit": limit},
         execution_options=dict(yield_per=1, stream_results=True, max_row_buffer=1),
     )
 
@@ -233,6 +303,7 @@ def get_most_similar_tracks(
     limit: int = 20,
     limit_per_artist: Optional[int] = None,
     weights: Optional[list[float]] = None,
+    predicate_weights: dict[Path, float] | None = None,
 ) -> list[Track]:
     """Get a listing of similar songs.
 
@@ -247,6 +318,11 @@ def get_most_similar_tracks(
         weights: List of weights for each filepath. If provided, the aggregate distance
             will be weighted (larger weights counted more). Must be the same length as
             filepaths. Must be non-negative.
+        predicate_weights: Dictionary of filepaths to weights. If provided, the distance between the
+            potentially streamed filepaths will be _divided_ by the weight. This is useful for
+            boosting/reducing the likelihood of certain tracks being included in the stream. Larger
+            weights will then decrease the distance between the tracks, so they are more likely to
+            be included in the stream.
 
     Returns:
         A list of filepaths, sorted by distance.
@@ -254,18 +330,22 @@ def get_most_similar_tracks(
     if not filepaths:
         raise ValueError("No filepaths provided.")
 
-    # if not limit_per_artist, then we don't need to do any extra logic
-    if not limit_per_artist:
-        return [
-            i
-            for i in stream_similar_tracks(
-                filepaths=filepaths, session=session, limit=limit, weights=weights
-            )
-        ]
+    def stream() -> Generator[Track, None, None]:
+        yield from stream_similar_tracks(
+            filepaths=filepaths,
+            session=session,
+            weights=weights,
+            predicate_weights=predicate_weights,
+        )
 
-    # else, consume the generator and limit the number of songs per artist
+    # if not limit_per_artist, then we don't need to do any extra logic. just send the limit to the
+    # stream
+    if not limit_per_artist:
+        return list(islice(stream(), limit))
+
+    # else, consume the generator up to the total limit and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
-    for track in stream_similar_tracks(filepaths=filepaths, session=session):
+    for track in stream():
         if any(getattr(track, attr) is None for attr in ["artist_mbid", "album_artist_mbid"]):
             continue
 
