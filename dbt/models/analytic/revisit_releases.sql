@@ -22,17 +22,16 @@ select
   , username
   , revisit_score
   , lifetime_recording_count as num_recordings
-  , lifetime_listen_count - last90_listen_count as listens_old
+  , last150_listen_count - last90_listen_count as listens_old
   , last90_listen_count as listens_recent
 
 from {{ ref('release_group_listen_counts') }}
 
--- idk about singles or huge box sets
-where lifetime_recording_count between 4 and 20
-  and last90_listen_count < 10
-  and (lifetime_listen_count - last90_listen_count) > 10
-  and (lifetime_listen_count - last90_listen_count) > (lifetime_recording_count * 2)
+where lifetime_recording_count between 4 and 20 -- idk about singles or huge box sets
+  and last30_listen_count < 5 -- not a lot of listens in the last 30 days
+  and (last150_listen_count - last90_listen_count) >= 5 -- at least 5 listens older than 90 days
+  and (last150_listen_count - last90_listen_count) >= (lifetime_recording_count * 1.5) -- more listens than recordings
 
-  -- baseline revisit score of 30 days recency * 5 tracks = (1 - 0.05) * ln(5)
-  and revisit_score > 1.5
+  -- baseline revisit score of 30 days recency * 3 tracks = (1 - 0.05) * ln(3)
+  and revisit_score > 1.05
 order by revisit_score desc

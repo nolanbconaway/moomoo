@@ -9,7 +9,7 @@ with agg as (
 
   from {{ ref('moomoo_playlist_collection_items') }} as playlist
   inner join {{ ref('moomoo_playlist_collections') }} as collections using (collection_id)
-  , jsonb_array_elements(playlist) as track
+  , jsonb_array_elements(playlist.playlist) as track
 
   where collections.collection_name not in ('loved-tracks', 'revisit-tracks')
 
