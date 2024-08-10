@@ -38,7 +38,7 @@ with listen_mapped_prop as (
 select
   {{ dbt_utils.generate_surrogate_key(['username', 'listen_date']) }} as user_date_key
   , counts.*
-  , listen_mapped_prop.pct_listens_mapped_to_file
+  , coalesce(listen_mapped_prop.pct_listens_mapped_to_file, 0) as pct_listens_mapped_to_file
 
 from counts
 left join listen_mapped_prop using (username, listen_date)
