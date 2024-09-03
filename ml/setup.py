@@ -4,9 +4,7 @@ from pathlib import Path
 
 from setuptools import find_packages, setup
 
-version = (
-    (Path(__file__).resolve().parent / "src" / "moomoo_ml" / "version").read_text().strip()
-)
+version = (Path(__file__).resolve().parent / "src" / "moomoo_ml" / "version").read_text().strip()
 
 
 setup(
@@ -25,16 +23,15 @@ setup(
         "torch==2.*",
         "torchaudio==2.*",
         "nnAudio==0.3.*",
+        "scikit-learn==1.5.*",
     ],
     extras_require=dict(
-    test=[
-        "ruff==0.4.4",
-        "pytest==7.4.2",
-        "pytest-postgresql==5.0.0",
-    ],
-
-
-),
+        test=[
+            "ruff==0.4.4",
+            "pytest==7.4.2",
+            "pytest-postgresql==5.0.0",
+        ],
+    ),
     entry_points={"console_scripts": ["moomoo-ml=moomoo_ml.cli:cli"]},
     package_data={
         "moomoo_ml": ["model-info.json", "version"],
