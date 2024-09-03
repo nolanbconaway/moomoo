@@ -22,7 +22,7 @@ class BaseTable(DeclarativeBase):
     type_annotation_map: ClassVar[dict] = {
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
-        list[float]: Vector(1024),
+        list[float]: Vector(),
     }
 
 
@@ -57,3 +57,16 @@ class LocalFileExcludeRegex(BaseTable):
         """Return a list of compiled regex patterns."""
         with get_session() as session:
             return [re.compile(i.pattern) for i in session.query(cls).all()]
+
+
+class ConditionedEmbedding(BaseTable):
+    """Model for conditioned embeddings table."""
+
+    __tablename__ = "local_music_conditioned_embeddings"
+
+    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    conditioner_id: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(nullable=False)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
