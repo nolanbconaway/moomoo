@@ -230,7 +230,7 @@ def condition_new_files(artifacts: Path, rerun: bool):
     if rerun and click.confirm(
         "This command will delete all conditioned embeddings. Continue?", abort=True
     ):
-        click.echo("Rerunning conditioning.")
+        click.echo("Dropping all conditioned embeddings.")
         with get_session() as session:
             stmt = update(FileEmbedding).values(conditioned_embedding=None)
             session.execute(stmt)
