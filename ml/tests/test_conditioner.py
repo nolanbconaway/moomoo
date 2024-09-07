@@ -12,14 +12,6 @@ def random_data() -> np.ndarray:
     return rs.randn(100, 1024)
 
 
-@pytest.fixture(autouse=True)
-def conditioner_info_file(tmp_path: Path, monkeypatch) -> Path:
-    """Patch the conditioner info dir to a temporary directory."""
-    p = tmp_path / "cinfo.json"
-    monkeypatch.setattr(Model, "INFO_FILE", p)
-    return p
-
-
 def test_is_fitted(random_data: np.ndarray):
     model = Model()
     assert not model.is_fitted

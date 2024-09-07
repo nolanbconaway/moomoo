@@ -55,6 +55,7 @@ def get_db_embeddings(unconditioned: bool = False) -> tuple[list[Path], np.ndarr
             session.query(FileEmbedding)
             .filter(FileEmbedding.success.is_(True))
             .filter(conditioner_sql)
+            .order_by(FileEmbedding.filepath)
         )
 
         if not query.count():

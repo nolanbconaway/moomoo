@@ -99,6 +99,10 @@ def test_score_local_files__skip_regex_exclude():
 
 
 def test_build_conditioner(monkeypatch, tmp_path):
+    # make artifacts dir
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+
     # patch click.confirm to always return True
     monkeypatch.setattr("click.confirm", lambda *_, **__: True)
 
@@ -109,10 +113,10 @@ def test_build_conditioner(monkeypatch, tmp_path):
 
     # run the command
     runner = CliRunner()
-    result = runner.invoke(build_conditioner, ["--artifacts", str(tmp_path)])
+    result = runner.invoke(build_conditioner, ["--artifacts", str(artifacts)])
     assert result.exit_code == 0
     assert "Building conditioner" in result.output
-    assert len(list(tmp_path.iterdir())) == 1
+    assert len(list(artifacts.iterdir())) == 1
 
 
 def test_condition_new_files(monkeypatch, tmp_path):

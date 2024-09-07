@@ -4,6 +4,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
+from moomoo_ml.conditioner import Model
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -11,6 +12,14 @@ RESOURCES = Path(__file__).parent / "resources"
 @pytest.fixture(autouse=True)
 def remove_env_variables(monkeypatch):
     monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
+
+
+@pytest.fixture(autouse=True)
+def conditioner_info_file(tmp_path: Path, monkeypatch) -> Path:
+    """Patch the conditioner info dir to a temporary directory."""
+    p = tmp_path / "cinfo.json"
+    monkeypatch.setattr(Model, "INFO_FILE", p)
+    return p
 
 
 @pytest.fixture(autouse=True)
