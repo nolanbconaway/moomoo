@@ -3,7 +3,7 @@
 import datetime
 import os
 import re
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import create_engine, func
@@ -22,7 +22,8 @@ class BaseTable(DeclarativeBase):
     type_annotation_map: ClassVar[dict] = {
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
-        list[float]: Vector(),
+        Annotated[list[float], 1024]: Vector(1024),
+        Annotated[list[float], 50]: Vector(50),
     }
 
 
@@ -35,7 +36,8 @@ class FileEmbedding(BaseTable):
     success: Mapped[bool] = mapped_column(nullable=False)
     fail_reason: Mapped[str] = mapped_column(nullable=True)
     duration_seconds: Mapped[float] = mapped_column(nullable=True)
-    embedding: Mapped[list[float]] = mapped_column(nullable=True)
+    embedding: Mapped[Annotated[list[float], 1024]] = mapped_column(nullable=True)
+    conditioned_embedding: Mapped[Annotated[list[float], 50]] = mapped_column(nullable=True)
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
     )
@@ -57,16 +59,3 @@ class LocalFileExcludeRegex(BaseTable):
         """Return a list of compiled regex patterns."""
         with get_session() as session:
             return [re.compile(i.pattern) for i in session.query(cls).all()]
-
-
-class ConditionedEmbedding(BaseTable):
-    """Model for conditioned embeddings table."""
-
-    __tablename__ = "local_music_conditioned_embeddings"
-
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
-    conditioner_id: Mapped[str] = mapped_column(primary_key=True, nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(nullable=False)
-    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp(), index=True
-    )

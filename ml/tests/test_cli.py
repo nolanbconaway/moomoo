@@ -9,13 +9,7 @@ from moomoo_ml.cli import (
     score_local_files,
     version,
 )
-from moomoo_ml.db import (
-    BaseTable,
-    ConditionedEmbedding,
-    FileEmbedding,
-    LocalFileExcludeRegex,
-    get_session,
-)
+from moomoo_ml.db import BaseTable, FileEmbedding, LocalFileExcludeRegex, get_session
 
 from .conftest import RESOURCES
 
@@ -105,6 +99,9 @@ def test_score_local_files__skip_regex_exclude():
 
 
 def test_build_conditioner(monkeypatch, tmp_path):
+    # patch click.confirm to always return True
+    monkeypatch.setattr("click.confirm", lambda *_, **__: True)
+
     # patch result of get_db_embeddings
     paths = [Path(f"{i}.mp3") for i in range(2000)]
     embeds = np.random.rand(1000, 1024)
@@ -119,6 +116,9 @@ def test_build_conditioner(monkeypatch, tmp_path):
 
 
 def test_condition_new_files(monkeypatch, tmp_path):
+    # patch click.confirm to always return True
+    monkeypatch.setattr("click.confirm", lambda *_, **__: True)
+
     def fake_result(n):
         """make a monkeypatched function that returns n fake embeddings."""
 
@@ -127,37 +127,42 @@ def test_condition_new_files(monkeypatch, tmp_path):
 
         return wrapper
 
+    # add some data
     create_db()
+    with get_session() as session:
+        for i in range(50):
+            vec = np.random.rand(1024)
+            session.add(FileEmbedding(filepath=f"{i}.mp3", success=True, embedding=vec.tolist()))
+        session.commit()
+
     runner = CliRunner()
 
-    # build the conditioner
+    # build the conditioner. this should update the model info file which is patched to a tmp dir
     monkeypatch.setattr("moomoo_ml.cli.get_db_embeddings", fake_result(2000))
     result = runner.invoke(build_conditioner, ["--artifacts", str(tmp_path)])
     assert result.exit_code == 0
-    conditioner_id = next(iter(tmp_path.iterdir())).with_suffix("").name
-
-    # error if wrong conditioner_id
-    result = runner.invoke(condition_new_files, ["fake", "--artifacts", str(tmp_path)])
-    assert result.exit_code != 0
-    assert "Conditioner fake not found" in result.output
 
     # no data
     monkeypatch.setattr("moomoo_ml.cli.get_db_embeddings", lambda **_: [[], np.array([])])
-    result = runner.invoke(condition_new_files, [conditioner_id, "--artifacts", str(tmp_path)])
+    result = runner.invoke(condition_new_files, ["--artifacts", str(tmp_path)])
     assert result.exit_code == 0
     assert "No new files to condition." in result.output
 
     # condition the files
     monkeypatch.setattr("moomoo_ml.cli.get_db_embeddings", fake_result(10))
-    result = runner.invoke(condition_new_files, [conditioner_id, "--artifacts", str(tmp_path)])
+    result = runner.invoke(condition_new_files, ["--artifacts", str(tmp_path)])
     assert result.exit_code == 0
     assert "Saving 10 conditioned embeddings." in result.output
 
-    # check the db
+    # check the db. only files 1-10 should have conditioned embeddings because the fake result
+    # function only returns 10 embeddings
     with get_session() as session:
-        res = session.query(ConditionedEmbedding).all()
-        assert len(res) == 10
-        assert all(i.conditioner_id == conditioner_id for i in res)
+        res = session.query(FileEmbedding).all()
+        assert len(res) == 50
+
+        condition = lambda r: int(r.filepath.split(".")[0]) < 10  # noqa: E731
+        assert all([r.conditioned_embedding is not None for r in res if condition(r)])
+        assert all([r.conditioned_embedding is None for r in res if not condition(r)])
 
 
 def test_get_db_embeddings():
@@ -176,6 +181,7 @@ def test_get_db_embeddings():
                 fail_reason=None,
                 duration_seconds=1.0,
                 embedding=np.random.rand(1024).tolist(),
+                conditioned_embedding=np.random.rand(50).tolist(),
             )
         )
         session.add(
@@ -185,15 +191,10 @@ def test_get_db_embeddings():
                 fail_reason=None,
                 duration_seconds=1.0,
                 embedding=np.random.rand(1024).tolist(),
+                conditioned_embedding=None,
             )
         )
-        session.add(
-            ConditionedEmbedding(
-                filepath="1.mp3",
-                conditioner_id="123",
-                embedding=np.random.rand(50).tolist(),
-            )
-        )
+
         session.commit()
 
     # test get all embeddings
@@ -203,7 +204,7 @@ def test_get_db_embeddings():
     assert set(paths) == {Path("1.mp3"), Path("2.mp3")}
 
     # test unconditioned_by
-    paths, embeds = get_db_embeddings(unconditioned_by="123")
+    paths, embeds = get_db_embeddings(unconditioned=True)
     assert len(paths) == len(embeds) == 1
     assert embeds.shape == (1, 1024)
     assert set(paths) == {Path("2.mp3")}

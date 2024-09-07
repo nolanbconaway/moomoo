@@ -8,13 +8,13 @@ from pathlib import Path
 
 import click
 import numpy as np
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
 from .conditioner import Model as ConditionerModel
-from .db import BaseTable, ConditionedEmbedding, FileEmbedding, LocalFileExcludeRegex, get_session
+from .db import BaseTable, FileEmbedding, LocalFileExcludeRegex, get_session
 from .scorer import Model
 
 MODEL_INFO = json.loads((Path(__file__).parent / "model-info.json").read_text())
@@ -35,33 +35,26 @@ def pass_all_exclude_rules(path: Path, src_dir: Path, regexes: list[re.Pattern[s
     return not any(regex.match(str(path.relative_to(src_dir))) for regex in regexes)
 
 
-def get_db_embeddings(unconditioned_by: str | None = None) -> tuple[list[Path], np.ndarray]:
+def get_db_embeddings(unconditioned: bool = False) -> tuple[list[Path], np.ndarray]:
     """Get embeddings from the database.
 
     Returns a list of Paths and a 2d numpy array of embeddings. Each row in the array corresponds to
     the embedding of the file at the same index in the list.
 
-    If unscored_by is provided, only embeddings which have not been conditioned by the given
-    conditioner will be returned.
+    If unconditioned is provided, only embeddings which have not been conditioned will be returned.
     """
-    if unconditioned_by:
-        click.echo(f"Getting embeddings not conditioned by {unconditioned_by}.")
-        conditioner_sql = f"""
-            filepath not in (
-                select filepath
-                from {ConditionedEmbedding.__tablename__}
-                where conditioner_id = '{unconditioned_by}'
-            )
-        """
+    if unconditioned:
+        click.echo("Getting unconditioned embeddings.")
+        conditioner_sql = FileEmbedding.conditioned_embedding.is_(None)
     else:
         click.echo("Getting all embeddings.")
-        conditioner_sql = "true"
+        conditioner_sql = text("true")
 
     with get_session() as session:
         query = (
             session.query(FileEmbedding)
             .filter(FileEmbedding.success.is_(True))
-            .filter(text(conditioner_sql))
+            .filter(conditioner_sql)
         )
 
         if not query.count():
@@ -91,12 +84,7 @@ def create_db():
     with get_session() as session:
         engine = session.get_bind()
         BaseTable.metadata.create_all(
-            engine,
-            tables=[
-                FileEmbedding.__table__,
-                LocalFileExcludeRegex.__table__,
-                ConditionedEmbedding.__table__,
-            ],
+            engine, tables=[FileEmbedding.__table__, LocalFileExcludeRegex.__table__]
         )
 
 
@@ -197,18 +185,34 @@ def score_local_files(src_dir: Path, artifacts: Path):
     show_default=True,
     help="Path to the saved artifacts directory.",
 )
-def build_conditioner(artifacts: Path):
-    """Build a conditioner model."""
+@click.option("--rerun", "rerun", is_flag=True, help="Option to rerun the conditioning.")
+def build_conditioner(artifacts: Path, rerun: bool):
+    """Build a conditioner model and save artifacts."""
     click.echo("Building conditioner model.")
     _, embeds = get_db_embeddings()
     model = ConditionerModel()
     model.fit(embeds)
+
+    click.echo("")
+    click.secho("Conditioner model built.", fg="green")
+    click.secho(f"  Name: {model.name}", fg="green")
+    click.secho(f"  Hash: {model.hash}", fg="green")
+    click.secho(f"  Filename: {model.filename}", fg="green")
+    click.echo("")
+
     model.save_to_artifacts(artifacts)
-    click.echo(f"Conditioner model {model.conditioner_id} saved to {artifacts}.")
+    click.echo(f"Conditioner model saved to {artifacts}/{model.filename}.")
+
+    # ask user if they want to update model-info.json
+    if click.confirm("Update conditioner-info.json?", abort=True):
+        model.update_model_info()
+
+    # run condition-new-files
+    if rerun and click.confirm("Update conditioned embeddings in the database?", abort=True):
+        condition_new_files(["--artifacts", str(artifacts), "--rerun"])
 
 
 @cli.command("condition")
-@click.argument("conditioner_id", type=str)
 @click.option(
     "--artifacts",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
@@ -216,20 +220,24 @@ def build_conditioner(artifacts: Path):
     show_default=True,
     help="Path to the saved artifacts directory.",
 )
-def condition_new_files(conditioner_id: str, artifacts: Path):
+@click.option("--rerun", "rerun", is_flag=True, help="Option to rerun the conditioning.")
+def condition_new_files(artifacts: Path, rerun: bool):
     """Write the conditioned embeddings to the database.
 
     Skips files that have already been conditioned for the given conditioner.
     """
-    # check there is a file in the artifacts dir with the conditioner_id
-    if not (artifacts / f"{conditioner_id}.pkl").exists():
-        click.echo(f"Conditioner {conditioner_id} not found in {artifacts}.")
-        sys.exit(1)
+    if rerun and click.confirm(
+        "This command will delete all conditioned embeddings. Continue?", abort=True
+    ):
+        click.echo("Rerunning conditioning.")
+        with get_session() as session:
+            stmt = update(FileEmbedding).values(conditioned_embedding=None)
+            session.execute(stmt)
+            session.commit()
 
     click.echo("Loading conditioner model.")
-    model = ConditionerModel.load_from_artifacts(conditioner_id=conditioner_id, artifacts=artifacts)
-
-    paths, raw_embeds = get_db_embeddings(unconditioned_by=conditioner_id)
+    model = ConditionerModel.load_from_artifacts(artifacts)
+    paths, raw_embeds = get_db_embeddings(unconditioned=True)
 
     if not paths:
         click.echo("No new files to condition.")
@@ -241,21 +249,10 @@ def condition_new_files(conditioner_id: str, artifacts: Path):
     click.echo(f"Saving {len(paths)} conditioned embeddings.")
     with get_session() as session:
         for idx, path in tqdm(enumerate(paths), total=len(paths), disable=None):
-            vec = conditioned_embeds[idx, :].tolist()
-
             stmt = (
-                insert(ConditionedEmbedding)
-                .values(filepath=str(path), conditioner_id=conditioner_id, embedding=vec)
-                .on_conflict_do_update(
-                    index_elements=[
-                        ConditionedEmbedding.filepath,
-                        ConditionedEmbedding.conditioner_id,
-                    ],
-                    set_=dict(
-                        embedding=vec,
-                        insert_ts_utc=datetime.datetime.now(datetime.timezone.utc),
-                    ),
-                )
+                update(FileEmbedding)
+                .where(FileEmbedding.filepath == str(path))
+                .values(conditioned_embedding=conditioned_embeds[idx, :].tolist())
             )
             session.execute(stmt)
             session.commit()
