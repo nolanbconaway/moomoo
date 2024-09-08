@@ -11,7 +11,6 @@ import click
 import numpy as np
 from scipy.spatial.distance import pdist
 from sklearn.cluster import HDBSCAN
-from sklearn.decomposition import PCA
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
@@ -25,7 +24,6 @@ logger = get_logger().bind(module=__name__)
 
 # ml model constants
 MIN_LISTENS = 2
-DIMS = 50
 RECENCY_FAC = 0.5
 
 
@@ -98,25 +96,22 @@ def _run_clusterer(tracks: list[Track], n_jobs: int) -> np.ndarray:
 
     This does the actual scikit-learn part. Its split out for mocks in tests.
     """
-    if len(tracks) <= DIMS:
+    if not tracks or len(tracks) <= 50:
         raise RuntimeError(
-            "Not enough tracks to cluster." + f"Got {len(tracks)} tracks, need > {DIMS}."
+            "Not enough tracks to cluster." + f"Got {len(tracks)} tracks, need > 50."
         )
 
-    embeddings = np.stack([track.embedding for track in tracks]).astype(np.float16)
-
     # set seed for reproducibility
+
     np.random.seed(5)
 
-    pca = PCA(n_components=DIMS)
-    pca.fit(embeddings)
     clusterer = HDBSCAN(
         min_cluster_size=3,
         max_cluster_size=15,
         n_jobs=n_jobs,
         cluster_selection_method="eom",
     )
-    clusterer.fit(pca.transform(embeddings))
+    clusterer.fit(np.stack([track.embedding for track in tracks]).astype(np.float16))
     return clusterer.labels_
 
 
