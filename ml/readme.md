@@ -33,8 +33,8 @@ Download the model locally:
 moomoo-ml scorer save-artifacts
 ```
 
-The run scoring via:
-
+The run scoring via:**
+**
 ```
 moomoo-ml scorer score /path/to/media-library
 ```
@@ -74,5 +74,9 @@ make docker-build
 Run
 
 ```
-make docker-run
+make docker-run-scorer
+```
+
+```
+make docker-run-conditioner
 ```
