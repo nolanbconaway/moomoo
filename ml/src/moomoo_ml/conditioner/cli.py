@@ -96,6 +96,7 @@ def build_conditioner(artifacts: Path, update_info: bool, replace_embeds: bool):
 
     if update_info:
         model.update_model_info()
+        click.echo(f"Model info updated in {ConditionerModel.INFO_FILE}.")
 
     if replace_embeds and click.confirm(
         "--replace-embeds will delete and replace all conditioned embeddings. Continue?", abort=True
