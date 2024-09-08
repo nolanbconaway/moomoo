@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 from click.testing import CliRunner
 from moomoo_playlist.collections.smart_mix import (
-    DIMS,
     Track,
     cluster_avg_distance,
     fetch_tracks,
@@ -28,7 +27,7 @@ def make_track(fpath: str, **kw) -> Track:
         track_name=kw.get("track_name", fpath),
         artist_name=kw.get("artist_name", fpath),
         artist_mbid=kw.get("artist_mbid", uuid4()),
-        embedding=kw.get("embedding", np.random.uniform(size=DIMS * 2)),
+        embedding=kw.get("embedding", np.random.uniform(size=50)),
     )
 
 
@@ -124,7 +123,8 @@ def test_make_clusters__not_enough_data():
     assert "Not enough tracks to cluster" in str(e.value)
 
     with pytest.raises(RuntimeError) as e:
-        make_clusters([1] * DIMS, n_jobs=1, max_clusters=10)
+        tracks = [make_track(str(i), embedding=[i, i]) for i in range(49)]
+        make_clusters(tracks, n_jobs=1, max_clusters=10)
     assert "Not enough tracks to cluster" in str(e.value)
 
 
