@@ -4,7 +4,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from moomoo_ml.conditioner import Model
+from moomoo_ml.db import BaseTable, get_session
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -12,14 +12,6 @@ RESOURCES = Path(__file__).parent / "resources"
 @pytest.fixture(autouse=True)
 def remove_env_variables(monkeypatch):
     monkeypatch.setenv("MOOMOO_ML_DEVICE", "cpu")
-
-
-@pytest.fixture(autouse=True)
-def conditioner_info_file(tmp_path: Path, monkeypatch) -> Path:
-    """Patch the conditioner info dir to a temporary directory."""
-    p = tmp_path / "cinfo.json"
-    monkeypatch.setattr(Model, "INFO_FILE", p)
-    return p
 
 
 @pytest.fixture(autouse=True)
@@ -50,3 +42,11 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     postgresql.commit()
 
     return uri
+
+
+@pytest.fixture(autouse=True)
+def create_db(mock_db):
+    """Create the db tables."""
+    with get_session() as session:
+        engine = session.get_bind()
+        BaseTable.metadata.create_all(engine)

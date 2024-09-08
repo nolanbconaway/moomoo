@@ -15,7 +15,7 @@ from sklearn.decomposition import PCA
 
 class Model(PCA):
     N_DIMS = 50
-    INFO_FILE = Path(__file__).parent / "conditioner-info.json"
+    INFO_FILE = Path(__file__).parent / "model-info.json"
 
     def __init__(self):
         """Override PCA init to set n_components and random state."""
@@ -51,7 +51,7 @@ class Model(PCA):
             return {}
         return json.loads(cls.INFO_FILE.read_text())
 
-    def save_to_artifacts(self, artifacts: Path = Path("artifacts")):
+    def save_to_artifacts(self, artifacts: Path):
         """Save the model to the artifacts directory."""
         if not self.is_fitted:
             raise ValueError("Model not fitted.")
@@ -80,7 +80,7 @@ class Model(PCA):
         self.INFO_FILE.write_text(json.dumps(model_info, indent=2))
 
     @classmethod
-    def load_from_artifacts(cls, artifacts: Path = Path("artifacts")) -> "Model":
+    def load_from_artifacts(cls, artifacts: Path) -> "Model":
         """Load the model from the artifacts directory."""
         model_info = cls.read_model_info()
         filename, name, hash_ = model_info["filename"], model_info["name"], model_info["hash"]

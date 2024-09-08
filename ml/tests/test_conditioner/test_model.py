@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from moomoo_ml.conditioner import Model
+from moomoo_ml.conditioner.conditioner import Model
 
 
 @pytest.fixture
@@ -56,34 +56,32 @@ def test_conditioner_read_write_model_info(random_data: np.ndarray):
 
 
 def test_save_to_artifacts(random_data: np.ndarray, tmp_path: Path):
-    artifacts = tmp_path / "artifacts"
     model = Model()
     model.fit(random_data)
-    model.save_to_artifacts(artifacts)
-    assert (artifacts / model.filename).exists()
+    model.save_to_artifacts(tmp_path)
+    assert (tmp_path / model.filename).exists()
 
 
-def test_load_from_artifacts(random_data: np.ndarray, tmp_path: Path, conditioner_info_file: Path):
-    artifacts = tmp_path / "artifacts"
+def test_load_from_artifacts(random_data: np.ndarray, info_file: Path, tmp_path: Path):
     model = Model()
     model.fit(random_data)
-    model.save_to_artifacts(artifacts)
+    model.save_to_artifacts(tmp_path)
     model.update_model_info()
 
-    model2 = Model.load_from_artifacts(artifacts)
+    model2 = Model.load_from_artifacts(tmp_path)
     assert np.allclose(model.components_, model2.components_)
     assert model2.is_fitted
 
     # change the model info file so that it doesn't match the model
     model_info = Model.read_model_info()
     model_info["name"] = "different"
-    conditioner_info_file.write_text(json.dumps(model_info))
+    info_file.write_text(json.dumps(model_info))
     with pytest.raises(ValueError) as exc:
-        Model.load_from_artifacts(artifacts)
+        Model.load_from_artifacts(tmp_path)
     assert "Model name or hash does not match saved model." in str(exc.value)
 
     # clear out the artifacts directory. should raise FileNotFoundError
-    for f in artifacts.glob("*.pkl"):
+    for f in tmp_path.glob("*.pkl"):
         f.unlink()
     with pytest.raises(FileNotFoundError):
-        Model.load_from_artifacts(artifacts)
+        Model.load_from_artifacts(tmp_path)
