@@ -28,7 +28,7 @@ docker-build:
 	@ docker build -t moomoo-ml-v$(VERSION) .
 
 .PHONY:
-docker-run:
+docker-run-scorer:
 	@ docker run \
 		--interactive --tty --rm \
 		--env MOOMOO_POSTGRES_URI=$(MOOMOO_DOCKER_POSTGRES_URI) \
@@ -36,5 +36,14 @@ docker-run:
 		--add-host=host.docker.internal:host-gateway \
 		--mount=type=bind,source=$(MOOMOO_MEDIA_LIBRARY),target=/mnt/music,readonly \
 		--gpus all \
-		moomoo-ml-v$(VERSION)
-		moomoo-ml score /mnt/music
+		moomoo-ml-v$(VERSION) \
+		moomoo-ml scorer score /mnt/music
+
+.PHONY:
+docker-run-conditioner:
+	@ docker run \
+		--interactive --tty --rm \
+		--env MOOMOO_POSTGRES_URI=$(MOOMOO_DOCKER_POSTGRES_URI) \
+		--add-host=host.docker.internal:host-gateway \
+		moomoo-ml-v$(VERSION) \
+		moomoo-ml conditioner score

@@ -36,7 +36,7 @@ jobs:
         id: ml_cache
         with:
           path: ml/artifacts
-          key: moomoo-${{ hashFiles('ml/src/moomoo_ml/model-info.json') }}
+          key: moomoo-${{ hashFiles('ml/src/moomoo_ml/scorer/model-info.json') }}
 
       - name: pip install
         run: |

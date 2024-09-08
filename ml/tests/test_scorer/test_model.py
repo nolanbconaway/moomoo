@@ -1,6 +1,6 @@
-from moomoo_ml.scorer import Model
+from moomoo_ml.scorer.scorer import Model
 
-from .conftest import RESOURCES
+from ..conftest import RESOURCES
 
 
 def test_score_single_path():
