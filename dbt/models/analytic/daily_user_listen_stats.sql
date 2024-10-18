@@ -24,9 +24,9 @@ with listen_mapped_prop as (
   select
     username
     , listen_at_ts_utc::date as listen_date
-    , count(listen_md5) as count_listens
-    , count(recording_mbid) as count_recordings
-    , count(release_mbid) as count_releases
+    , count(distinct listen_md5) as count_listens
+    , count(distinct recording_mbid) as count_recordings
+    , count(distinct release_mbid) as count_releases
     , sum(duration_ms) / 3600000::real as sum_listen_hours
 
   from {{ ref('listens') }}
