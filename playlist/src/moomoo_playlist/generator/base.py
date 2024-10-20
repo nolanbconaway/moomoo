@@ -248,7 +248,7 @@ def stream_similar_tracks(
             where true
                 and local_files.embedding_success
                 and local_files.embedding_duration_seconds >= 60
-                and not local_files.filepath = base.filepath
+                and local_files.filepath not in (select filepath from {base_weights_table})
                 and local_files.artist_mbid is not null
 
             group by local_files.filepath
@@ -346,6 +346,11 @@ def get_most_similar_tracks(
     # else, consume the generator up to the total limit and limit the number of songs per artist
     tracks, artist_counts = [], Counter()
     for track in stream():
+        # the query should protect against returning the provided filepaths, but just in case
+        if track.filepath in filepaths:
+            continue
+
+        # skip tracks with missing artist mbids
         if any(getattr(track, attr) is None for attr in ["artist_mbid", "album_artist_mbid"]):
             continue
 

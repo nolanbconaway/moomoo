@@ -284,6 +284,11 @@ def test_get_most_similar_tracks(session: Session):
     base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(1, 6)]
 
+    # with two targets, neither target should be in the results
+    res = get_most_similar_tracks([Path("test/0"), Path("test/1")], session)
+    base_assert_list_playlist_track(*res)
+    assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(2, 10)]
+
 
 def test_get_most_similar_tracks__artist_limit(session: Session):
     """Test that the artist limit works."""
