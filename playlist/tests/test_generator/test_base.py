@@ -240,15 +240,15 @@ def test_stream_similar_tracks__predicate_weights(session: Session):
     assert not any(i.filepath == Path("test/0") for i in res)
 
     # tracks more heavily weighted tracks should be first
-    weights = {Path("test/0"): 1, Path("test/1"): 2, Path("test/2"): 3, Path("test/3"): 4}
+    weights = {Path("test/0"): 1, Path("test/3"): 4}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
     base_assert_list_playlist_track(*res)
-    assert [i.filepath for i in res] == [
-        Path("test/3"),
-        Path("test/2"),
-        Path("test/1"),
-        Path("test/0"),
-    ]
+    assert [i.filepath for i in res] == [Path("test/3"), Path("test/0")]
+
+    weights = {Path("test/0"): 4, Path("test/3"): 1}
+    res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
+    base_assert_list_playlist_track(*res)
+    assert [i.filepath for i in res] == [Path("test/0"), Path("test/3")]
 
     # do one with exact math
     weights = {Path("test/0"): 2.4}
