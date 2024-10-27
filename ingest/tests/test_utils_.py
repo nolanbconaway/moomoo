@@ -3,6 +3,7 @@
 import datetime
 
 import pytest
+
 from moomoo_ingest import utils_
 
 UTC = datetime.timezone.utc

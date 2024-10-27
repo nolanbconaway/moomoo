@@ -1,22 +1,21 @@
 import datetime
 import re
 from pathlib import Path
-from uuid import uuid1
 
 import psycopg
 import pytest
 from click.testing import CliRunner
+from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.orm import Mapped, mapped_column
+
 from moomoo_ingest.db.cli import cli as db_cli
 from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_session
 from moomoo_ingest.db.ddl import (
     TABLES,
     BaseTable,
     ListenBrainzListen,
-    ListenBrainzUserFeedback,
     LocalFileExcludeRegex,
 )
-from sqlalchemy.exc import IntegrityError, ProgrammingError
-from sqlalchemy.orm import Mapped, mapped_column
 
 
 class FakeTable(BaseTable):
@@ -173,30 +172,6 @@ def test_ListenBrainzListen__last_listen_for_user():
 
     # correct last listen if listens
     assert ListenBrainzListen.last_listen_for_user("a") == datetime.datetime(2022, 1, 1, tzinfo=tz)
-
-
-def test_ListenBrainzUserFeedback__last_love_for_user():
-    ListenBrainzUserFeedback.create()
-
-    # none if no loves
-    assert ListenBrainzUserFeedback.last_love_for_user("a") is None
-
-    # insert some loves
-    tz = datetime.timezone.utc
-    for year in 2021, 2022:
-        record = ListenBrainzUserFeedback(
-            feedback_md5=f"abc_{year}",
-            username="a",
-            score=1,
-            recording_mbid=uuid1(),
-            feedback_at=datetime.datetime(year, 1, 1, tzinfo=tz),
-        )
-        record.insert()
-
-    # correct last love if any
-    assert ListenBrainzUserFeedback.last_love_for_user("a") == datetime.datetime(
-        2022, 1, 1, tzinfo=tz
-    )
 
 
 def test_LocalFileExcludeRegex__fetch_all_regex():

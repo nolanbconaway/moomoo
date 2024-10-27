@@ -281,18 +281,6 @@ class ListenBrainzUserFeedback(BaseTable):
         nullable=False, server_default=func.current_timestamp(), index=True
     )
 
-    @classmethod
-    def last_love_for_user(cls, username: str) -> datetime.datetime | None:
-        """Get the last love timestamp from the user in the db.
-
-        Returns None if the user has no loves.
-        """
-        stmt = (
-            select(func.max(cls.feedback_at)).where(cls.username == username).where(cls.score == 1)
-        )
-        with get_session() as session:
-            return session.execute(stmt).scalar()
-
 
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
