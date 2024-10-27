@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 from click.testing import CliRunner
+
 from moomoo_ingest import annotate_mbids
 from moomoo_ingest.db import MusicBrainzAnnotation
 from moomoo_ingest.utils_ import ENTITIES

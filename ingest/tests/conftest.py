@@ -7,8 +7,9 @@ from pathlib import Path
 import musicbrainzngs
 import psycopg
 import pytest
-from moomoo_ingest.db import get_session
 from sqlalchemy import text
+
+from moomoo_ingest.db import get_session
 
 RESOURCES = Path(__file__).parent / "resources"
 

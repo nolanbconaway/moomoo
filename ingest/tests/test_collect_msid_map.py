@@ -5,9 +5,10 @@ import uuid
 
 import pytest
 from click.testing import CliRunner
+from sqlalchemy import text
+
 from moomoo_ingest import collect_msid_map
 from moomoo_ingest.db import LocalFile, MessyBrainzNameMap, get_session
-from sqlalchemy import text
 
 
 def load_local_files_table(data: list[dict]):

@@ -20,6 +20,8 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fi
 from . import utils_
 from .db import ListenBrainzUserFeedback, get_session
 
+PAGE_SIZE = 100
+
 
 @dataclass
 class UserFeedback:
@@ -52,20 +54,42 @@ class UserFeedback:
     retry=retry_if_exception_type(ListenBrainzAPIException),
     reraise=True,
 )
-def get_most_recent_feedback(username: str) -> list[UserFeedback]:
-    """Get loved recordings for a user.
-
-    Will return the last 100 loved recordings for a user, in reverse chronological
-    order.
-    """
+def get_total_feedback_count(username: str) -> int:
+    """Get the total number of feedback records for a user."""
+    click.echo(f"Getting total feedback count for {username}.")
     client = ListenBrainz()
-    click.echo(f"Getting user feedback for for {username}.")
-
     url = f"1/feedback/user/{username}/get-feedback"
     params = {
-        "count": 100,
+        "count": 0,
         "score": 1,  # loves only
-        "offset": 0,  # this offsets from the BEGINNING of the list (i.e., most recent)
+        "offset": 0,
+        "metadata": False,
+    }
+    res = client._get(url, params=params)
+    res = int(res["total_count"])
+    click.echo(f"Successfully got count for {username} ({res} records).")
+    return res
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(5),
+    retry=retry_if_exception_type(ListenBrainzAPIException),
+    reraise=True,
+)
+def get_feedback_page(username: str, page_num: int = 0) -> list[UserFeedback]:
+    """Get a page of feedback for a user.
+
+    Pages are 100 records long, and in reverse chronological order (most recent first).
+    """
+    click.echo(f"Getting user feedback for for {username}/page {page_num}.")
+
+    client = ListenBrainz()
+    url = f"1/feedback/user/{username}/get-feedback"
+    params = {
+        "count": PAGE_SIZE,
+        "score": 1,  # loves only
+        "offset": page_num * PAGE_SIZE,
         "metadata": False,
     }
 
@@ -98,43 +122,25 @@ def get_most_recent_feedback(username: str) -> list[UserFeedback]:
 @click.argument("username")
 def main(username: str):
     """Run the main CLI."""
-    last_db_ts = ListenBrainzUserFeedback.last_love_for_user(username)
-    loves = get_most_recent_feedback(username)
+    # figure out how many pages we need to get.
+    feedback_count = get_total_feedback_count(username)
+    num_pages = feedback_count // PAGE_SIZE + 1
+
+    # get the feedback from http.
+    loves: list[UserFeedback] = []
+    click.echo(f"Getting {num_pages} page(s) of feedback for {username}.")
+    for page in list(range(num_pages))[::-1]:
+        loves += get_feedback_page(username, page)
+
+    # if resync, delete all records for this user
+    click.echo(f"Deleting {feedback_count} record(s) for {username}.")
+    with get_session() as session:
+        session.query(ListenBrainzUserFeedback).filter_by(username=username).delete()
+        session.commit()
 
     if not loves:
-        click.echo("No loves found via api.")
+        click.echo("No loves found via api. Nothing to do.")
         sys.exit(0)
-
-    first_api_ts = loves[-1].feedback_at
-    last_api_ts = loves[0].feedback_at
-    click.echo(f"Earliest love timestamp from the api: {first_api_ts}.")
-    click.echo(f"Latest love timestamp from the api: {last_api_ts}.")
-    click.echo(f"Latest love timestamp in the db: {last_db_ts}.")
-
-    # do a series of tests against the db and api to make sure we're not missing any
-    # loves.
-    if last_db_ts:
-        # exit early if the latest api is the same as the latest db
-        if last_db_ts == last_api_ts:
-            click.echo("No new loves found.")
-            sys.exit(0)
-
-        # warn user if no overlap between api and db. in this case there could be
-        # loves in the db that are not in the api list.
-        if last_db_ts < first_api_ts:
-            click.echo(
-                (
-                    f"WARN: Last love timestamp in the db ({last_db_ts}) is before the "
-                    + f"earliest api love timestamp ({first_api_ts}). Potentially some "
-                    + "loves are missing from the db."
-                ),
-                err=True,
-            )
-
-    # filter to new loves only. no need to log, as there should always be new loves
-    # because of the last_db_ts check above.
-    if last_db_ts:
-        loves = [love for love in loves if love.feedback_at > last_db_ts]
 
     click.echo(f"Inserting {len(loves)} record(s).")
     with get_session() as session:

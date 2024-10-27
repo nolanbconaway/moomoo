@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+
 from moomoo_ingest import collect_local_files
 from moomoo_ingest.db import LocalFile, LocalFileExcludeRegex
 

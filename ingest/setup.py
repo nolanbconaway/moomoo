@@ -30,7 +30,7 @@ setup(
     ],
     extras_require=dict(
         test=[
-            "ruff==0.4.4",
+            "ruff==0.7.*",
             "pytest==7.2.2",
             "requests-mock==1.11.0",
             "pytest-postgresql==5.0.0",
