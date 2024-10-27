@@ -41,6 +41,48 @@ def test_cli_date_args(args, exit_0):
         assert result.exit_code != 0
 
 
+def test_drop_dangling_annotations():
+    """Test the drop dangling annotations function."""
+    # add some annotations with no corresponding mbids
+    ts = datetime.datetime.now()
+    success = MusicBrainzAnnotation(
+        mbid=uuid.uuid4(), entity="recording", payload_json=dict(_success=True), ts_utc=ts
+    )
+    fail = MusicBrainzAnnotation(
+        mbid=uuid.uuid4(), entity="recording", payload_json=dict(_success=False), ts_utc=ts
+    )
+    old_dangle = MusicBrainzAnnotation(
+        mbid=uuid.uuid4(),
+        entity="recording",
+        payload_json=dict(_success=False),
+        ts_utc=ts - datetime.timedelta(days=180),
+    )
+    new_dangle = MusicBrainzAnnotation(
+        mbid=uuid.uuid4(), entity="recording", payload_json=dict(_success=False), ts_utc=ts
+    )
+
+    # make the tables
+    MusicBrainzAnnotation.create()
+    load_mbids_table(
+        [dict(mbid=success.mbid, entity=success.entity), dict(mbid=fail.mbid, entity=fail.entity)]
+    )
+
+    # no annotations upserted yet, so should drop nothing
+    assert annotate_mbids.drop_dangling_annotations() == 0
+
+    # add the annotations
+    for i in [success, fail, old_dangle, new_dangle]:
+        i.upsert()
+
+    # should drop the dangling annotation
+    assert annotate_mbids.drop_dangling_annotations() == 1
+    mbids = set([i["mbid"] for i in MusicBrainzAnnotation.select_star()])
+    assert old_dangle.mbid not in mbids
+    assert success.mbid in mbids
+    assert fail.mbid in mbids
+    assert new_dangle.mbid in mbids
+
+
 def test_get_unannotated_mbids__no_data():
     """Test the unannotated getter when the table is empty."""
     MusicBrainzAnnotation.create()

@@ -18,6 +18,7 @@ import sys
 from typing import Optional
 
 import click
+from sqlalchemy import text
 from tqdm import tqdm
 
 from . import utils_
@@ -52,6 +53,29 @@ def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
     return execute_sql_fetchall(sql, params=dict(before=before, entities=utils_.ENTITIES))
 
 
+def drop_dangling_annotations():
+    """Run a delete statement for any historical failed annotations that have no entry in mbids."""
+    click.echo("Dropping dangling annotations...")
+    with get_session() as session:
+        sql = f"""
+            delete from {MusicBrainzAnnotation.table_name()} as src
+            where mbid in (
+                select src.mbid
+                from {MusicBrainzAnnotation.table_name()} as src
+                left join {os.environ["MOOMOO_DBT_SCHEMA"]}.mbids as mbids
+                    on mbids.mbid::varchar = src.mbid::varchar
+                where mbids.mbid is null
+                    and not coalesce((payload_json ->> '_success')::bool, true)
+                    and ts_utc < now() - interval '1 month'
+            )
+        """
+        res = session.execute(text(sql))
+        deleted = res.rowcount
+        click.echo(f"Deleted {deleted} dangling annotations.")
+        session.commit()
+    return deleted
+
+
 @click.command(help=__doc__)
 @click.option(
     "--new",
@@ -71,8 +95,19 @@ def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
     help="Limit the number of mbids to annotate.",
     default=None,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
+@click.option(
+    "--drop/--no-drop",
+    type=bool,
+    is_flag=True,
+    help="Option to first drop any dangling annotations.",
+    default=True,
+)
+def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int], drop: bool):
     """Run the main CLI."""
+    # drop dangling annotations
+    if drop:
+        drop_dangling_annotations()
+
     # get list of mbids to annotate
     to_ingest: list[dict] = []
     if new_:
