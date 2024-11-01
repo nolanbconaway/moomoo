@@ -26,7 +26,7 @@ with t as (
 
   from {{ ref('_eph_listen_recency_score') }} as listens
   , jsonb_array_elements_text(listens.artist_mbids) as artist_mbid
-  left join {{ ref('artists') }} as artists on artist_mbid.value::uuid = artists.artist_mbid
+  inner join {{ ref('artists') }} as artists on artist_mbid.value::uuid = artists.artist_mbid
 
   where listens.artist_mbids is not null
     and jsonb_array_length(listens.artist_mbids) > 0
