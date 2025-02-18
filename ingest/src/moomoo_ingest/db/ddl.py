@@ -6,10 +6,10 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Compiled, func, inspect, select
+from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from .connection import execute_sql_fetchall, get_engine, get_session
@@ -282,6 +282,51 @@ class ListenBrainzUserFeedback(BaseTable):
     )
 
 
+class ListenBrainzDataDump(BaseTable):
+    __tablename__ = "listenbrainz_data_dumps"
+
+    dump_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    url: Mapped[str] = mapped_column(nullable=False, unique=True)
+    date: Mapped[datetime.date] = mapped_column(nullable=False)
+    start_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
+    end_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp()
+    )
+    refreshed_at: Mapped[datetime.datetime] = mapped_column(nullable=True)
+
+    records: Mapped[list["ListenBrainzDataDumpRecord"]] = relationship(back_populates="dump")
+
+    def replace_records(self, records: list[dict], session: Session) -> None:
+        """Replace all records in the dump with the given records."""
+        # add dump id
+        for record in records:
+            record["dump_id"] = self.dump_id
+
+        session.query(ListenBrainzDataDumpRecord).filter(
+            ListenBrainzDataDumpRecord.dump_id == self.dump_id
+        ).delete()
+
+        ListenBrainzDataDumpRecord.bulk_insert(records, session=session)
+        self.refreshed_at = func.current_timestamp()
+        session.commit()
+
+
+class ListenBrainzDataDumpRecord(BaseTable):
+    __tablename__ = "listenbrainz_data_dump_records"
+    __table_args__ = (UniqueConstraint("dump_id", "user_id", "artist_mbid"), {})
+
+    dump_record_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    dump_id: Mapped[int] = mapped_column(
+        ForeignKey(ListenBrainzDataDump.dump_id), nullable=False, index=True
+    )
+    user_id: Mapped[int] = mapped_column(nullable=False)
+    artist_mbid: Mapped[UUID] = mapped_column(nullable=False)
+    listen_count: Mapped[int] = mapped_column(nullable=False)
+
+    dump: Mapped["ListenBrainzDataDump"] = relationship(back_populates="records")
+
+
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
@@ -291,4 +336,6 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzArtistStats,
     MessyBrainzNameMap,
     ListenBrainzUserFeedback,
+    ListenBrainzDataDump,
+    ListenBrainzDataDumpRecord,
 )

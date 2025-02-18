@@ -34,7 +34,7 @@ def test_cli_main__no_data(monkeypatch):
     assert len(ListenBrainzUserFeedback.select_star()) == 0
 
 
-def test_cli_main__soem_data(monkeypatch):
+def test_cli_main__some_data(monkeypatch):
     """Test the main function with empty data in the db but some in the api."""
     ListenBrainzUserFeedback.create()
 

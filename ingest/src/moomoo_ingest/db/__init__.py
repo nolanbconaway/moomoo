@@ -5,6 +5,8 @@ from .ddl import (
     TABLES,
     BaseTable,
     ListenBrainzArtistStats,
+    ListenBrainzDataDump,
+    ListenBrainzDataDumpRecord,
     ListenBrainzListen,
     ListenBrainzSimilarUserActivity,
     ListenBrainzUserFeedback,
@@ -28,4 +30,6 @@ __all__ = [
     "ListenBrainzArtistStats",
     "MessyBrainzNameMap",
     "ListenBrainzUserFeedback",
+    "ListenBrainzDataDump",
+    "ListenBrainzDataDumpRecord",
 ]

@@ -27,6 +27,7 @@ setup(
         "mutagen==1.46.0",
         "pylistenbrainz==0.5.1",
         "musicbrainzngs==0.7.1",
+        "beautifulsoup4==4.13.3"
     ],
     extras_require=dict(
         test=[
