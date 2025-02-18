@@ -83,7 +83,6 @@ class Listen:
         # mbids (which can be missing, or can be called lastfm_artist_mbid, artist_mbids, or
         # artist_mbid).
         #
-        # {"user_id": 12345, "track_metadata": {"additional_info": {"lastfm_artist_mbid": "",}}}
         # {"user_id": 12345, "track_metadata": {"additional_info": { "artist_mbids": [""]}}}
         # {"user_id": 12345, "track_metadata": {"additional_info": { "artist_mbid": ""}}}
         #
@@ -92,7 +91,6 @@ class Listen:
         user_id = int(data["user_id"])
 
         # try to get the artist mbid from the track_metadata
-        lastfm_artist_mbid = data["track_metadata"]["additional_info"].get("lastfm_artist_mbid")
         artist_mbids = data["track_metadata"]["additional_info"].get("artist_mbids")
         artist_mbid = data["track_metadata"]["additional_info"].get("artist_mbid")
 
@@ -100,8 +98,6 @@ class Listen:
             artist_mbids = [try_uuid(i) for i in artist_mbids]
         elif artist_mbid:
             artist_mbids = [try_uuid(artist_mbid)]
-        elif lastfm_artist_mbid:
-            artist_mbids = [try_uuid(lastfm_artist_mbid)]
         else:
             artist_mbids = []
 
@@ -242,7 +238,7 @@ def get_known_data_dumps(session: Session) -> list[DataDump]:
 @click.command()
 @click.option("--procs", type=int, default=1)
 @click.option("--date", "dates", type=click.DateTime(formats=["%Y-%m-%d"]), multiple=True)
-def main(procs: int, dates: list[datetime.datetime]):
+def main(procs: int, dates: list[datetime.datetime]) -> None:
     if dates:
         dates = [date.date() for date in dates]  # click.DateTime returns a datetime object
     else:

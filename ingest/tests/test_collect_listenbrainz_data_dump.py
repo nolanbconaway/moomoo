@@ -45,12 +45,6 @@ def tarball() -> Generator[io.BytesIO, None, None]:
 def test_Listen__from_line():
     uuid = uuid1()
 
-    line = {"user_id": 1, "track_metadata": {"additional_info": {"lastfm_artist_mbid": uuid.hex}}}
-    res = lib.Listen.from_line(json.dumps(line))
-    assert len(res) == 1
-    assert res[0].user_id == 1
-    assert res[0].artist_mbid == uuid
-
     line = {"user_id": 1, "track_metadata": {"additional_info": {"artist_mbid": uuid.hex}}}
     res = lib.Listen.from_line(json.dumps(line))
     assert len(res) == 1
