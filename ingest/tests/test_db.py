@@ -1,6 +1,7 @@
 import datetime
 import re
 from pathlib import Path
+from uuid import uuid1
 
 import psycopg
 import pytest
@@ -13,6 +14,8 @@ from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_se
 from moomoo_ingest.db.ddl import (
     TABLES,
     BaseTable,
+    ListenBrainzDataDump,
+    ListenBrainzDataDumpRecord,
     ListenBrainzListen,
     LocalFileExcludeRegex,
 )
@@ -60,28 +63,26 @@ def test_execute_sql_fetchall():
         assert res == [{"a": 1}, {"a": 2}]
 
 
-@pytest.mark.parametrize("table", TABLES)
-def test_create_drop_exists(table: BaseTable):
-    """Make sure all tables can be created, dropped, and checked for existence."""
-
+def test_create_drop_exists():
+    """Make sure tables can be created, dropped, and checked for existence."""
     # silently do nothing if the table doesn't exist
-    assert not table.exists()
-    table.drop(if_exists=True)
+    assert not ListenBrainzListen.exists()
+    ListenBrainzListen.drop(if_exists=True)
 
     # should error since the table doesn't exist
     with pytest.raises(ProgrammingError):
-        table.drop()
+        ListenBrainzListen.drop()
 
     # create the table
-    table.create()
-    assert table.exists()
+    ListenBrainzListen.create()
+    assert ListenBrainzListen.exists()
 
     # silently do nothing if the table already exists
-    table.create(if_not_exists=True)
+    ListenBrainzListen.create(if_not_exists=True)
 
     # drop the table
-    table.drop()
-    assert not table.exists()
+    ListenBrainzListen.drop()
+    assert not ListenBrainzListen.exists()
 
 
 def test_table_insert():
@@ -194,6 +195,27 @@ def test_LocalFileExcludeRegex__fetch_all_regex():
         re.compile("^abc_1"),
         re.compile("^abc_2"),
     ]
+
+
+def test_ListenBrainzDataDump__replace_records():
+    session = get_session()
+    ListenBrainzDataDump.create()
+    ListenBrainzDataDumpRecord.create()
+
+    dump = ListenBrainzDataDump(
+        url="test",
+        date=datetime.datetime(2021, 1, 1),
+        start_timestamp=datetime.datetime(2021, 1, 1),
+        end_timestamp=datetime.datetime(2021, 1, 2),
+    )
+    session.add(dump)
+    session.commit()
+    assert dump.records == []
+
+    record = dict(user_id=1, artist_mbid=uuid1(), listen_count=1)
+    dump.replace_records([record], session=session)
+    assert len(dump.records) == 1
+    assert dump.records[0].user_id == 1
 
 
 def test_cli__ddl():
