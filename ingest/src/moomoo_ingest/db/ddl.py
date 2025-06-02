@@ -285,8 +285,9 @@ class ListenBrainzUserFeedback(BaseTable):
 class ListenBrainzDataDump(BaseTable):
     __tablename__ = "listenbrainz_data_dumps"
 
-    dump_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
-    url: Mapped[str] = mapped_column(nullable=False, unique=True)
+    slug: Mapped[str] = mapped_column(primary_key=True, unique=True, nullable=False)
+    ftp_path: Mapped[str] = mapped_column(nullable=False, unique=True)
+    ftp_modify_ts: Mapped[datetime.datetime] = mapped_column(nullable=False)
     date: Mapped[datetime.date] = mapped_column(nullable=False)
     start_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
     end_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
@@ -301,24 +302,26 @@ class ListenBrainzDataDump(BaseTable):
         """Replace all records in the dump with the given records."""
         # add dump id
         for record in records:
-            record["dump_id"] = self.dump_id
+            record["slug"] = self.slug
 
         session.query(ListenBrainzDataDumpRecord).filter(
-            ListenBrainzDataDumpRecord.dump_id == self.dump_id
+            ListenBrainzDataDumpRecord.slug == self.slug
         ).delete()
 
-        ListenBrainzDataDumpRecord.bulk_insert(records, session=session)
+        if records:
+            ListenBrainzDataDumpRecord.bulk_insert(records, session=session)
+
         self.refreshed_at = func.current_timestamp()
         session.commit()
 
 
 class ListenBrainzDataDumpRecord(BaseTable):
     __tablename__ = "listenbrainz_data_dump_records"
-    __table_args__ = (UniqueConstraint("dump_id", "user_id", "artist_mbid"), {})
+    __table_args__ = (UniqueConstraint("slug", "user_id", "artist_mbid"), {})
 
     dump_record_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
-    dump_id: Mapped[int] = mapped_column(
-        ForeignKey(ListenBrainzDataDump.dump_id), nullable=False, index=True
+    slug: Mapped[str] = mapped_column(
+        ForeignKey(ListenBrainzDataDump.slug), nullable=False, index=True
     )
     user_id: Mapped[int] = mapped_column(nullable=False)
     artist_mbid: Mapped[UUID] = mapped_column(nullable=False)

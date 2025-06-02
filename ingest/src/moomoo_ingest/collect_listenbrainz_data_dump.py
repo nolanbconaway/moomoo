@@ -6,61 +6,52 @@ going to summarize them at the user-recording level, and store that in the db.
 Docs: https://listenbrainz.org/data/
 """
 
+import contextlib
 import dataclasses
 import datetime
+import ftplib
 import json
 import multiprocessing
 import sys
 import tarfile
-import time
 from collections import Counter
-from functools import cache
+from contextlib import contextmanager
 from io import BytesIO
-from typing import Optional
-from urllib.parse import urlparse
+from pathlib import Path
+from typing import Generator, Optional
 from uuid import UUID
 
 import click
-import requests
-from bs4 import BeautifulSoup
-from sqlalchemy.orm import Session
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+import zstandard
 from tqdm import tqdm
 
 from .db import ListenBrainzDataDump, get_session
 
-BACK_DAYS = 30
-BASE_URL = "http://ftp.musicbrainz.org/pub/musicbrainz/listenbrainz/incremental"
-TIMEOUT = 5
+FTP_HOST = "ftp.musicbrainz.org"
+FTP_DIR = "/pub/musicbrainz/listenbrainz/incremental"
+FTP_PORT = 21
 
 
-def sleep() -> None:
-    """Sleep for a short time."""
-    time.sleep(TIMEOUT)
+@contextmanager
+def ftp_session() -> Generator[ftplib.FTP, None, None]:
+    """Context manager for FTP session.
 
-
-@retry(
-    retry=retry_if_exception_type(requests.HTTPError),
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(TIMEOUT),
-)
-def request_with_retry(url, *args, **kwargs) -> requests.Response:
-    """Retry a request."""
-    r = requests.get(url, *args, **kwargs)
-    r.raise_for_status()
-    return r
-
-
-@cache
-def request_data_dump(url: str) -> BytesIO:
-    """Request the data dump."""
-    click.echo(f"Requesting {url}")
-    resp = request_with_retry(url, stream=True)
-    fh = BytesIO()
-    for chunk in resp.iter_content(chunk_size=1024):
-        fh.write(chunk)
-    fh.seek(0)
-    return fh
+    Yields a ftp connection object set to the relevant directory.
+    """
+    try:
+        click.echo(f"Connecting to FTP: {FTP_HOST}")
+        ftp = ftplib.FTP()
+        ftp.connect(host=FTP_HOST, port=FTP_PORT)
+        ftp.login()
+        ftp.cwd(FTP_DIR)
+        yield ftp
+    finally:
+        click.echo(f"Closing FTP connection to {FTP_HOST}")
+        try:
+            ftp.quit()
+        except Exception as e:
+            click.echo(f"Error closing FTP connection: {e}. Force closing the connection.")
+            ftp.close()
 
 
 def try_uuid(s: str) -> Optional[UUID]:
@@ -109,90 +100,97 @@ class Listen:
 
 @dataclasses.dataclass
 class DataDump:
-    url: str  # # {BASE_URL}/a/b/listenbrainz-listens-dump-1978-20250125-000003-incremental.tar.xz
+    ftp_path: Path
+    modify_ts: datetime.datetime
 
     @classmethod
-    def fetch_list(cls, dates: list[datetime.date] | None = None) -> list["DataDump"]:
-        """Fetch the list of data dumps.
+    def fetch_list(cls) -> list["DataDump"]:
+        """Fetch the list of data dumps currently available on the FTP server."""
+        click.echo(f"Listing data dumps from {FTP_HOST}{FTP_DIR}")
+        results = []
+        with ftp_session() as ftp:
+            for base_dir in tqdm(list(ftp.nlst(FTP_DIR)), disable=None):
+                # get the first file that is like listenbrainz-listens-dump-...-incremental.tar.xz
+                filepath = next(
+                    (
+                        Path(i)
+                        for i in sorted(list(ftp.nlst(base_dir)))
+                        if i.endswith(".tar.zst") and "spark" not in i and "listens-" in i
+                    ),
+                    None,
+                )
+                if filepath:
+                    ts = datetime.datetime.strptime(
+                        ftp.voidcmd(f"MDTM {filepath}")[4:].strip(),
+                        "%Y%m%d%H%M%S",
+                    )
+                    ts = ts.replace(tzinfo=datetime.timezone.utc)  # Ensure UTC timezone
+                    results.append(cls(ftp_path=Path(filepath), modify_ts=ts))
 
-        Toplevel keys are listed as <a> tags in a <pre>, and will have hrefs like
-        listenbrainz-dump-1972-20250117-000003-incremental. We then need to parse the date out of
-        the href.
-
-        The data dump is stored in a file under that url as a .tar.xz file; and that is the url that
-        we need.
-        """
-        click.echo(f"Listing {BASE_URL}")
-        resp = request_with_retry(BASE_URL)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.content, "html.parser")
-        urls = [
-            i["href"]
-            for i in soup.find("pre").find_all("a")
-            if i["href"].startswith("listenbrainz-dump-")
-        ]
-        url_dates = [datetime.datetime.strptime(i.split("-")[-3], "%Y%m%d").date() for i in urls]
-        # filter by date
-        if dates:
-            urls = [i for i, j in zip(urls, url_dates) if j in dates]
-            url_dates = [i for i in url_dates if i in dates]
-
-        # drop tail / from the url
-        urls = [i.rstrip("/") for i in urls]
-
-        click.echo(f"Listing dumps on dates: {url_dates}")
-
-        # now we need to find the correct listens archive within each url. there will be a spark url
-        # and a listens url, and we want the listens url.
-        tarball_urls = []
-        for url in urls:
-            sleep()
-            click.echo(f"Listing objects at {BASE_URL}/{url}")
-            resp = request_with_retry(f"{BASE_URL}/{url}")
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.content, "html.parser")
-            tarball_url = next(
-                (
-                    i["href"]
-                    for i in soup.find("pre").find_all("a")
-                    if i["href"].endswith(".tar.xz")
-                    and "spark" not in i["href"]
-                    and "listens" in i["href"]
-                ),
-                None,
-            )
-            if url:
-                tarball_urls.append(f"{BASE_URL}/{url}/{tarball_url}")
-
-        return [cls(url=i) for i in tarball_urls]
+        return results
 
     @property
-    def filename(self) -> str:
-        """The filename of the dump tarball."""
-        return urlparse(self.url).path.split("/")[-1]
+    def slug(self) -> str:
+        """Get the slug for the data dump.
+
+        This is equivalent to the base directory name for the dump, which is the part of the path.
+        Like: {FTP_DIR}/{slug}/{filename}.tar.xz
+        It will be a value like: listenbrainz-dump-2054-20250301-000003-incremental
+        """
+        return self.ftp_path.relative_to(Path(FTP_DIR)).parts[0]
 
     @property
     def date(self) -> datetime.date:
         """The date of the dump."""
-        # listenbrainz-listens-dump-1978-20250125-000003-incremental.tar.xz
-        return datetime.datetime.strptime(self.filename.split("-")[-3], "%Y%m%d").date()
+        return datetime.datetime.strptime(self.slug.split("-")[3], "%Y%m%d").date()
 
     @property
     def data(self) -> BytesIO:
-        """Get the data from the dump."""
-        return request_data_dump(self.url)
+        """Fetch the data from the FTP server.
+
+        Data are cached in the _data attribute after the first fetch to avoid multiple calls to the
+        FTP server.
+        """
+        if hasattr(self, "_data"):
+            # if we already fetched the data, return it
+            self._data.seek(0)  # Reset the buffer to the beginning
+            return self._data
+
+        # otherwise, fetch the data from the FTP server
+        click.echo(f"Fetching data for {self.ftp_path} from FTP server...")
+        data = BytesIO()
+        with ftp_session() as ftp:
+            ftp.retrbinary(f"RETR {self.ftp_path}", data.write)
+        data.seek(0)  # Reset the buffer to the beginning
+        click.echo(f"Successfully fetched data for {self.ftp_path}")
+
+        # Store the data in the instance for future use
+        self._data = data
+        return self._data
+
+    @property
+    @contextlib.contextmanager
+    def tarfile(self) -> Generator[tarfile.TarFile, None, None]:
+        """Get a context manager for the tarfile."""
+        decompressor = zstandard.ZstdDecompressor()
+        with decompressor.stream_reader(self.data, closefd=False) as reader:
+            data = BytesIO(reader.read())
+            data.seek(0)
+            with tarfile.open(fileobj=data, mode="r:") as tar:
+                yield tar
 
     def get_start_timestamp(self) -> datetime.datetime:
         """Get the START_TIMESTAMP file value from the dump.
 
         Should be a value like 2025-01-29 13:31:09+00:00
         """
-        self.data.seek(0)
-        with tarfile.open(fileobj=self.data, mode="r:xz") as tar:
+        with self.tarfile as tar:
             ts = next(
-                tar.extractfile(i).read().decode("utf-8").strip()
+                f.read().decode("utf-8").strip()
                 for i in tar.getmembers()
                 if i.name.endswith("START_TIMESTAMP")
+                for f in [tar.extractfile(i)]
+                if f is not None
             )
 
         return datetime.datetime.fromisoformat(ts)
@@ -202,12 +200,13 @@ class DataDump:
 
         Should be a value like 2025-01-29 13:31:09+00:00
         """
-        self.data.seek(0)
-        with tarfile.open(fileobj=self.data, mode="r:xz") as tar:
+        with self.tarfile as tar:
             end_timestamp = next(
-                tar.extractfile(i).read().decode("utf-8").strip()
+                f.read().decode("utf-8").strip()
                 for i in tar.getmembers()
                 if i.name.endswith("END_TIMESTAMP")
+                for f in [tar.extractfile(i)]
+                if f is not None
             )
         return datetime.datetime.fromisoformat(end_timestamp)
 
@@ -216,13 +215,12 @@ class DataDump:
 
         This will be a file like <number>.listens, which will be plaintext json lines.
         """
-        self.data.seek(0)
-        with tarfile.open(fileobj=self.data, mode="r:xz") as tar:
+        with self.tarfile as tar:
             member = next((m for m in tar.getmembers() if m.name.endswith(".listens")), None)
             if not member:
-                click.echo(f"No listens file found in {self.filename}")
+                click.echo(f"No listens file found in {self.ftp_path}")
                 return []
-            click.echo(f"Extracting {member.name} from {self.filename} with {procs} procs")
+            click.echo(f"Extracting {member.name} from {self.ftp_path} with {procs} procs")
             with tar.extractfile(member) as f, multiprocessing.Pool(procs) as pool:
                 res = []
                 for i in tqdm(pool.imap(Listen.from_line, f, chunksize=100), disable=None):
@@ -230,39 +228,38 @@ class DataDump:
                 return res
 
 
-def get_known_data_dumps(session: Session) -> list[DataDump]:
+def get_known_data_dumps() -> list[DataDump]:
     """Get the known data dumps from the database."""
-    return [DataDump(i.url) for i in session.query(ListenBrainzDataDump).all()]
+    with get_session() as session:
+        return [
+            DataDump(ftp_path=Path(i.ftp_path), modify_ts=i.ftp_modify_ts)
+            for i in session.query(ListenBrainzDataDump).all()
+        ]
 
 
 @click.command()
 @click.option("--procs", type=int, default=1)
-@click.option("--date", "dates", type=click.DateTime(formats=["%Y-%m-%d"]), multiple=True)
-def main(procs: int, dates: list[datetime.datetime]) -> None:
-    if dates:
-        dates = [date.date() for date in dates]  # click.DateTime returns a datetime object
-    else:
-        # if no date, get any date for which there are no dumps in the last BACK_DAYS days
-        with get_session() as session:
-            known_dates = set(i.date for i in get_known_data_dumps(session))
-
-            # get any date from the last BACK_DAYS days for which there is no dump
-            dates = [
-                datetime.date.today() - datetime.timedelta(days=i)
-                for i in range(BACK_DAYS)
-                if datetime.date.today() - datetime.timedelta(days=i) not in known_dates
-            ]
-
+def main(procs: int) -> None:
     # get the data dumps for the given dates
-    dumps = DataDump.fetch_list(dates=dates)
+    ftp_dumps = DataDump.fetch_list()
+    db_dumps = {dump.slug: dump for dump in get_known_data_dumps()}
 
-    click.echo(f"Found {len(dumps)} data dumps to process.")
-    if not dumps:
+    click.echo(f"Found {len(ftp_dumps)} data dumps to process.")
+    if not ftp_dumps:
         click.echo("No data dumps to process.")
         sys.exit(0)
 
-    for dump in dumps:
-        click.echo(f"Processing {dump.filename}...")
+    # process any data dumps which are:
+    #  - any new dumps (unknown slug)
+    #  - any dumps with modify ts that are newer than in the db
+    ftp_dumps = [
+        ftp_dump
+        for ftp_dump in ftp_dumps
+        if ftp_dump.slug not in db_dumps or db_dumps[ftp_dump.slug].modify_ts < ftp_dump.modify_ts
+    ]
+
+    for dump in ftp_dumps:
+        click.echo(f"Processing {dump.ftp_path}...")
         listens = dump.get_listens(procs=procs)
         start_timestamp = dump.get_start_timestamp()
         end_timestamp = dump.get_end_timestamp()
@@ -278,13 +275,15 @@ def main(procs: int, dates: list[datetime.datetime]) -> None:
         with get_session() as session:
             db_dump = (
                 session.query(ListenBrainzDataDump)
-                .filter(ListenBrainzDataDump.url == dump.url)
+                .filter(ListenBrainzDataDump.slug == dump.slug)
                 .one_or_none()
             )
 
             if db_dump is None:
                 db_dump = ListenBrainzDataDump(
-                    url=dump.url,
+                    slug=dump.slug,
+                    ftp_path=str(dump.ftp_path),
+                    ftp_modify_ts=dump.modify_ts,
                     date=dump.date,
                     start_timestamp=start_timestamp,
                     end_timestamp=end_timestamp,
@@ -292,7 +291,7 @@ def main(procs: int, dates: list[datetime.datetime]) -> None:
                 session.add(db_dump)
                 session.commit()
 
-            click.echo(f"Replacing all rows for {dump.filename}")
+            click.echo(f"Replacing all rows for {dump.ftp_path}")
             db_dump.replace_records(
                 session=session,
                 records=[
@@ -305,6 +304,10 @@ def main(procs: int, dates: list[datetime.datetime]) -> None:
                 ],
             )
 
-            click.echo(f"Processed {dump.filename}")
+            click.echo(f"Processed {dump.ftp_path}")
 
     click.echo("Done.")
+
+
+if __name__ == "__main__":
+    main()

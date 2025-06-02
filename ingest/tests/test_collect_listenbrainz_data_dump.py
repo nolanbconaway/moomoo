@@ -2,44 +2,72 @@ import datetime
 import io
 import json
 import tarfile
+from pathlib import Path
 from typing import Generator
-from unittest import mock
 from uuid import UUID, uuid1
 
 import pytest
+import zstandard
 from click.testing import CliRunner
+from pytest_localftpserver.servers import FunctionalityWrapper as PytestFTPServer
 
 from moomoo_ingest import collect_listenbrainz_data_dump as lib
 from moomoo_ingest.db import ListenBrainzDataDump, ListenBrainzDataDumpRecord
 
 from .conftest import RESOURCES
 
-URL = (
-    lib.BASE_URL
-    + "/listenbrainz-dump-1999-20250213-101618-incremental"
-    + "/listenbrainz-listens-dump-1999-20250213-101618-incremental.tar.xz"
-)
-
-
-@pytest.fixture(autouse=True)
-def no_sleep(monkeypatch):
-    """Auto mock the ListenBrainz._get method."""
-    monkeypatch.setattr(lib, "sleep", lambda *_: None)
-
 
 @pytest.fixture
 def tarball() -> Generator[io.BytesIO, None, None]:
-    """Access the data in RESOURCES/sample-listenbrainz-listens-dump as an .xz file."""
+    """Access the data in RESOURCES/sample-listenbrainz-listens-dump as a .tar.zst file."""
     src_path = RESOURCES / "sample-listenbrainz-listens-dump"
-    # make it into a tarfile
-    with io.BytesIO() as f:
-        with tarfile.open(fileobj=f, mode="w:xz") as tar:
-            # add all files in the directory, with the arcname as the relative path in the src_path
-            for file in src_path.glob("**/*"):
-                if file.is_file():
-                    tar.add(file, arcname=str(file.relative_to(src_path)))
-        f.seek(0)
-        yield f
+    tar_buf = io.BytesIO()
+    zst_buf = io.BytesIO()
+    with tarfile.open(fileobj=tar_buf, mode="w") as tar:
+        for file in src_path.glob("**/*"):
+            if file.is_file():
+                tar.add(file, arcname=str(file.relative_to(src_path)))
+
+        # rewind buffer to the beginning
+    tar_buf.seek(0)
+
+    # compress the tarball with zstandard and yield the compressed data
+    cctx = zstandard.ZstdCompressor()
+    with cctx.stream_writer(zst_buf, closefd=False) as zst_writer:
+        zst_writer.write(tar_buf.read())
+    zst_buf.seek(0)
+
+    yield zst_buf
+
+
+@pytest.fixture
+def mock_ftp_server(
+    ftpserver: PytestFTPServer, monkeypatch: pytest.MonkeyPatch, tarball
+) -> PytestFTPServer:
+    """Fixture to create a local FTP server for testing.
+
+    Contains the mock tarball of ListenBrainz data dumps.
+    """
+    # match the FTP_HOST, FTP_PORT and FTP_DIR to be the ftpserver's address and directory
+    monkeypatch.setattr(lib, "FTP_HOST", "localhost")
+    monkeypatch.setattr(lib, "FTP_PORT", ftpserver.server_port)
+    monkeypatch.setattr(lib, "FTP_DIR", "/")
+    fpath = f"{ftpserver.anon_root}/listenbrainz-listens-dump-test-incremental.tar.zst"
+    with open(fpath, "wb") as f:
+        f.write(tarball.getvalue())
+    tarball.seek(0)
+    return ftpserver
+
+
+@pytest.fixture
+def data_dump(tarball) -> lib.DataDump:
+    """Fixture to create a DataDump instance with the tarball data."""
+    path = Path(lib.FTP_DIR) / "listenbrainz-listens-dump-20250213-incremental.tar.zst"
+    dump = lib.DataDump(
+        ftp_path=path, modify_ts=datetime.datetime(2025, 2, 13, tzinfo=datetime.timezone.utc)
+    )
+    dump._data = tarball
+    return dump
 
 
 def test_Listen__from_line():
@@ -62,72 +90,30 @@ def test_Listen__from_line():
     assert not res
 
 
-def test_DataDump__fetch_list():
-    # mock out two requests
-    index_html = """
-        <html><body>
-        <pre><a href="../">../</a>
-        <a href="listenbrainz-dump-1999-20250213-101618-incremental/"></a>
-        </pre>
-        </body></html>
-    """
-    details_html = """
-        <html><body>
-        <pre><a href="../">../</a>
-        <a href="listenbrainz-listens-dump-1999-20250213-101618-incremental.tar.xz"></a>
-        <a href="listenbrainz-listens-dump-1999-20250213-101618-incremental.tar.xz.md5"></a>
-        <a href="listenbrainz-listens-dump-1999-20250213-101618-incremental.tar.xz.sha256"></a>
-        <a href="listenbrainz-spark-dump-1999-20250213-101618-incremental.tar"></a>
-        <a href="listenbrainz-spark-dump-1999-20250213-101618-incremental.tar.md5"></a>
-        <a href="listenbrainz-spark-dump-1999-20250213-101618-incremental.tar.sha256"></a>
-        </pre>
-        </body></html>
-    """
-    with mock.patch("moomoo_ingest.collect_listenbrainz_data_dump.request_with_retry") as mock_get:
-        mock_get.side_effect = [
-            mock.Mock(status_code=200, content=index_html.encode("utf-8")),
-            mock.Mock(status_code=200, content=details_html.encode("utf-8")),
-        ]
-        dump = lib.DataDump(URL)
-        assert dump.fetch_list() == [lib.DataDump(url=URL)]
+def test_DataDump__fetch_list(mock_ftp_server, tarball):
+    # need the mock FTP server to be running, even tho not used here.
+    res = lib.DataDump.fetch_list()
+    assert len(res) == 1
 
-    # skipped if date not matched
-    with mock.patch("moomoo_ingest.collect_listenbrainz_data_dump.request_with_retry") as mock_get:
-        mock_get.side_effect = [
-            mock.Mock(status_code=200, content=index_html.encode("utf-8")),
-            mock.Mock(status_code=200, content=details_html.encode("utf-8")),
-        ]
-        assert dump.fetch_list(dates=[datetime.date(2025, 2, 14)]) == []
+    # check we can get the data out of the DataDump
+    res = res[0]
+    assert res.data.getvalue() == tarball.getvalue()
 
 
-def test_DataDump__filename():
-    dump = lib.DataDump(URL)
-    assert dump.filename == "listenbrainz-listens-dump-1999-20250213-101618-incremental.tar.xz"
-
-
-def test_DataDump__date():
-    dump = lib.DataDump(URL)
-    assert dump.date == datetime.date(2025, 2, 13)
-
-
-def test_DataDump__get_start_timestamp(tarball, monkeypatch):
-    monkeypatch.setattr(lib.DataDump, "data", tarball)
-    dump = lib.DataDump(URL)
-    assert dump.get_start_timestamp() == datetime.datetime(
+def test_DataDump__get_start_timestamp(data_dump: lib.DataDump):
+    assert data_dump.get_start_timestamp() == datetime.datetime(
         2025, 2, 13, tzinfo=datetime.timezone.utc
     )
 
 
-def test_DataDump__get_end_timestamp(tarball, monkeypatch):
-    monkeypatch.setattr(lib.DataDump, "data", tarball)
-    dump = lib.DataDump(URL)
-    assert dump.get_end_timestamp() == datetime.datetime(2025, 2, 14, tzinfo=datetime.timezone.utc)
+def test_DataDump__get_end_timestamp(data_dump: lib.DataDump):
+    assert data_dump.get_end_timestamp() == datetime.datetime(
+        2025, 2, 14, tzinfo=datetime.timezone.utc
+    )
 
 
-def test_DataDump__get_listens(tarball, monkeypatch):
-    monkeypatch.setattr(lib.DataDump, "data", tarball)
-    dump = lib.DataDump(URL)
-    listens = dump.get_listens()
+def test_DataDump__get_listens(data_dump):
+    listens = data_dump.get_listens()
     assert listens == [
         lib.Listen(user_id=1, artist_mbid=UUID("00000000-0000-0000-0000-000000000000")),
         lib.Listen(user_id=1, artist_mbid=UUID("00000000-0000-0000-0000-000000000001")),
@@ -146,14 +132,12 @@ def test_main__no_dumps(monkeypatch):
     assert "No data dumps to process." in result.output
 
 
-def test_main(monkeypatch, tarball):
+def test_main(monkeypatch, data_dump):
     """Test the pipeline with a ton of mocked data."""
     ListenBrainzDataDump.create()
     ListenBrainzDataDumpRecord.create()
 
-    dump = lib.DataDump(url=URL)
-    monkeypatch.setattr(lib.DataDump, "fetch_list", lambda **_: [dump])
-    monkeypatch.setattr(lib.DataDump, "data", tarball)
+    monkeypatch.setattr(lib.DataDump, "fetch_list", lambda **_: [data_dump])
 
     runner = CliRunner()
     result = runner.invoke(lib.main)
@@ -162,7 +146,7 @@ def test_main(monkeypatch, tarball):
     # check the db
     res = ListenBrainzDataDump.select_star()
     assert len(res) == 1
-    assert res[0]["url"] == URL
+    assert res[0]["slug"] == "listenbrainz-listens-dump-20250213-incremental.tar.zst"
     assert len(ListenBrainzDataDumpRecord.select_star()) == 4
 
     # run it again and should not add more

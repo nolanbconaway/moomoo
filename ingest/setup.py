@@ -5,9 +5,7 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 version = (
-    (Path(__file__).resolve().parent / "src" / "moomoo_ingest" / "version")
-    .read_text()
-    .strip()
+    (Path(__file__).resolve().parent / "src" / "moomoo_ingest" / "version").read_text().strip()
 )
 
 
@@ -27,7 +25,8 @@ setup(
         "mutagen==1.46.0",
         "pylistenbrainz==0.5.1",
         "musicbrainzngs==0.7.1",
-        "beautifulsoup4==4.13.3"
+        "beautifulsoup4==4.13.3",
+        "zstandard==0.23.0",
     ],
     extras_require=dict(
         test=[
@@ -35,6 +34,7 @@ setup(
             "pytest==7.2.2",
             "requests-mock==1.11.0",
             "pytest-postgresql==5.0.0",
+            "pytest_localftpserver==1.3.*",
         ]
     ),
     entry_points={"console_scripts": ["moomoo-ingest=moomoo_ingest.cli:cli"]},
