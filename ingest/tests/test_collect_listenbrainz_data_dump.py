@@ -152,5 +152,15 @@ def test_main(monkeypatch, data_dump):
     # run it again and should not add more
     result = runner.invoke(lib.main)
     assert result.exit_code == 0
+    assert "No new data dumps to process." in result.output
+    assert len(ListenBrainzDataDump.select_star()) == 1
+    assert len(ListenBrainzDataDumpRecord.select_star()) == 4
+
+    # metate the modify ts and run again. should re-process the data dump
+    data_dump.modify_ts += datetime.timedelta(days=1)
+    monkeypatch.setattr(lib.DataDump, "fetch_list", lambda **_: [data_dump])
+    result = runner.invoke(lib.main)
+    assert result.exit_code == 0
+    assert "No new data dumps to process." not in result.output
     assert len(ListenBrainzDataDump.select_star()) == 1
     assert len(ListenBrainzDataDumpRecord.select_star()) == 4

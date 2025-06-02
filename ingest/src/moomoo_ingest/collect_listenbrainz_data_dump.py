@@ -258,6 +258,10 @@ def main(procs: int) -> None:
         if ftp_dump.slug not in db_dumps or db_dumps[ftp_dump.slug].modify_ts < ftp_dump.modify_ts
     ]
 
+    if not ftp_dumps:
+        click.echo("No new data dumps to process.")
+        sys.exit(0)
+
     for dump in ftp_dumps:
         click.echo(f"Processing {dump.ftp_path}...")
         listens = dump.get_listens(procs=procs)
