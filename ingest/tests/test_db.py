@@ -203,8 +203,10 @@ def test_ListenBrainzDataDump__replace_records():
     ListenBrainzDataDumpRecord.create()
 
     dump = ListenBrainzDataDump(
-        url="test",
-        date=datetime.datetime(2021, 1, 1),
+        slug="test",
+        ftp_path="test.tar.gz",
+        ftp_modify_ts=datetime.datetime(2021, 1, 1),
+        date=datetime.date(2021, 1, 1),
         start_timestamp=datetime.datetime(2021, 1, 1),
         end_timestamp=datetime.datetime(2021, 1, 2),
     )
@@ -216,6 +218,9 @@ def test_ListenBrainzDataDump__replace_records():
     dump.replace_records([record], session=session)
     assert len(dump.records) == 1
     assert dump.records[0].user_id == 1
+
+    dump.replace_records([], session=session)
+    assert len(dump.records) == 0
 
 
 def test_cli__ddl():
