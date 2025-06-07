@@ -126,19 +126,3 @@ models:
       - name: insert_ts_utc
         tests:
           - not_null
-
-  - name: listenbrainz_data_dumps
-    description:  Mapped data from local files to listenbrainz lookups.
-    columns:
-      - name: slug
-        tests:
-          - not_null
-          - unique
-
-  - name: listenbrainz_data_dump_records
-    description:  Mapped data from local files to listenbrainz lookups.
-    columns:
-      - name: dump_record_id
-        tests:
-          - not_null
-          - unique
