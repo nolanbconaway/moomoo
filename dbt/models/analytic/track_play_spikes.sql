@@ -60,6 +60,6 @@ from spikes_unconstrained
 inner join {{ ref('listens') }} as listens
   on spikes_unconstrained.listen_md5 = listens.listen_md5
 
-where spikes_unconstrained.listen_md5 not in (select * from exclude)
+where spikes_unconstrained.listen_md5 not in (select exclude.listen_md5 from exclude)
 
 order by spikes_unconstrained.period_start_at_utc desc

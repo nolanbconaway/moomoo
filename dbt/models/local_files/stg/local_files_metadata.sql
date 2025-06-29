@@ -26,25 +26,24 @@
 
 with t as (
   select
-    "filepath"
-    , "recording_md5"
-    , least("file_created_at", "file_modified_at") as "file_created_at"
-    , {{ json_get('json_data', ['title']) }}::varchar as "track_name"
-    , {{ json_get('json_data', ['album']) }}::varchar as "album_name"
-    , {{ json_get('json_data', ['artist']) }}::varchar as "artist_name"
-    , {{ json_get('json_data', ['album_artist']) }}::varchar as "album_artist_name"
-    , {{ json_get('json_data', ['date']) }}::varchar as "track_date"
-    , {{ json_get('json_data', ['length']) }}::real as "track_length_seconds"
-    , {{ json_get('json_data', ['musicbrainz_trackid']) }}::varchar as "recording_mbid"
-    , {{ json_get('json_data', ['musicbrainz_albumid']) }}::varchar as "release_mbid"
-    , {{ json_get('json_data', ['musicbrainz_releasegroupid']) }}::varchar as "release_group_mbid"
-    , {{ json_get('json_data', ['musicbrainz_artistid']) }}::varchar as "artist_mbid"
-    , {{ json_get('json_data', ['musicbrainz_albumartistid']) }}::varchar as "album_artist_mbid"
-    , "insert_ts_utc"
+    filepath
+    , recording_md5
+    , least(file_created_at, file_modified_at) as file_created_at
+    , {{ json_get('json_data', ['title']) }}::varchar as track_name
+    , {{ json_get('json_data', ['album']) }}::varchar as album_name
+    , {{ json_get('json_data', ['artist']) }}::varchar as artist_name
+    , {{ json_get('json_data', ['album_artist']) }}::varchar as album_artist_name
+    , {{ json_get('json_data', ['date']) }}::varchar as track_date
+    , {{ json_get('json_data', ['length']) }}::real as track_length_seconds
+    , {{ json_get('json_data', ['musicbrainz_trackid']) }}::varchar as recording_mbid
+    , {{ json_get('json_data', ['musicbrainz_albumid']) }}::varchar as release_mbid
+    , {{ json_get('json_data', ['musicbrainz_releasegroupid']) }}::varchar as release_group_mbid
+    , {{ json_get('json_data', ['musicbrainz_artistid']) }}::varchar as artist_mbid
+    , {{ json_get('json_data', ['musicbrainz_albumartistid']) }}::varchar as album_artist_mbid
+    , insert_ts_utc
 
   from {{ source('pyingest', 'local_music_files') }}
 )
-
 
 select
   filepath

@@ -54,27 +54,27 @@
 
 with t as (
   select
-    "listen_md5"
-    , "username"::varchar as "username"
-    , to_timestamp({{ json_get('json_data', ['listened_at']) }}::int) as "listen_at_ts_utc"
-    , {{ json_get('json_data', ['recording_msid']) }}::uuid as "recording_msid"
-    , {{ json_get('json_data', ['track_metadata', 'track_name']) }}::varchar as "track_name"
+    listen_md5
+    , username::varchar as username
+    , to_timestamp({{ json_get('json_data', ['listened_at']) }}::int) as listen_at_ts_utc
+    , {{ json_get('json_data', ['recording_msid']) }}::uuid as recording_msid
+    , {{ json_get('json_data', ['track_metadata', 'track_name']) }}::varchar as track_name
 
     , {{
         json_get('json_data', ['track_metadata', 'artist_name'])
-      }}::varchar as "artist_name"
+      }}::varchar as artist_name
 
     , {{
         json_get('json_data', ['track_metadata', 'release_name'])
-      }}::varchar as "release_name"
+      }}::varchar as release_name
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'release_mbid'])
-      }}::uuid as "release_mbid"
+      }}::uuid as release_mbid
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'recording_mbid'])
-      }}::uuid as "recording_mbid"
+      }}::uuid as recording_mbid
 
     , {{
         json_get(
@@ -82,26 +82,25 @@ with t as (
           , ['track_metadata', 'mbid_mapping', 'artist_mbids']
           , as_json=True
         )
-      }} as "artist_mbids"
+      }} as artist_mbids
 
     , {{
         json_get('json_data', ['track_metadata', 'mbid_mapping', 'caa_release_mbid'])
-      }}::uuid as "caa_release_mbid"
+      }}::uuid as caa_release_mbid
 
     , {{
         json_get('json_data', ['track_metadata', 'additional_info', 'duration_ms'])
-      }}::int as "duration_ms"
+      }}::int as duration_ms
 
     , {{
         json_get('json_data', ['track_metadata', 'additional_info', 'tracknumber'])
-      }}::int as "tracknumber"
+      }}::int as tracknumber
 
-    , to_timestamp({{ json_get('json_data', ['inserted_at']) }}::int) as "_lb_insert_ts_utc"
-    , "insert_ts_utc" as "_ingest_insert_ts_utc"
+    , to_timestamp({{ json_get('json_data', ['inserted_at']) }}::int) as _lb_insert_ts_utc
+    , insert_ts_utc as _ingest_insert_ts_utc
 
   from {{ source('pyingest', 'listenbrainz_listens') }}
 )
-
 
 select
   listen_md5
