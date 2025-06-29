@@ -1,6 +1,7 @@
 FROM python:3.10-slim-bullseye
 RUN apt update
 RUN apt install -y make
+RUN apt-get install libgomp1
 
 WORKDIR /src
 
