@@ -185,3 +185,9 @@ def annotate_mbid_batch(mbids_maps: Iterable[dict]) -> Iterator[dict]:
         mbid = mbid_map["mbid"]
         entity = mbid_map["entity"]
         yield annotate_mbid(mbid, entity)
+
+
+def batch(iterable, n=1) -> Iterator[Iterable]:
+    length = len(iterable)
+    for ndx in range(0, length, n):
+        yield iterable[ndx : min(ndx + n, length)]

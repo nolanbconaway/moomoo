@@ -14,6 +14,7 @@ from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_se
 from moomoo_ingest.db.ddl import (
     TABLES,
     BaseTable,
+    ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
     ListenBrainzListen,
@@ -334,3 +335,37 @@ def test_cli__add_exclude_path(tmp_path: Path):
         re.compile("^target"),
         re.compile("^target\\ \\(1\\)"),
     ]
+
+
+def test_ListenBrainzCollaborativeFilteringScore__reset_pk():
+    ListenBrainzCollaborativeFilteringScore.create(drop=True)
+    # Insert a row to increment the PK
+    ListenBrainzCollaborativeFilteringScore.bulk_insert(
+        [
+            dict(artist_mbid_a=uuid1(), artist_mbid_b=uuid1(), score_value=1.23),
+            dict(artist_mbid_a=uuid1(), artist_mbid_b=uuid1(), score_value=1.23),
+        ],
+    )
+    # assert that the PK is 1
+    rows = ListenBrainzCollaborativeFilteringScore.select_star()
+    assert [row["mbid_pair_id"] for row in rows] == [1, 2]
+
+    # drop all rows in the table
+    with get_session() as session:
+        session.query(ListenBrainzCollaborativeFilteringScore).delete()
+        session.commit()
+
+    # add a row without specifying PK (should be 3)
+    ListenBrainzCollaborativeFilteringScore.bulk_insert(
+        [dict(artist_mbid_a=uuid1(), artist_mbid_b=uuid1(), score_value=2.34)]
+    )
+    rows = ListenBrainzCollaborativeFilteringScore.select_star()
+    assert [row["mbid_pair_id"] for row in rows] == [3]
+
+    # Reset the PK, Insert another row without specifying PK (should be 1 again)
+    ListenBrainzCollaborativeFilteringScore.reset_pk()
+    ListenBrainzCollaborativeFilteringScore.bulk_insert(
+        [dict(artist_mbid_a=uuid1(), artist_mbid_b=uuid1(), score_value=2.34)]
+    )
+    rows = ListenBrainzCollaborativeFilteringScore.select_star()
+    assert [row["mbid_pair_id"] for row in rows] == [3, 1]

@@ -27,6 +27,9 @@ setup(
         "musicbrainzngs==0.7.1",
         "beautifulsoup4==4.13.3",
         "zstandard==0.23.0",
+        "implicit==0.7.2",
+        "numpy==1.26.1",
+        "pandas==2.3.0",
     ],
     extras_require=dict(
         test=[

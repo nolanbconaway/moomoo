@@ -123,3 +123,24 @@ sources:
           - name: description
           - name: playlist
           - name: create_at_utc
+
+      - name: listenbrainz_data_dumps
+        description: Data dumps from Listenbrainz for archival purposes.
+        columns:
+          - name: slug
+          - name: ftp_path
+          - name: ftp_modify_ts
+          - name: date
+          - name: start_timestamp
+          - name: end_timestamp
+          - name: created_at
+          - name: refreshed_at
+
+      - name: listenbrainz_data_dump_records
+        description: User artist aggregated data from Listenbrainz data dumps.
+        columns:
+          - name: dump_record_id
+          - name: slug
+          - name: user_id
+          - name: artist_mbid
+          - name: listen_count
