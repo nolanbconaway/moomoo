@@ -40,14 +40,13 @@ Sample payload:
 
 with exploded as (
   select
-    base."payload_id"
+    base.payload_id
     , case base.entity
       when 'artists' then {{ json_get('rows_.value', ['artist_mbid']) }}
       when 'releases' then {{ json_get('rows_.value', ['release_mbid']) }}
       when 'recordings' then {{ json_get('rows_.value', ['recording_mbid']) }}
-    end as "mbid"
-    , sum({{ json_get('rows_.value', ['listen_count']) }}::int) as "listen_count"
-
+    end as mbid
+    , sum({{ json_get('rows_.value', ['listen_count']) }}::int) as listen_count
 
   from {{ source('pyingest', 'listenbrainz_similar_user_activity') }} as base
   ,
@@ -65,29 +64,29 @@ with exploded as (
 )
 
 select
-  {{ dbt_utils.generate_surrogate_key(['base.payload_id', 'exploded.mbid']) }} as "similar_user_activity_id"
-  , exploded."mbid"::uuid as "mbid"
-  , exploded."listen_count"
+  {{ dbt_utils.generate_surrogate_key(['base.payload_id', 'exploded.mbid']) }} as similar_user_activity_id
+  , exploded.mbid::uuid as mbid
+  , exploded.listen_count
 
-  , base."from_username"
-  , base."to_username"
-  , base."user_similarity"
+  , base.from_username
+  , base.to_username
+  , base.user_similarity
 
-  , base."time_range"
-  , to_timestamp({{ json_get('base.json_data', ['from_ts']) }}::int) as "activity_from_ts"
-  , to_timestamp({{ json_get('base.json_data', ['to_ts']) }}::int) as "activity_to_ts"
+  , base.time_range
+  , to_timestamp({{ json_get('base.json_data', ['from_ts']) }}::int) as activity_from_ts
+  , to_timestamp({{ json_get('base.json_data', ['to_ts']) }}::int) as activity_to_ts
 
   -- rename entity for consistency with other tables
   , case base.entity
     when 'artists' then 'artist'
     when 'releases' then 'release'
     when 'recordings' then 'recording'
-  end as "entity"
+  end as entity
 
-  , base."payload_id" as "ingest_payload_id"
-  , base."insert_ts_utc"
+  , base.payload_id as ingest_payload_id
+  , base.insert_ts_utc
 
 from {{ source('pyingest', 'listenbrainz_similar_user_activity') }} as base
-inner join exploded on exploded."payload_id" = base."payload_id"
+inner join exploded on exploded.payload_id = base.payload_id
 
-where exploded."mbid" is not null
+where exploded.mbid is not null

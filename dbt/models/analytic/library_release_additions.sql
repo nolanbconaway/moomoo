@@ -21,7 +21,6 @@ with similar_users as (
   group by 1, 2, 3
 )
 
-
 , known_releases as (
   select distinct release_group_mbid
   from {{ ref('map__file_release_group') }}

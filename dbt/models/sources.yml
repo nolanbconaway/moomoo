@@ -1,4 +1,3 @@
-
 version: 2
 
 sources:
@@ -144,3 +143,17 @@ sources:
           - name: user_id
           - name: artist_mbid
           - name: listen_count
+
+      - name: listenbrainz_collaborative_filtering_scores
+        description: Collaborative filtering scores between artist pairs.
+        columns:
+          - name: mbid_pair_id
+            description: Primary key.
+          - name: artist_mbid_a
+            description: First artist MBID.
+          - name: artist_mbid_b
+            description: Second artist MBID.
+          - name: score_value
+            description: Collaborative filtering score.
+          - name: insert_ts_utc
+            description: Timestamp of insertion
