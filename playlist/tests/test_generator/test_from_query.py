@@ -1,9 +1,10 @@
 from pathlib import Path
 
 import pytest
+from sqlalchemy.orm import Session
+
 from moomoo_playlist import NoFilesRequestedError, Track
 from moomoo_playlist import QueryPlaylistGenerator as Gen
-from sqlalchemy.orm import Session
 
 
 def test_fetch_filepaths(session: Session):

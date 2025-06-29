@@ -3,13 +3,14 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from click.testing import CliRunner
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from moomoo_playlist.collections.revisit_releases import list_revisit_releases
 from moomoo_playlist.collections.revisit_releases import main as revisit_releases_main
 from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.generator import NoFilesRequestedError, QueryPlaylistGenerator
 from moomoo_playlist.playlist import Playlist
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 
 def populate_revisit_releases(session: Session, data: list[dict]):

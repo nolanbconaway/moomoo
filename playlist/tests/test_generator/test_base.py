@@ -5,6 +5,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from psycopg.errors import UndefinedTable
+from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import Session
+
 from moomoo_playlist import (
     Track,
     fetch_recently_played_tracks,
@@ -14,10 +19,6 @@ from moomoo_playlist import (
 )
 from moomoo_playlist.db import db_retry
 from moomoo_playlist.generator.base import SPECIAL_PURPOSE_ARTISTS
-from psycopg.errors import UndefinedTable
-from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.orm import Session
 
 from ..conftest import load_local_files_table
 

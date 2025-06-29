@@ -1,4 +1,5 @@
 import pytest
+
 from moomoo_playlist.collections.create_collections import create_collections
 
 

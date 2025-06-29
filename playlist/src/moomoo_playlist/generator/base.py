@@ -3,10 +3,11 @@
 import abc
 import os
 from collections import Counter
+from collections.abc import Generator
 from itertools import islice
 from math import log
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import text

@@ -1,7 +1,8 @@
 import pytest
-from moomoo_playlist.db import execute_sql_fetchall, make_temp_table
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
+
+from moomoo_playlist.db import execute_sql_fetchall, make_temp_table
 
 
 def test_make_temp_table(session: Session):

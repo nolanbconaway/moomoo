@@ -1,17 +1,18 @@
 """Common fixtures for all tests."""
 
 import os
+from collections.abc import Generator
 from copy import deepcopy
-from typing import Generator
 from uuid import uuid4
 
 import psycopg
 import pytest
 import tenacity
-from moomoo_playlist.db import get_session
-from moomoo_playlist.ddl import BaseTable
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from moomoo_playlist.db import get_session
+from moomoo_playlist.ddl import BaseTable
 
 
 @pytest.fixture(autouse=True)
