@@ -2,17 +2,21 @@
 
 import datetime
 import re
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NewType
 from uuid import UUID
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select
+from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from .connection import execute_sql_fetchall, get_engine, get_session
+
+# make some new python types for real and smallint
+RealFloat = NewType("RealFloat", float)
+SmallInt = NewType("SmallInt", int)
 
 
 class BaseTable(DeclarativeBase):
@@ -25,6 +29,8 @@ class BaseTable(DeclarativeBase):
         list[float]: Vector(1024),
         UUID: postgresql.UUID,
         list[str]: postgresql.ARRAY(postgresql.VARCHAR),
+        RealFloat: postgresql.REAL,
+        SmallInt: postgresql.SMALLINT,
     }
 
     @classmethod
@@ -77,7 +83,7 @@ class BaseTable(DeclarativeBase):
             f(session)
 
     @classmethod
-    def bulk_insert(cls, rows: list[dict], session: Session = None) -> None:
+    def bulk_insert(cls, rows: list[dict], session: Session = None, commit: bool = True) -> None:
         """Bulk insert rows into the table.
 
         Is MUCH faster than inserting one row at a time.
@@ -85,7 +91,8 @@ class BaseTable(DeclarativeBase):
 
         def f(s: Session):
             s.execute(insert(cls), rows)
-            s.commit()
+            if commit:
+                s.commit()
 
         if session is None:
             with get_session() as session:
@@ -330,6 +337,36 @@ class ListenBrainzDataDumpRecord(BaseTable):
     dump: Mapped["ListenBrainzDataDump"] = relationship(back_populates="records")
 
 
+class ListenBrainzCollaborativeFilteringScore(BaseTable):
+    __tablename__ = "listenbrainz_collaborative_filtering_scores"
+    __table_args__ = (UniqueConstraint("artist_mbid_a", "artist_mbid_b"), {})
+
+    mbid_pair_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    artist_mbid_a: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    artist_mbid_b: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    score_value: Mapped[RealFloat] = mapped_column(nullable=False)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp()
+    )
+
+    @classmethod
+    def reset_pk(cls, session: Session | None = None, commit: bool = True) -> None:
+        """Reset the primary key to allow for re-insertions."""
+        name = cls.table_name()
+        sql = f"SELECT setval(pg_get_serial_sequence('{name}', 'mbid_pair_id'), 1, false);"
+
+        def f(session: Session):
+            session.execute(text(sql))
+            if commit:
+                session.commit()
+
+        if session is None:
+            with get_session() as session:
+                f(session)
+        else:
+            f(session)
+
+
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
@@ -341,4 +378,5 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzUserFeedback,
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
+    ListenBrainzCollaborativeFilteringScore,
 )
