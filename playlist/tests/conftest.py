@@ -66,6 +66,17 @@ def create_tables(session: Session):
     """Create the tables in the test db."""
     BaseTable.metadata.create_all(session.bind)
 
+    # create the listenbrainz_collaborative_filtering_scores table
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+        create table if not exists {schema}.listenbrainz_collaborative_filtering_scores (
+            artist_mbid_a uuid not null
+            , artist_mbid_b uuid not null
+            , score_value float not null
+        )
+        """
+    session.execute(text(sql))
+
 
 def load_local_files_table(data: list[dict]):
     """Load a fresh version of the local files table.
