@@ -4,6 +4,9 @@ from uuid import uuid4
 
 import pytest
 from click.testing import CliRunner
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from moomoo_playlist.collections.top_artists import list_top_artists
 from moomoo_playlist.collections.top_artists import main as top_artists_main
 from moomoo_playlist.db import execute_sql_fetchall
@@ -12,8 +15,6 @@ from moomoo_playlist.generator import (
     NoFilesRequestedError,
 )
 from moomoo_playlist.playlist import Playlist
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 
 def populate_artist_listen_counts(session: Session, data: list[dict]):

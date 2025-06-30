@@ -5,6 +5,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from psycopg.errors import UndefinedTable
+from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.orm import Session
+
 from moomoo_playlist import (
     Track,
     fetch_recently_played_tracks,
@@ -14,10 +19,6 @@ from moomoo_playlist import (
 )
 from moomoo_playlist.db import db_retry
 from moomoo_playlist.generator.base import SPECIAL_PURPOSE_ARTISTS
-from psycopg.errors import UndefinedTable
-from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
-from sqlalchemy.orm import Session
 
 from ..conftest import load_local_files_table
 
@@ -267,6 +268,47 @@ def test_stream_similar_tracks__predicate_weights(session: Session):
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
     base_assert_list_playlist_track(*res)
     assert not any(i.filepath == Path("test/x") for i in res)
+
+
+def test_stream_similar_tracks__cf_scores(session: Session):
+    """Test that collaborative filtering scores impact distance calculation."""
+
+    # Create two tracks with different artist MBIDs
+    artist_a = uuid.uuid4()
+    artist_b = uuid.uuid4()
+    rows = [
+        dict(filepath="test/0", embedding=str([0.0, 0.0]), artist_mbid=artist_a),
+        dict(filepath="test/1", embedding=str([1.0, 0.0]), artist_mbid=artist_b),
+    ]
+    load_local_files_table(data=rows)
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+
+    # No score: should use baseline
+    res_no_score = list(stream_similar_tracks([Path("test/0")], session))
+    dist_no_score = res_no_score[0].distance
+
+    # Insert a high collaborative filtering score (should reduce distance)
+    sql = f"""
+    insert into {schema}.listenbrainz_collaborative_filtering_scores (
+        artist_mbid_a, artist_mbid_b, score_value
+    )
+    values (:a, :b, :score)
+    """
+    session.execute(text(sql), dict(a=artist_a, b=artist_b, score=1.0))
+
+    res_with_score = list(stream_similar_tracks([Path("test/0")], session))
+    dist_with_score = res_with_score[0].distance
+
+    # The distance with a high score should be less than the baseline
+    assert dist_with_score < dist_no_score
+
+    # Insert a low collaborative filtering score (should increase distance)
+    session.execute(text(f"delete from {schema}.listenbrainz_collaborative_filtering_scores"))
+    session.execute(text(sql), dict(a=artist_a, b=artist_b, score=0.0))
+    res_low_score = list(stream_similar_tracks([Path("test/0")], session))
+    dist_low_score = res_low_score[0].distance
+
+    assert dist_low_score > dist_no_score > dist_with_score
 
 
 def test_get_most_similar_tracks(session: Session):

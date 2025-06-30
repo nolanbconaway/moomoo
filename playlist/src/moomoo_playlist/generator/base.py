@@ -3,10 +3,11 @@
 import abc
 import os
 from collections import Counter
+from collections.abc import Generator
 from itertools import islice
 from math import log
 from pathlib import Path
-from typing import Generator, Optional
+from typing import Optional
 from uuid import UUID
 
 from sqlalchemy import text
@@ -29,6 +30,10 @@ SPECIAL_PURPOSE_ARTISTS = {
     UUID("125ec42a-7229-4250-afc5-e057484327fe"),  # unknown
     UUID("89ad4ac3-39f7-470e-963a-56509c546377"),  # various artists
 }
+
+# grabbed this via median score across all artists. used as default value in case we have no artist
+# similarity data.
+BASELINE_CF_SCORE = 0.2475996481320529  # ~1.281
 
 
 class NoFilesRequestedError(Exception):
@@ -224,7 +229,7 @@ def stream_similar_tracks(
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
         with base as (
-            select filepath, tmp_.weight, local_files.embedding
+            select filepath, artist_mbid, tmp_.weight, local_files.embedding
             from {schema}.local_files
             inner join {base_weights_table} as tmp_ using (filepath)
             where local_files.embedding_success
@@ -237,13 +242,20 @@ def stream_similar_tracks(
                 , case 
                     when sum(base.weight) > 0  -- in case filtered to only 0 weights
                     then (
-                        sum((base.embedding <-> local_files.embedding) * base.weight)
+                        sum(
+                            (base.embedding <-> local_files.embedding)
+                            * base.weight
+                            / coalesce(exp(cf_scores.score_value - {BASELINE_CF_SCORE}), 1)
+                        )
                         / sum(base.weight)
                     )
                   end as distance
 
             from {schema}.local_files
             cross join base
+            left join {schema}.listenbrainz_collaborative_filtering_scores as cf_scores
+                on base.artist_mbid = cf_scores.artist_mbid_a
+                and local_files.artist_mbid = cf_scores.artist_mbid_b
 
             where true
                 and local_files.embedding_success

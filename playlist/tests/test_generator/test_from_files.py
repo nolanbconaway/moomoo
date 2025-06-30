@@ -3,8 +3,9 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from moomoo_playlist import FromFilesPlaylistGenerator, NoFilesRequestedError, Track
 from sqlalchemy.orm import Session
+
+from moomoo_playlist import FromFilesPlaylistGenerator, NoFilesRequestedError, Track
 
 from ..conftest import load_local_files_table
 

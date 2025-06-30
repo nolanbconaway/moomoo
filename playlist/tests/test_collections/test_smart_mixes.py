@@ -5,6 +5,9 @@ from uuid import uuid4
 import numpy as np
 import pytest
 from click.testing import CliRunner
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from moomoo_playlist.collections.smart_mix import (
     Track,
     cluster_avg_distance,
@@ -15,8 +18,6 @@ from moomoo_playlist.collections.smart_mix import main as smart_mix_main
 from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.generator import FromFilesPlaylistGenerator, NoFilesRequestedError
 from moomoo_playlist.playlist import Playlist
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 from ..conftest import load_local_files_table
 

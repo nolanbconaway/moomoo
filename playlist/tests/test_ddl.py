@@ -3,10 +3,11 @@ import uuid
 from unittest.mock import patch
 
 import pytest
-from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
-from moomoo_playlist.playlist import Playlist
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+from moomoo_playlist.playlist import Playlist
 
 
 def test_collection__unique_constraint(session: Session):

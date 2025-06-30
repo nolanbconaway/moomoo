@@ -3,6 +3,9 @@ from pathlib import Path
 from uuid import uuid4
 
 from click.testing import CliRunner
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from moomoo_playlist.collections.revisit_tracks import (
     create_playlist,
     list_revisit_tracks,
@@ -10,8 +13,6 @@ from moomoo_playlist.collections.revisit_tracks import (
 from moomoo_playlist.collections.revisit_tracks import main as revisit_tracks_main
 from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.playlist import Track
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 
 def populate_revisit_tracks(session: Session, data: list[dict]):

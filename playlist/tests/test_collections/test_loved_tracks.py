@@ -2,11 +2,12 @@ import datetime
 import os
 
 from click.testing import CliRunner
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from moomoo_playlist.collections.loved_tracks import list_loved_tracks
 from moomoo_playlist.collections.loved_tracks import main as loved_tracks_main
 from moomoo_playlist.db import execute_sql_fetchall
-from sqlalchemy import text
-from sqlalchemy.orm import Session
 
 
 def populate_loved_tracks(session: Session, data: list[dict]):
