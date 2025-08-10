@@ -176,8 +176,11 @@ def test_stream_similar_tracks__weight_errors(session: Session):
     assert "Weights must sum to a non-zero value" in str(e.value)
 
 
-def test_stream_similar_tracks__weighted(session: Session):
+def test_stream_similar_tracks__weighted(session: Session, monkeypatch):
     """Test the weighted math is correct."""
+    # disable minimum cosine similarity check
+    monkeypatch.setattr("moomoo_playlist.generator.base.MINIMUM_COSINE_SIMILARITY", 0.0)
+
     rows = [
         dict(filepath="test/0", embedding=str([1, 0.5])),
         dict(filepath="test/1", embedding=str([1, 1])),
@@ -217,8 +220,11 @@ def test_stream_similar_tracks__weighted(session: Session):
     assert pytest.approx(res[0].distance) == expect
 
 
-def test_stream_similar_tracks__predicate_weights(session: Session):
+def test_stream_similar_tracks__predicate_weights(session: Session, monkeypatch):
     """Test the predicate weights are correctly applied."""
+    # disable minimum cosine similarity check
+    monkeypatch.setattr("moomoo_playlist.generator.base.MINIMUM_COSINE_SIMILARITY", 0.0)
+
     rows = [
         dict(filepath="test/0", embedding=str([1, 0.5])),
         dict(filepath="test/1", embedding=str([1, 1])),
@@ -309,6 +315,23 @@ def test_stream_similar_tracks__cf_scores(session: Session):
     dist_low_score = res_low_score[0].distance
 
     assert dist_low_score > dist_no_score > dist_with_score
+
+
+def test_stream_similar_tracks__minimum_score_filter(session: Session):
+    """Test that collaborative filtering scores impact distance calculation."""
+    rows = [
+        dict(filepath="test/0", embedding=str([1, 1])),
+        dict(filepath="test/1", embedding=str([1, 0.99])),
+        dict(filepath="test/2", embedding=str([2, 2])),
+        dict(filepath="test/3", embedding=str([3, 3])),
+    ]
+    load_local_files_table(data=rows)
+    targets = [Path("test/1")]
+
+    # targeting track 1 should exclude track 0, as it is too similar
+    res = list(stream_similar_tracks(targets, session))
+    base_assert_list_playlist_track(*res)
+    assert [i.filepath for i in res] == [Path("test/2"), Path("test/3")]
 
 
 def test_get_most_similar_tracks(session: Session):
