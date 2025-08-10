@@ -1,6 +1,6 @@
 """Blueprint for the /playlist endpoint.
 
-Use the base postgres connection in the playlist module for now. eventually should 
+Use the base postgres connection in the playlist module for now. eventually should
 use a sqlalchemy session.
 """
 

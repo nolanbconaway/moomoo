@@ -3,9 +3,10 @@
 import psycopg
 import pytest
 from flask.testing import FlaskClient
+from moomoo_playlist.ddl import BaseTable, PlaylistCollection, PlaylistCollectionItem
+
 from moomoo_http.app import create_app
 from moomoo_http.db import db
-from moomoo_playlist.ddl import BaseTable, PlaylistCollection, PlaylistCollectionItem
 
 
 @pytest.fixture(autouse=True)
@@ -21,12 +22,13 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     Returns an endless supply of connections to the test db.
     """
     # convert the dsn into a sqlalchemy uri
-    uri = "postgresql+psycopg://{}@{}:{}/{}".format(
+    user, host, port, dbname = (
         postgresql.info.user,
         postgresql.info.host,
         postgresql.info.port,
         postgresql.info.dbname,
     )
+    uri = f"postgresql+psycopg://{user}@{host}:{port}/{dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
 
     # make sure the test schema exists and the vector extension is loaded

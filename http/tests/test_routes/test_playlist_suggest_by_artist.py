@@ -1,8 +1,9 @@
 from uuid import uuid4
 
 from flask.testing import FlaskClient
-from moomoo_http.db import db
 from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+
+from moomoo_http.db import db
 
 
 def test_arg_errors(http_app: FlaskClient):

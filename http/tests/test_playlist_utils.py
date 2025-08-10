@@ -1,9 +1,10 @@
 """Test the base app."""
 
-from moomoo_http.db import db
-from moomoo_http.routes.playlist import PlaylistResponse
 from moomoo_playlist import Playlist, Track
 from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+
+from moomoo_http.db import db
+from moomoo_http.routes.playlist import PlaylistResponse
 
 
 def test_PlaylistResponse__serialize_playlist():

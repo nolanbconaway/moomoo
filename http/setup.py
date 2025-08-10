@@ -12,7 +12,7 @@ version = (
 
 # setup for installing moomoo-playlist from a git repository
 # TODO: get the url from shell? grab from a tagged release?
-playlist_commit = "878e7d3277007f34a63739e90220dd64c65b57ee"
+playlist_commit = "d9840165e1b474cfc3e8576e76fe661e136a341c"
 playlist_url = "https://github.com/nolanbconaway/moomoo.git"
 
 setup(
@@ -29,7 +29,7 @@ setup(
     ],
     extras_require=dict(
         test=[
-            "ruff==0.2.0",
+            "ruff==0.12.*",
             "pytest==7.4.4",
             "pytest-postgresql==5.0.0",
         ],

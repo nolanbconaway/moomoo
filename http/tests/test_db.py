@@ -1,4 +1,5 @@
 import psycopg
+
 from moomoo_http.db import db
 
 
