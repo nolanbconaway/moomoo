@@ -29,7 +29,7 @@ jobs:
       - name: Install pgvector
         run: |
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
-          sudo apt-get install postgresql-14-pgvector
+          sudo apt-get install postgresql-16-pgvector
 
       - name: pip install
         run: |
