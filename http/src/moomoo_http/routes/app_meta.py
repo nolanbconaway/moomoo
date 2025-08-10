@@ -1,4 +1,5 @@
 """Application metadata views (ping, version, etc)"""
+
 from pathlib import Path
 
 from flask import Blueprint

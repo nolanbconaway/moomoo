@@ -1,4 +1,5 @@
 """Create the Flask app."""
+
 import os
 from pathlib import Path
 
