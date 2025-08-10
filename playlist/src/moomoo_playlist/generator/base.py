@@ -270,10 +270,11 @@ def stream_similar_tracks(
                 and local_files.filepath not in (select filepath from {base_weights_table})
                 and local_files.artist_mbid is not null
 
-                and (base.embedding <-> local_files.embedding) > {MINIMUM_COSINE_SIMILARITY}
+                
 
             group by local_files.filepath
             having sum(base.weight) > 0
+              and min(base.embedding <-> local_files.embedding) > {MINIMUM_COSINE_SIMILARITY}
         )
 
         select

@@ -333,6 +333,11 @@ def test_stream_similar_tracks__minimum_score_filter(session: Session):
     base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path("test/2"), Path("test/3")]
 
+    # 0 should also be excluded if we target tracks 1 and 2, as it is too similiar to 1
+    res = list(stream_similar_tracks([Path("test/1"), Path("test/2")], session))
+    base_assert_list_playlist_track(*res)
+    assert [i.filepath for i in res] == [Path("test/3")]
+
 
 def test_get_most_similar_tracks(session: Session):
     """Test that get_most_similar_tracks works as expected."""
