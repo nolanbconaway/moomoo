@@ -36,6 +36,13 @@ SPECIAL_PURPOSE_ARTISTS = {
 BASELINE_CF_SCORE = 0.2475996481320529  # ~1.281
 
 
+# i looked at the most similiar tracks and found that up until this point, the tracks were more or
+# less the same (sometimes different artists, but are silent tracks, etc).
+#
+# This will only exclude the ~700 most similar pairs.
+MINIMUM_COSINE_SIMILARITY = 0.5
+
+
 class NoFilesRequestedError(Exception):
     """No files requested by the user."""
 
@@ -262,6 +269,8 @@ def stream_similar_tracks(
                 and local_files.embedding_duration_seconds >= 60
                 and local_files.filepath not in (select filepath from {base_weights_table})
                 and local_files.artist_mbid is not null
+
+                and (base.embedding <-> local_files.embedding) > {MINIMUM_COSINE_SIMILARITY}
 
             group by local_files.filepath
             having sum(base.weight) > 0
