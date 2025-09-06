@@ -19,6 +19,11 @@ models:
 
   - name: listenbrainz_collaborative_filtering_scores
     description: Collaborative filtering scores between artist pairs.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - artist_mbid_a
+            - artist_mbid_b
     columns:
       - name: artist_mbid_a
         tests:
