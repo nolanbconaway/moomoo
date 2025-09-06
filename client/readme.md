@@ -38,6 +38,7 @@ Point to the media library and the `moomoo/http` server with these envvars:
 MOOMOO_HOST=host:port
 MOOMOO_MEDIA_LIBRARY=/files/where/music
 LISTENBRAINZ_USERNAME=...
+MOOMOO_HTTP_TIMEOUT=60.0
 ```
 
 Create a [strawberry](https://www.strawberrymusicplayer.org/) playlist from a file
