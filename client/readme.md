@@ -13,12 +13,14 @@ This is intended to be a lightweight pypackage, installed via [`pipx`](https://g
 [Install toga deps](https://toga.readthedocs.io/en/stable/tutorial/tutorial-0.html#set-up-your-development-environment). For ubuntu:
 
 ```
-sudo apt install 
+sudo apt install \
+    git \
+    build-essential \
     pkg-config \
     python3-dev \
-    libgirepository1.0-dev \
+    libgirepository-2.0-dev \
     libcairo2-dev \
-    gir1.2-webkit2-4.0 \
+    gir1.2-gtk-3.0 \
     libcanberra-gtk3-module
 ```
 
