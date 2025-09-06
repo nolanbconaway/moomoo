@@ -203,6 +203,20 @@ def main(update_batch_size: int) -> None:
                 click.echo(f"Batch {batch_num}/{len(batches)}: no scores to process.")
                 continue
 
+            # add an assumed score=1.0 for all a=b pairs
+            scores_df = pd.concat(
+                [
+                    scores_df,
+                    pd.DataFrame(
+                        {
+                            "artist_mbid_a": batch_mbids,
+                            "artist_mbid_b": batch_mbids,
+                            "score_value": 1.0,
+                        }
+                    ),
+                ]
+            )
+
             # do not commit until all batches are processed
             ListenBrainzCollaborativeFilteringScore.bulk_insert(
                 scores_df.to_dict(orient="records"), session=session, commit=False

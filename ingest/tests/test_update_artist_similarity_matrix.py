@@ -243,7 +243,7 @@ def test_main_cli(db_data_dump):
     for row in rows:
         assert str(row["artist_mbid_a"]) in all_mbids
         assert str(row["artist_mbid_b"]) in all_mbids
-        assert row["artist_mbid_a"] < row["artist_mbid_b"]
+        assert row["artist_mbid_a"] <= row["artist_mbid_b"]
         assert isinstance(row["score_value"], float)
 
     # running 2x should produce the same results
