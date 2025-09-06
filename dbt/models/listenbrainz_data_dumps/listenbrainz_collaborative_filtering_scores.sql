@@ -8,6 +8,9 @@ select
 
 from {{ source('pyingest', 'listenbrainz_collaborative_filtering_scores') }}
 
+-- make sure the diagonal is only added once
+where artist_mbid_a != artist_mbid_b
+
 union all
 
 select
