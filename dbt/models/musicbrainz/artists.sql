@@ -65,6 +65,11 @@ select
   , artists.release_count
   , release_timeline.earliest_release_year
   , release_timeline.latest_release_year
+  , case
+    when release_timeline.earliest_release_year is null then null
+    else release_timeline.earliest_release_year || ' - ' || release_timeline.latest_release_year
+    end as active_years
+
   , tags_str.tags as tags_string
   , artists._ingest_insert_ts_utc
 
