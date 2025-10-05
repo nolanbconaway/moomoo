@@ -13,9 +13,16 @@ models:
         tests:
           - not_null
       - name: artist_type
+      - name: disambiguation
       - name: alias_list
       - name: url_relation_list
       - name: artist_relation_list
+      - name: release_list
+      - name: tag_list
+      - name: release_count
+      - name: earliest_release_year
+      - name: latest_release_year
+      - name: tags_string
       - name: _ingest_insert_ts_utc
         tests:
           - not_null

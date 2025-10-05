@@ -1,78 +1,74 @@
-{{ config(materialized='view') }}
+{{ config(materialized='table') }}
 
-{# Artists which are popular with similar users #}
+{# artists which are similar to highly listened artists, but not in the user's library #}
 
-with similar_users as (
+with top_n as (
   select
-    from_username as username
-    , mbid as artist_mbid
-    , sum(user_similarity * log(listen_count)) as score
-
-  from {{ ref("similar_user_activity") }}
-
-  where entity = 'artist'
-    and time_range = 'all_time'
-
-  group by 1, 2
+    artist_mbid
+    , ln(lifetime_listen_count) as log_listens
+  from {{ ref('artist_listen_counts') }}
+  where lifetime_listen_count > 50
+  order by lifetime_listen_count desc
+  limit 500
 )
 
-, lb_top as (
+, in_library as (
   select artist_mbid
-  from {{ ref("listenbrainz_artist_stats") }}
-  order by total_listen_count desc
-  limit 100
-)
-
-, avg_listen_count as (
-  select avg(total_listen_count) as avg_listen_count
-  from {{ ref("listenbrainz_artist_stats") }}
-)
-
-, novelty as (
-  select
-    stats_.artist_mbid
-    , log(avg_.avg_listen_count + 1) / log(stats_.total_listen_count + 1) as score
-  from {{ ref("listenbrainz_artist_stats") }} as stats_
-  cross join avg_listen_count as avg_
-
-)
-
-, known_artists as (
-  select username, artist_mbid
-  from {{ ref("artist_listen_counts") }}
-  where lifetime_listen_count > 5
+  from {{ ref('map__file_artist') }}
+  group by 1
+  having count(1) > 6
 )
 
 , scores as (
   select
-    username
-    , artist_mbid
-    , similar_users.score as similarity
-    , novelty.score as novelty
-    , row_number() over (
-      partition by username
-      order by novelty.score * similar_users.score desc
-    ) as rank
+    collab.artist_mbid_a
+    , collab.artist_mbid_b
+    , exp(collab.score_value - 0.35) as score_value
+    , top_n.log_listens
 
-  from similar_users
-  inner join novelty using (artist_mbid)
-  left join lb_top using (artist_mbid)
-  left join known_artists using (artist_mbid, username)
+  from {{ ref('listenbrainz_collaborative_filtering_scores') }} as collab
+  inner join top_n on collab.artist_mbid_a = top_n.artist_mbid
+  left join in_library on collab.artist_mbid_b = in_library.artist_mbid
 
-  where known_artists.artist_mbid is null
-    and lb_top.artist_mbid is null
+  -- only suggest artists not already in the library
+  where in_library.artist_mbid is null
+)
+
+, max_score_artist as (
+  -- top score from an artist in the library
+  select distinct on (scores.artist_mbid_b)
+    scores.artist_mbid_b
+    , scores.artist_mbid_a
+    , scores.score_value
+  from scores
+  inner join in_library
+    on scores.artist_mbid_a = in_library.artist_mbid
+  order by scores.artist_mbid_b asc, scores.score_value desc
+)
+
+, agg_scores as (
+  select
+    artist_mbid_b
+    , sum(score_value * log_listens) as total_score
+    , max(score_value) as max_score
+
+  from scores
+  group by 1
 )
 
 select
-  scores.username
-  , scores.rank
-  , scores.artist_mbid
-  , artists.artist_name
-  , scores.similarity
-  , scores.novelty
+  agg_scores.artist_mbid_b as artist_mbid
+  , artist_b.artist_name
+  , artist_a.artist_name as most_similar_artist_name
+  , artist_b.tags_string
+  , artist_b.active_years
+  , agg_scores.total_score
+  , agg_scores.max_score
+  , max_score_artist.score_value as max_similar_artist_score
 
-from scores
-inner join {{ ref("artists") }} as artists using (artist_mbid)
+from agg_scores
+inner join max_score_artist using (artist_mbid_b)
+left join {{ ref('artists') }} as artist_b on artist_b.artist_mbid = agg_scores.artist_mbid_b
+left join {{ ref('artists') }} as artist_a on artist_a.artist_mbid = max_score_artist.artist_mbid_a
 
-where scores.rank <= 200
-order by scores.username, scores.rank
+order by agg_scores.max_score desc

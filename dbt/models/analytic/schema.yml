@@ -13,15 +13,11 @@ models:
 
   - name: artist_recommends
     description: Recommended artists from similar users.
-    tests:
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - rank
-      - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - artist_mbid
-            - username
+    columns:
+      - name: artist_mbid
+        tests:
+          - not_null
+          - unique
 
   - name: library_release_additions
     description: |
