@@ -14,9 +14,6 @@ inner join {{ ref('messybrainz_name_map') }} as map_ using (recording_md5)
 
 where map_.artist_mbids is not null
   and jsonb_array_length(map_.artist_mbids) > 0
-  -- exclude a custom library that does not map to anything on musicbrainz
-  -- this ends up being noisy
-  and local_files.filepath not like 'chopnscrew/%'
 
 union distinct
 
