@@ -4,8 +4,8 @@
 
 with top_n as (
   select
-     artist_mbid
-     , ln(lifetime_listen_count) as log_listens
+    artist_mbid
+    , ln(lifetime_listen_count) as log_listens
   from {{ ref('artist_listen_counts') }}
   where lifetime_listen_count > 50
   order by lifetime_listen_count desc
@@ -36,13 +36,14 @@ with top_n as (
 
 , max_score_artist as (
   -- top score from an artist in the library
-  select distinct on (artist_mbid_b)
-    artist_mbid_b
-    , artist_mbid_a
-    , score_value
+  select distinct on (scores.artist_mbid_b)
+    scores.artist_mbid_b
+    , scores.artist_mbid_a
+    , scores.score_value
   from scores
-  inner join in_library on in_library.artist_mbid = scores.artist_mbid_a
-  order by artist_mbid_b, score_value desc
+  inner join in_library
+    on scores.artist_mbid_a = in_library.artist_mbid
+  order by scores.artist_mbid_b asc, scores.score_value desc
 )
 
 , agg_scores as (
@@ -56,7 +57,7 @@ with top_n as (
 )
 
 select
-    agg_scores.artist_mbid_b as artist_mbid
+  agg_scores.artist_mbid_b as artist_mbid
   , artist_b.artist_name
   , artist_a.artist_name as most_similar_artist_name
   , artist_b.tags_string
@@ -71,4 +72,3 @@ left join {{ ref('artists') }} as artist_b on artist_b.artist_mbid = agg_scores.
 left join {{ ref('artists') }} as artist_a on artist_a.artist_mbid = max_score_artist.artist_mbid_a
 
 order by agg_scores.max_score desc
-  
