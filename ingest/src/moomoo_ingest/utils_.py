@@ -114,7 +114,6 @@ def _get_artist_data(artist_mbid: str) -> dict:
         artist_mbid,
         includes=[
             "releases",
-            "various-artists",
             "aliases",
             "area-rels",
             "artist-rels",
