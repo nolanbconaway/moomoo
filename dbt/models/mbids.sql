@@ -26,14 +26,14 @@ with release_mbids as (
   where entity = 'release'
 
   union distinct
-  
+
   {#
      Weird here, since we only know the release data for artists AFTER querying musicbrainz.
      But this is needed so that we can know when new media is released by artists in the user's library.
   #}
   select distinct {{ try_cast_uuid(json_get('release_.value', ["id"])) }} as release_mbid
   from {{ ref('artists') }} as artists
-   , jsonb_array_elements(artists.release_list) as release_
+    , jsonb_array_elements(artists.release_list) as release_
   where {{ try_cast_uuid(json_get('release_.value', ["id"])) }} is not null
 )
 
