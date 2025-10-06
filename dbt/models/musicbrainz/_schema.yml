@@ -62,6 +62,10 @@ models:
         tests:
           - not_null
       - name: release_group_year
+      - name: first_release_date
+      - name: release_group_type
+      - name: release_group_primary_type
+      - name: release_count
       - name: artist_credit_list
       - name: tag_list
       - name: url_relation_list
