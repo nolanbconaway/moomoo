@@ -17,7 +17,6 @@ select
   , {{ json_get('payload_json', ["data", "release-group", "first-release-date"]) }} as first_release_date
   , {{ json_get('payload_json', ["data", "release-group", "type"]) }} as release_group_type
   , {{ json_get('payload_json', ["data", "release-group", "primary-type"]) }} as release_group_primary_type
-  , {{ json_get('payload_json', ["data", "release-group", "release-count"]) }} as release_count
   , {{ json_get('payload_json', ["data", "release-group", "artist-credit"], as_json=True) }} as artist_credit_list
   , {{ json_get('payload_json', ["data", "release-group", "tag-list"], as_json=True) }} as tag_list
   , {{ json_get('payload_json', ["data", "release-group", "url-relation-list"], as_json=True) }} as url_relation_list
