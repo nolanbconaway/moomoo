@@ -33,7 +33,7 @@ with release_mbids as (
   #}
   select distinct {{ try_cast_uuid(json_get('release_.value', ["id"])) }} as release_mbid
   from {{ ref('artists') }} as artists
-    , jsonb_array_elements(artists.release_list) as release_
+  , jsonb_array_elements(artists.release_list) as release_
   where {{ try_cast_uuid(json_get('release_.value', ["id"])) }} is not null
 )
 
