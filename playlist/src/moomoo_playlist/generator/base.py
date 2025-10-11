@@ -33,9 +33,9 @@ SPECIAL_PURPOSE_ARTISTS = {
 
 # Used in exponential formula to convert the similarity score to a multiplier.
 # like: exp((score - baseline) * scalar)
-# 
+#
 # See the script: scripts/artist_cf_score_analysis.py for more info on how these were derived.
-# 
+#
 # The baseline is also effectively the default value in case we have no artist similarity data,
 # as the query coalesces to 1 in that case.
 CF_SCALAR = 0.5
