@@ -31,9 +31,15 @@ SPECIAL_PURPOSE_ARTISTS = {
     UUID("89ad4ac3-39f7-470e-963a-56509c546377"),  # various artists
 }
 
-# grabbed this via median score across all artists. used as default value in case we have no artist
-# similarity data.
-BASELINE_CF_SCORE = 0.2475996481320529  # ~1.281
+# Used in exponential formula to convert the similarity score to a multiplier.
+# like: exp((score - baseline) * scalar)
+#
+# See the script: scripts/artist_cf_score_analysis.py for more info on how these were derived.
+#
+# The baseline is also effectively the default value in case we have no artist similarity data,
+# as the query coalesces to 1 in that case.
+CF_SCALAR = 0.5
+CF_BASELINE = 0.363023320190634
 
 
 # i looked at the most similiar tracks and found that up until this point, the tracks were more or
@@ -252,7 +258,10 @@ def stream_similar_tracks(
                         sum(
                             (base.embedding <-> local_files.embedding)
                             * base.weight
-                            / coalesce(exp(cf_scores.score_value - {BASELINE_CF_SCORE}), 1)
+                            / coalesce(
+                                exp((cf_scores.score_value - {CF_BASELINE}) * {CF_SCALAR})
+                                , 1
+                              )
                         )
                         / sum(base.weight)
                     )
