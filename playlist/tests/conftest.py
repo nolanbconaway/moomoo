@@ -180,9 +180,7 @@ def load_listenbrainz_collaborative_filtering_scores(data: list[dict]):
     """
     with get_session() as session:
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
-        session.execute(
-            text(f"delete from {schema}.listenbrainz_collaborative_filtering_scores")
-        )
+        session.execute(text(f"delete from {schema}.listenbrainz_collaborative_filtering_scores"))
         sql = f"""
             insert into {schema}.listenbrainz_collaborative_filtering_scores (
                 artist_mbid_a, artist_mbid_b, score_value

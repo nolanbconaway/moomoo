@@ -1,4 +1,5 @@
 """Shared configuration values for playlists."""
+
 from uuid import UUID
 
 # Special purpose artists are artists that are used for a special purpose, such as
