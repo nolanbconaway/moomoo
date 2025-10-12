@@ -26,6 +26,8 @@ setup(
         "tqdm==4.*",
         "scikit-learn==1.4.*",
         "structlog>21.0.0,<25.0.0",
+        "numpy==1.*",
+        "pandas==2.*",
     ],
     extras_require=dict(
         test=[
