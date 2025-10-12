@@ -165,3 +165,32 @@ def load_local_files_table(data: list[dict]):
             i["embedding_duration_seconds"] = i.get("embedding_duration_seconds", 90)
             session.execute(text(sql), i)
         session.commit()
+
+
+def load_listenbrainz_collaborative_filtering_scores(data: list[dict]):
+    """Load a data info the listenbrainz_collaborative_filtering_scores table.
+
+    The table is not recreated, just cleared.
+
+    Input rows are dicts with keys:
+
+        - artist_mbid_a: uuid
+        - artist_mbid_b: uuid
+        - score_value: float
+    """
+    with get_session() as session:
+        schema = os.environ["MOOMOO_DBT_SCHEMA"]
+        session.execute(
+            text(f"delete from {schema}.listenbrainz_collaborative_filtering_scores")
+        )
+        sql = f"""
+            insert into {schema}.listenbrainz_collaborative_filtering_scores (
+                artist_mbid_a, artist_mbid_b, score_value
+            )
+            values (
+                :artist_mbid_a, :artist_mbid_b, :score_value
+            )
+        """
+        for i in data:
+            session.execute(text(sql), i)
+        session.commit()

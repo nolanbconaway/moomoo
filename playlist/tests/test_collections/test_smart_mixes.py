@@ -3,6 +3,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import numpy as np
+import pandas as pd
 import pytest
 from click.testing import CliRunner
 from sqlalchemy import text
@@ -10,16 +11,18 @@ from sqlalchemy.orm import Session
 
 from moomoo_playlist.collections.smart_mix import (
     Track,
-    cluster_avg_distance,
+    compute_track_distance_matrix,
+    fetch_cf_similarity_matrix,
     fetch_tracks,
     make_clusters,
 )
 from moomoo_playlist.collections.smart_mix import main as smart_mix_main
+from moomoo_playlist.config import CF_BASELINE
 from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.generator import FromFilesPlaylistGenerator, NoFilesRequestedError
 from moomoo_playlist.playlist import Playlist
 
-from ..conftest import load_local_files_table
+from ..conftest import load_listenbrainz_collaborative_filtering_scores, load_local_files_table
 
 
 def make_track(fpath: str, **kw) -> Track:
@@ -28,8 +31,26 @@ def make_track(fpath: str, **kw) -> Track:
         track_name=kw.get("track_name", fpath),
         artist_name=kw.get("artist_name", fpath),
         artist_mbid=kw.get("artist_mbid", uuid4()),
-        embedding=kw.get("embedding", np.random.uniform(size=50)),
+        embedding=kw.get("embedding", np.random.uniform(0, 1, size=50)),
     )
+
+
+def make_distance_matrix(n: int) -> np.ndarray:
+    """Make a fake distance matrix for n tracks."""
+    # make a random distance matrix
+    rng = np.random.RandomState(0)
+    mat = rng.uniform(size=(n, n))
+    mat = (mat + mat.T) / 2  # make it symmetric
+    np.fill_diagonal(mat, 0)  # set diagonal to 0
+    mat = mat.astype(np.float16)
+    return mat
+
+
+def make_cf_matrix(tracks: list[Track]) -> pd.DataFrame:
+    artist_mbids = list(dict.fromkeys([track.artist_mbid for track in tracks]))
+    n = len(artist_mbids)
+    mat = 1 - make_distance_matrix(n)
+    return pd.DataFrame(mat, index=artist_mbids, columns=artist_mbids)
 
 
 def test_fetch_tracks(session: Session):
@@ -112,20 +133,107 @@ def test_fetch_tracks(session: Session):
     assert res[1].artist_name == "album_artist_name"
 
 
-def test_cluster_avg_distance():
-    tracks = [make_track(str(i), embedding=[i, i]) for i in range(2)]
-    assert cluster_avg_distance(tracks) == 2**0.5
+def test_fetch_cf_similarity_matrix(session: Session):
+    """Test fetch_cf_similarity_matrix."""
+    # load the listenbrainz_collaborative_filtering_scores table with columns
+    # artist_mbid_a, artist_mbid_b, score_value
+    mbid_a = uuid4()
+    mbid_b = uuid4()
+
+    data = [
+        dict(artist_mbid_a=mbid_a, artist_mbid_b=mbid_a, score_value=1),
+        dict(artist_mbid_a=mbid_b, artist_mbid_b=mbid_b, score_value=1),
+        dict(artist_mbid_a=mbid_a, artist_mbid_b=mbid_b, score_value=0.5),
+        dict(artist_mbid_a=mbid_b, artist_mbid_b=mbid_a, score_value=0.5),
+    ]
+    load_listenbrainz_collaborative_filtering_scores(data)
+
+    # all tracks match the mbids in the table
+    tracks = [
+        make_track("a", artist_mbid=mbid_a),
+        make_track("b", artist_mbid=mbid_b),
+    ]
+    res = fetch_cf_similarity_matrix(tracks, session)
+    assert np.array_equal(res.values, np.array([[1.0, 0.5], [0.5, 1.0]]))
+
+    # duplicate artist mbids. should be the same result
+    tracks = [
+        make_track("a", artist_mbid=mbid_a),
+        make_track("b", artist_mbid=mbid_a),
+        make_track("c", artist_mbid=mbid_b),
+        make_track("d", artist_mbid=mbid_b),
+    ]
+    res = fetch_cf_similarity_matrix(tracks, session)
+    assert np.array_equal(res.values, np.array([[1.0, 0.5], [0.5, 1.0]]))
+
+    # no tracks
+    assert fetch_cf_similarity_matrix([], session).empty
+
+    # no matches
+    tracks = [make_track("a"), make_track("b")]
+    res = fetch_cf_similarity_matrix(tracks, session)
+    assert np.array_equal(
+        res.values, np.array([[1, CF_BASELINE], [CF_BASELINE, 1]], dtype=np.float16)
+    )
+
+    # two match, one no match.
+    tracks = [
+        make_track("a", artist_mbid=mbid_a),
+        make_track("b", artist_mbid=mbid_b),
+        make_track("c"),
+    ]
+    res = fetch_cf_similarity_matrix(tracks, session)
+    assert np.array_equal(
+        res.values,
+        np.array(
+            [
+                [1, 0.5, CF_BASELINE],
+                [0.5, 1, CF_BASELINE],
+                [CF_BASELINE, CF_BASELINE, 1],
+            ],
+            dtype=np.float16,
+        ),
+    )
+
+
+def test_compute_track_distance_matrix():
+    """Test compute_track_distance_matrix."""
+    #  no tracks
+    assert compute_track_distance_matrix([], pd.DataFrame()) is None
+
+    tracks = [make_track(str(i)) for i in range(5)]
+    cf_matrix = make_cf_matrix(tracks)
+    res = compute_track_distance_matrix(tracks, cf_matrix)
+
+    # i don't have any other way to test this right now. just check shape
+    assert res.shape == (5, 5)
+
+
+def test_make_clusters__bad_args():
+    """Test make_clusters with bad args."""
+    #  distance matrix not square
+    with pytest.raises(ValueError) as e:
+        make_clusters(
+            [],
+            n_jobs=1,
+            max_clusters=10,
+            distance_matrix=np.array([[0, 1], [1, 0], [0, 1]]),
+        )
+    assert "Distance matrix must be square." in str(e.value)
+
+    # distance matrix size does not match number of tracks
+    with pytest.raises(ValueError) as e:
+        make_clusters([], n_jobs=1, max_clusters=10, distance_matrix=np.array([[0, 1], [1, 0]]))
+    assert "Distance matrix size must match number of tracks." in str(e.value)
 
 
 def test_make_clusters__not_enough_data():
-    """Test make_clusters with no data."""
+    """Test make_clusters with not enough data."""
     with pytest.raises(RuntimeError) as e:
-        make_clusters([], n_jobs=1, max_clusters=10)
-    assert "Not enough tracks to cluster" in str(e.value)
-
-    with pytest.raises(RuntimeError) as e:
-        tracks = [make_track(str(i), embedding=[i, i]) for i in range(49)]
-        make_clusters(tracks, n_jobs=1, max_clusters=10)
+        n = 49
+        tracks = [make_track(str(i)) for i in range(n)]
+        distance_matrix = make_distance_matrix(n)
+        make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
     assert "Not enough tracks to cluster" in str(e.value)
 
 
@@ -143,8 +251,9 @@ def test_make_clusters__post_cluster_logic():
     # all -1 cluster
     with patch(patch_obj, return_value=np.array([-1] * 10)) as mock:
         tracks = [make_track(str(i)) for i in range(10)]
+        distance_matrix = make_distance_matrix(len(tracks))
         with pytest.raises(RuntimeError) as e:
-            make_clusters(tracks, n_jobs=1, max_clusters=10)
+            make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
         mock.assert_called_once()
         assert "No clusters with > 2 artists." in str(e.value)
 
@@ -152,15 +261,17 @@ def test_make_clusters__post_cluster_logic():
     mbid = uuid4()
     with patch(patch_obj, return_value=np.array([0] * 10)) as mock:
         tracks = [make_track(str(i), artist_mbid=mbid) for i in range(10)]
+        distance_matrix = make_distance_matrix(len(tracks))
         with pytest.raises(RuntimeError) as e:
-            make_clusters(tracks, n_jobs=1, max_clusters=10)
+            make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
         mock.assert_called_once()
         assert "No clusters with > 2 artists." in str(e.value)
 
     # one cluster with 3 distinct artists, one with 2
     with patch(patch_obj, return_value=np.array([0, 1, 0, 0, 1])) as mock:
         tracks = [make_track(str(i)) for i in range(5)]
-        res = make_clusters(tracks, n_jobs=1, max_clusters=10)
+        distance_matrix = make_distance_matrix(len(tracks))
+        res = make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
         mock.assert_called_once()
         assert len(res) == 1
         assert len(res[0]) == 3
@@ -169,7 +280,8 @@ def test_make_clusters__post_cluster_logic():
     # select top 1 cluster
     with patch(patch_obj, return_value=np.array([0, 0, 0, 1, 1, 1, 1, 1, 2, 2])) as mock:
         tracks = [make_track(str(i)) for i in range(10)]
-        res = make_clusters(tracks, n_jobs=1, max_clusters=1)
+        distance_matrix = make_distance_matrix(len(tracks))
+        res = make_clusters(tracks, n_jobs=1, max_clusters=1, distance_matrix=distance_matrix)
         mock.assert_called_once()
         assert len(res) == 1
 
@@ -181,7 +293,8 @@ def test_make_clusters__fake_data(n_jobs: int):
 
     # should run without error
     tracks = [make_track(str(i)) for i in range(1000)]
-    make_clusters(tracks, n_jobs=n_jobs, max_clusters=10)
+    distance_matrix = make_distance_matrix(len(tracks))
+    make_clusters(tracks, n_jobs=n_jobs, max_clusters=10, distance_matrix=distance_matrix)
 
 
 @patch("moomoo_playlist.collections.smart_mix.fetch_tracks", return_value=[])
@@ -192,13 +305,16 @@ def test_main__no_results(patch_cluster, patch_fetch):
     runner = CliRunner()
     res = runner.invoke(smart_mix_main, ["test", "--count=5"])
     assert res.exit_code == 0
-    assert "No playlists generated" in res.output
+    assert "Not enough tracks (0) to generate smart mixes." in res.output
 
     assert patch_fetch.call_count == 1
-    assert patch_cluster.call_count == 1
+    assert patch_cluster.call_count == 0
 
 
-@patch("moomoo_playlist.collections.smart_mix.fetch_tracks", return_value=[])
+@patch(
+    "moomoo_playlist.collections.smart_mix.fetch_tracks",
+    return_value=[make_track(str(i)) for i in range(1000)],
+)
 @patch(
     "moomoo_playlist.collections.smart_mix.make_clusters",
     return_value=[[make_track("a"), make_track("b")]] * 5,
@@ -229,31 +345,43 @@ def test_main__playlist_error(patch_cluster, patch_fetch):
 def test_main__downsample(patch_get_playlist, patch_cluster):
     """Test the downsample logic in main."""
     runner = CliRunner()
+    track_obj = "moomoo_playlist.collections.smart_mix.fetch_tracks"
+    cf_obj = "moomoo_playlist.collections.smart_mix.fetch_cf_similarity_matrix"
 
-    with patch(
-        "moomoo_playlist.collections.smart_mix.fetch_tracks",
-        return_value=[make_track(str(i)) for i in range(2000)],
-    ) as patch_fetch:
+    n = 4000
+    tracks = [make_track(str(i)) for i in range(n)]
+    cf_matrix = make_cf_matrix(tracks)
+    with (
+        patch(track_obj, return_value=tracks) as patch_fetch,
+        patch(cf_obj, return_value=cf_matrix) as patch_cf,
+    ):
         runner.invoke(smart_mix_main, ["test", "--count=3"])
 
     # patch_cluster should have been called with 2/3 of the tracks
     assert patch_fetch.call_count == 1
+    assert patch_cf.call_count == 1
     assert patch_cluster.call_count == 1
-    assert len(patch_cluster.call_args[1]["tracks"]) == 2000 * 2 // 3
+    assert len(patch_cluster.call_args[1]["tracks"]) == n * 3 // 4
 
-    with patch(
-        "moomoo_playlist.collections.smart_mix.fetch_tracks",
-        return_value=[make_track(str(i)) for i in range(1001)],
-    ) as patch_fetch:
+    n = 2001
+    tracks = [make_track(str(i)) for i in range(n)]
+    cf_matrix = make_cf_matrix(tracks)
+    with (
+        patch(track_obj, return_value=tracks) as patch_fetch,
+        patch(cf_obj, return_value=cf_matrix) as patch_cf,
+    ):
         runner.invoke(smart_mix_main, ["test", "--count=3"])
 
     # patch_cluster should have been called with 1000 tracks
     assert patch_fetch.call_count == 1
     assert patch_cluster.call_count == 2
-    assert len(patch_cluster.call_args[1]["tracks"]) == 1000
+    assert len(patch_cluster.call_args[1]["tracks"]) == 2000
 
 
-@patch("moomoo_playlist.collections.smart_mix.fetch_tracks", return_value=[])
+@patch(
+    "moomoo_playlist.collections.smart_mix.fetch_tracks",
+    return_value=[make_track(str(i)) for i in range(1000)],
+)
 @patch(
     "moomoo_playlist.collections.smart_mix.make_clusters",
     return_value=[[make_track("a"), make_track("b")]] * 5,
@@ -292,7 +420,10 @@ def test_main__stale_handler(patch_cluster, patch_fetch):
     assert "Saved 5 playlist(s) to database." in res.output
 
 
-@patch("moomoo_playlist.collections.smart_mix.fetch_tracks", return_value=[])
+@patch(
+    "moomoo_playlist.collections.smart_mix.fetch_tracks",
+    return_value=[make_track(str(i)) for i in range(1000)],
+)
 @patch(
     "moomoo_playlist.collections.smart_mix.make_clusters",
     return_value=[[make_track("a"), make_track("b")]] * 3,
