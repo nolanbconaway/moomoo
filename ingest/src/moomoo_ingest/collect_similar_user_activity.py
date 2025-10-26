@@ -75,16 +75,24 @@ def main(username: str):
     """Run the main CLI."""
     similar_users = get_similar_users(username)
     records = []
+    exceptions = []
     for user, entity, time_range in product(similar_users, ENTITIES, TIME_RANGES):
-        data = get_user_top_activity(
-            username=user["user_name"], entity=entity, time_range=time_range
-        )
-
-        if not data:
-            click.echo(f"No data for {user['user_name']} in the {time_range} range.")
+        try:
+            data = get_user_top_activity(
+                username=user["user_name"], entity=entity, time_range=time_range
+            )
+        except ListenBrainzAPIException as e:
+            click.echo(
+                f"Failed to get top activity for {user['user_name']} "
+                f"in the {entity} entity and {time_range} range: {e}",
+                err=True
+            )
+            exceptions.append(e)
             continue
-        else:
-            click.echo(f"Successfully got data for {user['user_name']}.")
+
+        if len(exceptions) >= 10:
+            click.echo("Too many failures, exiting. Raising last exception.")
+            raise exceptions[-1]
 
         records.append(
             {
