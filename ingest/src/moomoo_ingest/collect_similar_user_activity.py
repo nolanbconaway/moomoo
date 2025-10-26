@@ -85,7 +85,7 @@ def main(username: str):
             click.echo(
                 f"Failed to get top activity for {user['user_name']} "
                 f"in the {entity} entity and {time_range} range: {e}",
-                err=True
+                err=True,
             )
             exceptions.append(e)
             continue
