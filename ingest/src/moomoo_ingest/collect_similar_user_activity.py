@@ -90,7 +90,7 @@ def main(username: str):
             exceptions.append(e)
             continue
 
-        if len(exceptions) >= 10:
+        if len(exceptions) > 10:
             click.echo("Too many failures, exiting. Raising last exception.")
             raise exceptions[-1]
 
