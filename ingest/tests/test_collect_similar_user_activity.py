@@ -47,8 +47,8 @@ def test_cli_main__valid_data():
         runner = CliRunner()
         result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
     assert result.exit_code == 0
-    assert "Successfully got data for FAKE_NAME_2" in result.output
-    assert "Inserting" in result.output
+    assert "Inserting 9 records." in result.output.splitlines()
+    assert "Done." in result.output.splitlines()
 
     res = ListenBrainzSimilarUserActivity.select_star()
     assert len(res) == (
@@ -78,9 +78,24 @@ def test_cli_main__exception_handling():
     """Test the main function with exception handling."""
     ListenBrainzSimilarUserActivity.create()
 
-    # fail on nonhandled status code
-    fake_users_json = dict(payload=[dict(user_name="FAKE_USER", similarity=0.5)])
-    fake_activity = ListenBrainzAPIException(status_code=500, message="FAKE")
+    fake_users_json = dict(
+        payload=[dict(user_name=f"FAKE_USER_{i}", similarity=0.5) for i in range(5)]
+    )
+
+    # will need raise each exception 3x to account for retries.
+    ok_activity = dict(payload=dict(fake="yes"))
+    error_204 = ListenBrainzAPIException(status_code=204, message="FAKE")
+    error_500 = ListenBrainzAPIException(status_code=500, message="FAKE")
+
+    # # OK with one error
+    fake_activity = [error_500] * 9 * 3 + [ok_activity] * 1000
+    with get_mock_lb_http(fake_users_json, fake_activity):
+        runner = CliRunner()
+        result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
+    assert result.exit_code == 0
+
+    # fail if > 10 nonhandled status code
+    fake_activity = [error_500] * 11 * 3 + [ok_activity] * 1000
     with get_mock_lb_http(fake_users_json, fake_activity):
         runner = CliRunner()
         result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
@@ -88,10 +103,9 @@ def test_cli_main__exception_handling():
     assert isinstance(result.exception, ListenBrainzAPIException)
 
     # OK with 204
-    fake_users_json = dict(payload=[dict(user_name="FAKE_USER", similarity=0.5)])
-    fake_activity = ListenBrainzAPIException(status_code=204, message="FAKE")
+    fake_activity = [error_204] * 11 * 3 + [ok_activity] * 1000
     with get_mock_lb_http(fake_users_json, fake_activity):
         runner = CliRunner()
         result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
     assert result.exit_code == 0
-    assert "No records to insert" in result.output
+    assert result.output.splitlines()[-1] == "Done."
