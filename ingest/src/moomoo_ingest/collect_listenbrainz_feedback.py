@@ -15,6 +15,7 @@ from uuid import UUID
 import click
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import utils_
@@ -51,7 +52,9 @@ class UserFeedback:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(5),
-    retry=retry_if_exception_type(ListenBrainzAPIException),
+    retry=retry_if_exception_type(
+        (ListenBrainzAPIException, RequestsConnectionError, ConnectionError)
+    ),
     reraise=True,
 )
 def get_total_feedback_count(username: str) -> int:
@@ -74,7 +77,9 @@ def get_total_feedback_count(username: str) -> int:
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(5),
-    retry=retry_if_exception_type(ListenBrainzAPIException),
+    retry=retry_if_exception_type(
+        (ListenBrainzAPIException, RequestsConnectionError, ConnectionError)
+    ),
     reraise=True,
 )
 def get_feedback_page(username: str, page_num: int = 0) -> list[UserFeedback]:

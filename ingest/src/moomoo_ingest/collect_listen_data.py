@@ -16,6 +16,7 @@ from typing import Optional
 import click
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
@@ -35,7 +36,9 @@ def get_listens_in_period(
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(5),
-        retry=retry_if_exception_type(ListenBrainzAPIException),
+        retry=retry_if_exception_type(
+            (ListenBrainzAPIException, RequestsConnectionError, ConnectionError)
+        ),
     )
     def get(lb: int, ub: int) -> dict:
         ub_dt = utils_.utcfromunixtime(ub).isoformat()
