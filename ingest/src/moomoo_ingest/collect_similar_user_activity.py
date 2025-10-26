@@ -17,6 +17,7 @@ from typing import Union
 import click
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import utils_
@@ -25,6 +26,7 @@ from .db import ListenBrainzSimilarUserActivity, get_session
 ENTITIES = ("artists", "releases", "recordings")
 TIME_RANGES = ("month", "year", "all_time")
 
+RETRY_EXC = (ListenBrainzAPIException, ConnectionError, RequestsConnectionError)
 LB_RETRY = retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(5),
@@ -75,24 +77,25 @@ def main(username: str):
     """Run the main CLI."""
     similar_users = get_similar_users(username)
     records = []
-    exceptions = []
+    num_errors = 0
     for user, entity, time_range in product(similar_users, ENTITIES, TIME_RANGES):
         try:
             data = get_user_top_activity(
                 username=user["user_name"], entity=entity, time_range=time_range
             )
-        except ListenBrainzAPIException as e:
+        except RETRY_EXC as e:
             click.echo(
                 f"Failed to get top activity for {user['user_name']} "
                 f"in the {entity} entity and {time_range} range: {e}",
                 err=True,
             )
-            exceptions.append(e)
-            continue
+            num_errors += 1
 
-        if len(exceptions) > 10:
-            click.echo("Too many failures, exiting. Raising last exception.")
-            raise exceptions[-1]
+            if num_errors > 10:
+                click.echo("Too many failures, exiting. Raising last exception.")
+                raise e
+
+            continue
 
         records.append(
             {

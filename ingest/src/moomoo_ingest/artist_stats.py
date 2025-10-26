@@ -23,6 +23,7 @@ from typing import Optional
 import click
 from pylistenbrainz import ListenBrainz
 from pylistenbrainz.errors import ListenBrainzAPIException
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
@@ -33,7 +34,9 @@ from .db import ListenBrainzArtistStats, execute_sql_fetchall, get_session
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_fixed(5),
-    retry=retry_if_exception_type(ListenBrainzAPIException),
+    retry=retry_if_exception_type(
+        (ListenBrainzAPIException, RequestsConnectionError, ConnectionError)
+    ),
     reraise=True,
 )
 def _get_artist_stats(mbid: uuid.UUID) -> dict:
