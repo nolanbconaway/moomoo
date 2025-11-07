@@ -23,7 +23,7 @@ setup(
         "click==8.1.*",
         "tenacity==8.2.2",
         "mutagen==1.46.0",
-        "pylistenbrainz==0.5.1",
+        "liblistenbrainz==0.6.1",
         "musicbrainzngs==0.7.1",
         "beautifulsoup4==4.13.3",
         "zstandard==0.23.0",

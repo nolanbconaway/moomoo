@@ -1,7 +1,7 @@
 from unittest import mock
 
 from click.testing import CliRunner
-from pylistenbrainz.errors import ListenBrainzAPIException
+from liblistenbrainz.errors import ListenBrainzAPIException
 
 from moomoo_ingest import collect_similar_user_activity
 from moomoo_ingest.db import ListenBrainzSimilarUserActivity
