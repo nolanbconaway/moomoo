@@ -24,6 +24,10 @@ from .db import ListenBrainzUserFeedback, get_session
 PAGE_SIZE = 100
 
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
+
 @dataclass
 class UserFeedback:
     """A loved recording."""
@@ -60,7 +64,6 @@ class UserFeedback:
 def get_total_feedback_count(username: str) -> int:
     """Get the total number of feedback records for a user."""
     click.echo(f"Getting total feedback count for {username}.")
-    client = ListenBrainz()
     url = f"1/feedback/user/{username}/get-feedback"
     params = {
         "count": 0,
@@ -89,7 +92,6 @@ def get_feedback_page(username: str, page_num: int = 0) -> list[UserFeedback]:
     """
     click.echo(f"Getting user feedback for for {username}/page {page_num}.")
 
-    client = ListenBrainz()
     url = f"1/feedback/user/{username}/get-feedback"
     params = {
         "count": PAGE_SIZE,

@@ -8,6 +8,7 @@ run given the number of HTTP requests.
 
 """
 
+import datetime
 import hashlib
 import json
 import sys
@@ -34,6 +35,9 @@ LB_RETRY = retry(
     reraise=True,
 )
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
 
 @LB_RETRY
 def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
@@ -43,7 +47,6 @@ def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
         - user_name (str) - the username of the similar user
         - similarity (float) - the similarity score between the two users, from 0-1.
     """
-    client = ListenBrainz()
     click.echo(f"Getting similar users for {username}.")
     return client._get(f"/1/user/{username}/similar-users")["payload"]
 
@@ -60,7 +63,6 @@ def get_user_top_activity(
     if count < 1 or count > 100:
         raise ValueError(f"Invalid count: {count}.")
 
-    client = ListenBrainz()
     endpoint = f"/1/stats/user/{username}/{entity}"
     click.echo(f"Getting top {entity} for {username} in the {time_range} range.")
     try:
@@ -71,10 +73,37 @@ def get_user_top_activity(
         raise e
 
 
+def last_ingest_ts(username: str) -> datetime.datetime | None:
+    """Get the timestamp of the last ingest for a user."""
+    with get_session() as session:
+        latest_record = (
+            session.query(ListenBrainzSimilarUserActivity)
+            .filter(ListenBrainzSimilarUserActivity.from_username == username)
+            .order_by(ListenBrainzSimilarUserActivity.insert_ts_utc.desc())
+            .first()
+        )
+        if latest_record:
+            return latest_record.insert_ts_utc
+    return None
+
+
 @click.command(help=__doc__)
 @click.argument("username")
-def main(username: str):
+@click.option(
+    "--skip-timeout-seconds", type=int, default=0, help="Skip ingest if data are newer than this."
+)
+def main(username: str, skip_timeout_seconds: int):
     """Run the main CLI."""
+    # check if we need to skip
+    if skip_timeout_seconds > 0:
+        cutoff = utils_.utcnow() - datetime.timedelta(seconds=skip_timeout_seconds)
+        last_ts = last_ingest_ts(username)
+        if last_ts and last_ts > cutoff:
+            click.echo(
+                f"Last ingest for {username} at {last_ts} is newer than cutoff {cutoff}, skipping."
+            )
+            sys.exit(0)
+
     similar_users = get_similar_users(username)
     records = []
     num_errors = 0

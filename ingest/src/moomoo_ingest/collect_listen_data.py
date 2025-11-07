@@ -23,12 +23,14 @@ from tqdm import tqdm
 from . import utils_
 from .db import ListenBrainzListen, get_session
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
 
 def get_listens_in_period(
     username: str, from_dt: datetime.datetime, to_dt: datetime.datetime
 ) -> list[dict]:
     """Get recent tracks for a user in a given period."""
-    client = ListenBrainz()
     endpoint = f"/1/user/{username}/listens"
     from_ts = int(from_dt.timestamp())
     to_ts = int(to_dt.timestamp())
