@@ -34,6 +34,9 @@ LB_RETRY = retry(
     reraise=True,
 )
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
 
 @LB_RETRY
 def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
@@ -43,7 +46,6 @@ def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
         - user_name (str) - the username of the similar user
         - similarity (float) - the similarity score between the two users, from 0-1.
     """
-    client = ListenBrainz()
     click.echo(f"Getting similar users for {username}.")
     return client._get(f"/1/user/{username}/similar-users")["payload"]
 
@@ -60,7 +62,6 @@ def get_user_top_activity(
     if count < 1 or count > 100:
         raise ValueError(f"Invalid count: {count}.")
 
-    client = ListenBrainz()
     endpoint = f"/1/stats/user/{username}/{entity}"
     click.echo(f"Getting top {entity} for {username} in the {time_range} range.")
     try:

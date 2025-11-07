@@ -30,6 +30,9 @@ from tqdm import tqdm
 from . import utils_
 from .db import ListenBrainzArtistStats, execute_sql_fetchall, get_session
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
 
 @retry(
     stop=stop_after_attempt(3),
@@ -44,7 +47,6 @@ def _get_artist_stats(mbid: uuid.UUID) -> dict:
 
     Internal method wrapping retries, etc.
     """
-    client = ListenBrainz()
     endpoint = f"/1/stats/artist/{mbid}/listeners"
     try:
         return client._get(endpoint, params={"range": "all_time"})["payload"]

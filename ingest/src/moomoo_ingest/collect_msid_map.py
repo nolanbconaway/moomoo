@@ -33,6 +33,9 @@ where recording_md5 is not null
   and length(concat(artist_name, recording_name, release_name)) < 245
 """
 
+# global ListenBrainz client, rate limiting is handled internally
+client = ListenBrainz()
+
 
 def get_new_recordings() -> list[dict]:
     """Get files that have not been mapped yet."""
@@ -70,7 +73,6 @@ def get_old_recordings(before: datetime.datetime) -> list[dict]:
 )
 def lookup_msid(recording_name: str, release_name: str, artist_name: str) -> dict:
     """Lookup data for a recording."""
-    client = ListenBrainz()
     endpoint = "/1/metadata/lookup/"
 
     return client._get(
