@@ -1,3 +1,4 @@
+import datetime
 from unittest import mock
 
 from click.testing import CliRunner
@@ -22,6 +23,28 @@ def get_mock_lb_http(similar_users, activity) -> mock.Mock:
         "moomoo_ingest.collect_similar_user_activity.ListenBrainz._get",
         mock.Mock(side_effect=side_effect()),
     )
+
+
+def test_last_ingest_ts():
+    ListenBrainzSimilarUserActivity.create()
+
+    # no data
+    assert collect_similar_user_activity.last_ingest_ts("FAKE_NAME") is None
+
+    # with data
+    ts = datetime.datetime(2024, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
+    record = ListenBrainzSimilarUserActivity(
+        payload_id="abc123",
+        from_username="FAKE_NAME",
+        to_username="FAKE_NAME_2",
+        user_similarity=0.5,
+        entity="artists",
+        time_range="all_time",
+        json_data={},
+        insert_ts_utc=ts,
+    )
+    record.insert()
+    assert collect_similar_user_activity.last_ingest_ts("FAKE_NAME") == ts
 
 
 def test_cli_main__not_table_exists_error():
@@ -72,6 +95,32 @@ def test_cli_main__no_similar_users():
         result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
     assert result.exit_code == 0
     assert "No records to insert" in result.output
+
+
+def test_cli_main__skip_ts():
+    """Test the main function with skip timestamp."""
+    ListenBrainzSimilarUserActivity.create()
+
+    # add data
+    ts = datetime.datetime.now(tz=datetime.timezone.utc)
+    record = ListenBrainzSimilarUserActivity(
+        payload_id="abc123",
+        from_username="FAKE_NAME",
+        to_username="FAKE_NAME_2",
+        user_similarity=0.5,
+        entity="artists",
+        time_range="all_time",
+        json_data={},
+        insert_ts_utc=ts,
+    )
+    record.insert()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        collect_similar_user_activity.main, ["FAKE_NAME", "--skip-timeout-seconds=600"]
+    )
+    assert result.exit_code == 0
+    assert f"Last ingest for FAKE_NAME at {ts} is newer than cutoff" in result.output
 
 
 def test_cli_main__exception_handling():
