@@ -13,8 +13,8 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import click
-from pylistenbrainz import ListenBrainz
-from pylistenbrainz.errors import ListenBrainzAPIException
+from liblistenbrainz import ListenBrainz
+from liblistenbrainz.errors import ListenBrainzAPIException
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
