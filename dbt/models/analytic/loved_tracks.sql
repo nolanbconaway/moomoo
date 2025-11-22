@@ -1,3 +1,12 @@
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['username', 'filepath'], 'unique': True},
+        ]
+    )
+}}
+
 {# 
   Tracks that users love.
 

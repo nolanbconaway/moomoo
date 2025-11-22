@@ -1,3 +1,14 @@
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['user_release_group_key'], 'unique': True},
+          {'columns': ['release_group_mbid']},
+          {'columns': ['username']},
+        ]
+    )
+}}
+
 {% set ns=[14, 30, 60, 90, 120, 150] %}
 
 with t as (
