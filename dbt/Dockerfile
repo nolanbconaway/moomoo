@@ -15,6 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN dbt deps
 
 ENV DBT_PRINTER_WIDTH=100
-ENV DBT_USE_COLOR=false
+ENV DBT_USE_COLORS=False
 
 # ENTRYPOINT ["dbt"] # this is the default
