@@ -1,4 +1,4 @@
-FROM ghcr.io/dbt-labs/dbt-postgres:1.6.3
+FROM ghcr.io/dbt-labs/dbt-postgres:1.9.1
 
 COPY docker-profiles.yml /root/.dbt/profiles.yml 
 COPY dbt_project.yml dbt_project.yml
