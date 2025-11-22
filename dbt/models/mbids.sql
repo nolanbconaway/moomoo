@@ -1,4 +1,12 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['mbid'], 'unique': True},
+          {'columns': ['entity']}
+        ]
+    )
+}}
 
 {# Mega model with many deps, containing all known mbids. #}
 

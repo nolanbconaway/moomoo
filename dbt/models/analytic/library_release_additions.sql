@@ -1,4 +1,13 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['username', 'time_range', 'rank'], 'unique': True},
+          {'columns': ['release_group_mbid']},
+        ]
+    )
+}}
+
 
 {#
     A model with releases which may be good purchasing targets. That is, releases

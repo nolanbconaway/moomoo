@@ -1,4 +1,12 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['username', 'listen_date'], 'unique': True},
+        ]
+    )
+}}
+
 
 {# anaytics on user listens. #}
 

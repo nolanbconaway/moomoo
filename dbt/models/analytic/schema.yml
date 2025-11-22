@@ -25,24 +25,27 @@ models:
       May be good candidates for adding to the library.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - time_range
-            - rank
+          arguments:
+            combination_of_columns:
+              - username
+              - time_range
+              - rank
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - release_group_mbid
-            - time_range
-            - username
+          arguments:
+            combination_of_columns:
+              - release_group_mbid
+              - time_range
+              - username
 
 
   - name: revisit_releases
     description: Albums with historically high listens but not many recent listens.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - release_group_mbid
-            - username
+          arguments:
+            combination_of_columns:
+              - release_group_mbid
+              - username
     columns:
       - name: release_group_mbid
         tests:
@@ -61,9 +64,10 @@ models:
     description: Tracks with historically high listens but not many recent listens.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - recording_mbid
-            - username
+          arguments:
+            combination_of_columns:
+              - recording_mbid
+              - username
     columns:
       - name: recording_mbid
         tests:
@@ -157,9 +161,10 @@ models:
     description: Tracks that users love. Unions the spikes against the listenbrainz feedback.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - filepath
+          arguments:
+            combination_of_columns:
+              - username
+              - filepath
     columns:
       - name: username
         tests:
@@ -175,9 +180,10 @@ models:
     description: Count the number of times a file is currently included across all user playlists.
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - username
-            - filepath
+          arguments:
+            combination_of_columns:
+              - username
+              - filepath
     columns:
       - name: username
         tests:

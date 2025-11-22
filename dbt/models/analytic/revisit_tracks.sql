@@ -1,4 +1,14 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['recording_mbid', 'username'], 'unique': True},
+          {'columns': ['username']},
+          {'columns': ['artist_mbid']},
+          {'columns': ['album_artist_mbid']},
+        ]
+    )
+}}
 
 {# Create a list of revisitable tracks per username.
 

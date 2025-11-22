@@ -6,9 +6,10 @@ models:
   - name: map__file_artist
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - filepath
-            - artist_mbid
+          arguments:
+            combination_of_columns:
+              - filepath
+              - artist_mbid
     columns:
       - name: filepath
         tests:
@@ -20,12 +21,14 @@ models:
   - name: map__file_recording
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - recording_mbid
-            - filepath
+          arguments:
+            combination_of_columns:
+              - recording_mbid
+              - filepath
       - groupby_having:
-          group: filepath
-          having_condition: count(1) <= 2
+          arguments:
+            group: filepath
+            having_condition: count(1) <= 2
     columns:
       - name: recording_mbid
         tests:
@@ -37,12 +40,14 @@ models:
   - name: map__file_release
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - release_mbid
-            - filepath
+          arguments:
+            combination_of_columns:
+              - release_mbid
+              - filepath
       - groupby_having:
-          group: filepath
-          having_condition: count(1) <= 2
+          arguments:
+            group: filepath
+            having_condition: count(1) <= 2
     columns:
       - name: release_mbid
         tests:
@@ -54,12 +59,14 @@ models:
   - name: map__file_release_group
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - release_group_mbid
-            - filepath
+          arguments:
+            combination_of_columns:
+              - release_group_mbid
+              - filepath
       - groupby_having:
-          group: filepath
-          having_condition: count(1) <= 2
+          arguments:
+            group: filepath
+            having_condition: count(1) <= 2
     columns:
       - name: release_group_mbid
         tests:
@@ -71,9 +78,10 @@ models:
   - name: map__recording_release
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - recording_mbid
-            - release_mbid
+          arguments:
+            combination_of_columns:
+              - recording_mbid
+              - release_mbid
     columns:
       - name: recording_mbid
         tests:
@@ -85,9 +93,10 @@ models:
   - name: map__release_group_artist
     tests:
       - dbt_utils.unique_combination_of_columns:
-          combination_of_columns:
-            - release_group_mbid
-            - artist_mbid
+          arguments:
+            combination_of_columns:
+              - release_group_mbid
+              - artist_mbid
     columns:
       - name: release_group_mbid
         tests:
