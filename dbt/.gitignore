@@ -2,3 +2,4 @@
 
 # symlink from ../.github/workflows/dbt.yml
 .dbt-workflow.yml
+dbt_internal_packages/

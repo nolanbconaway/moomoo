@@ -1,4 +1,11 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['username', 'filepath'], 'unique': True},
+        ]
+    )
+}}
 
 with agg as (
   select

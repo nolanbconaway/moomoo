@@ -1,4 +1,11 @@
-{{ config(materialized='table') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['artist_mbid'], 'unique': True},
+        ]
+    )
+}}
 
 {# artists which are similar to highly listened artists, but not in the user's library #}
 

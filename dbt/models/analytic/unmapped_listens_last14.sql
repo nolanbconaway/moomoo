@@ -1,5 +1,3 @@
-{{ config(materialized='view') }}
-
 {# List out listens in the last 14 days without a mapped file. #}
 
 select listens.*

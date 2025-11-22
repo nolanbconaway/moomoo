@@ -1,7 +1,14 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['username', 'filepath'], 'unique': True},
+        ]
+    )
+}}
+
 
 {# historical listen statistics per file. #}
-
 
 with listen_file_map as (
   select

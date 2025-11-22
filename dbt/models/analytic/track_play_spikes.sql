@@ -1,4 +1,14 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['start_listen_md5'], 'unique': True},
+          {'columns': ['recording_mbid']},
+          {'columns': ['username']},
+          {'columns': ['period_start_at_utc']},
+        ]
+    )
+}}
 
 -- list all listens that had >= 5 listens in the proceeding 24h. there can be overlap
 -- between the listen periods if e.g., there are > 5 listens.

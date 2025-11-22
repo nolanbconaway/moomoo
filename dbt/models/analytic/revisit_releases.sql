@@ -1,4 +1,12 @@
-{{ config(materialized='view') }}
+{{
+    config(
+      materialized='table',
+      indexes=[
+          {'columns': ['release_group_mbid'], 'unique': True},
+          {'columns': ['username']},
+        ]
+    )
+}}
 
 {# Create a list of revisitable releases per username.
 
