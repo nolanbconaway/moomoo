@@ -14,7 +14,8 @@ models:
       - name: recording_md5
         tests:
           - dbt_utils.not_null_proportion:
-              at_least: 0.85  # test nothing pathologically wrong with ingest.
+              arguments:
+                at_least: 0.85  # test nothing pathologically wrong with ingest.
       - name: file_created_at
         description: |
           Least of file ctime, mtime. This is done due to platform differences in what
@@ -41,7 +42,8 @@ models:
       - name: embedding_success
         tests:
           - dbt_utils.not_null_proportion:
-              at_least: 0.5  # test nothing pathologically wrong with the ingest/join.
+              arguments:
+                at_least: 0.5  # test nothing pathologically wrong with the ingest/join.
       - name: embedding_duration_seconds
       - name: embedding
       - name: embedding_insert_ts_utc
