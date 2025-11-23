@@ -4,6 +4,7 @@ import dataclasses
 import json
 import os
 from collections import defaultdict
+from itertools import groupby
 from pathlib import Path
 from uuid import UUID
 
@@ -173,9 +174,8 @@ def _run_clusterer(distance_matrix: np.ndarray, n_jobs: int) -> np.ndarray:
 
     clusterer = HDBSCAN(
         min_cluster_size=3,
-        max_cluster_size=None,
         n_jobs=n_jobs,
-        cluster_selection_method="eom",
+        cluster_selection_method="leaf",
         metric="precomputed",
         # copy the distance matrix to avoid an issue in which hdbscan modifies it in place
         # one day this will be fixed in hdbscan.
@@ -296,7 +296,8 @@ def main(username: str, count: int, force: bool, n_jobs: int):
 
     playlists = []
     for cluster in tqdm(clusters, disable=None, total=len(clusters)):
-        logger.info(f"Generating playlist for cluster with {len(cluster)} tracks.")
+        tracklist = ", ".join([f"{track.artist_name} - {track.track_name}" for track in cluster])
+        logger.info(f"Generating playlist for cluster tracks: {tracklist}")
         generator = FromFilesPlaylistGenerator(
             *[track.filepath for track in cluster], username=username
         )
@@ -308,14 +309,21 @@ def main(username: str, count: int, force: bool, n_jobs: int):
             logger.exception("No files found for cluster.")
             continue
 
-        # describe the playlist based on the first two tracks.
-        # "Song like X - Y, A - B.
-        t1, t2 = cluster[:2]
-        description = (
-            "Songs like: "
-            + f"'{t1.track_name}' ({t1.artist_name}); "
-            + f"'{t2.track_name}' ({t2.artist_name})"
-        )
+        # describe the playlist based on the artists in the cluster. list them by the number of
+        # source tracks in the cluster. exclude special purpose artists like "Various Artists".
+        #
+        # use only the top 5 artists, if there are that many
+        artists_counts = [
+            (artist_name, len(list(group)))
+            for artist_name, group in groupby(
+                sorted(cluster, key=lambda t: t.artist_name),
+                key=lambda t: t.artist_name,
+            )
+            if artist_name.lower() != "various artists"
+        ]
+        artists_counts = sorted(artists_counts, key=lambda x: x[1], reverse=True)
+        top_artists_names = [artist_name for artist_name, _ in artists_counts[:5]]
+        description = "Songs like: " + ", ".join(top_artists_names)
 
         # set title based on list index, in case there was an exception
         playlist.title = f"Smart Mix {len(playlists) + 1}"
