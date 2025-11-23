@@ -173,7 +173,7 @@ def _run_clusterer(distance_matrix: np.ndarray, n_jobs: int) -> np.ndarray:
 
     clusterer = HDBSCAN(
         min_cluster_size=3,
-        max_cluster_size=15,
+        max_cluster_size=None,
         n_jobs=n_jobs,
         cluster_selection_method="eom",
         metric="precomputed",
@@ -211,17 +211,18 @@ def make_clusters(
     for track, label in zip(tracks, cluster_labels):
         clusters[label].append(track)
 
-    # filter clusters with < 3 artists
+    # filter out clusters with < 3 artists, clusters with > 8 artists
     clusters = [
         cluster
         for label, cluster in clusters.items()
         if label != -1  # noise cluster
         and len(set(track.artist_mbid for track in cluster)) > 2
+        and len(set(track.artist_mbid for track in cluster)) < 9
     ]
-    logger.info(f"Filtered to {len(clusters)} clusters with > 2 artists.")
+    logger.info(f"Filtered to {len(clusters)} clusters with 3-8 artists.")
 
     if not clusters:
-        raise RuntimeError("No clusters with > 2 artists.")
+        raise RuntimeError("No clusters with 3-8 artists.")
 
     if len(clusters) <= max_clusters:
         return clusters
@@ -279,7 +280,7 @@ def main(username: str, count: int, force: bool, n_jobs: int):
     # downsample to random 2000 or 3/4 of the tracks. whatever is bigger.
     # this adds some variance to more slowly changing clusters.
     if len(tracks) > 2000:
-        n = max(2000, len(tracks) * 3 // 4)
+        n = max(2000, len(tracks) * 7 // 8)
         logger.info(f"Downsampling to {n} tracks for clustering.")
         idx = np.random.choice(np.arange(len(tracks)), size=n, replace=False)
         tracks = [tracks[i] for i in idx]
