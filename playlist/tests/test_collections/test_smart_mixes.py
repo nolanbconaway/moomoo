@@ -255,7 +255,7 @@ def test_make_clusters__post_cluster_logic():
         with pytest.raises(RuntimeError) as e:
             make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
         mock.assert_called_once()
-        assert "No clusters with > 2 artists." in str(e.value)
+        assert "No clusters with 3-8 artists." in str(e.value)
 
     # all the same artist mbid
     mbid = uuid4()
@@ -265,7 +265,7 @@ def test_make_clusters__post_cluster_logic():
         with pytest.raises(RuntimeError) as e:
             make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
         mock.assert_called_once()
-        assert "No clusters with > 2 artists." in str(e.value)
+        assert "No clusters with 3-8 artists." in str(e.value)
 
     # one cluster with 3 distinct artists, one with 2
     with patch(patch_obj, return_value=np.array([0, 1, 0, 0, 1])) as mock:
@@ -276,6 +276,16 @@ def test_make_clusters__post_cluster_logic():
         assert len(res) == 1
         assert len(res[0]) == 3
         assert set([t.filepath.name for t in res[0]]) == set(["0", "2", "3"])
+
+    # one cluster with 20 distinct artists, one with 3
+    with patch(patch_obj, return_value=np.array([0] * 20 + [1, 1, 1])) as mock:
+        tracks = [make_track(str(i)) for i in range(23)]
+        distance_matrix = make_distance_matrix(len(tracks))
+        res = make_clusters(tracks, n_jobs=1, max_clusters=10, distance_matrix=distance_matrix)
+        mock.assert_called_once()
+        assert len(res) == 1
+        assert len(res[0]) == 3
+        assert set([t.filepath.name for t in res[0]]) == set(["20", "21", "22"])
 
     # select top 1 cluster
     with patch(patch_obj, return_value=np.array([0, 0, 0, 1, 1, 1, 1, 1, 2, 2])) as mock:
@@ -355,13 +365,13 @@ def test_main__downsample(patch_get_playlist, patch_cluster):
         patch(track_obj, return_value=tracks) as patch_fetch,
         patch(cf_obj, return_value=cf_matrix) as patch_cf,
     ):
-        runner.invoke(smart_mix_main, ["test", "--count=3"])
+        runner.invoke(smart_mix_main, ["test", "--count=3", "-f"])
 
     # patch_cluster should have been called with 2/3 of the tracks
     assert patch_fetch.call_count == 1
     assert patch_cf.call_count == 1
     assert patch_cluster.call_count == 1
-    assert len(patch_cluster.call_args[1]["tracks"]) == n * 3 // 4
+    assert len(patch_cluster.call_args[1]["tracks"]) == n * 7 // 8
 
     n = 2001
     tracks = [make_track(str(i)) for i in range(n)]
@@ -370,9 +380,9 @@ def test_main__downsample(patch_get_playlist, patch_cluster):
         patch(track_obj, return_value=tracks) as patch_fetch,
         patch(cf_obj, return_value=cf_matrix) as patch_cf,
     ):
-        runner.invoke(smart_mix_main, ["test", "--count=3"])
+        runner.invoke(smart_mix_main, ["test", "--count=3", "-f"])
 
-    # patch_cluster should have been called with 1000 tracks
+    # patch_cluster should have been called with 2000 tracks
     assert patch_fetch.call_count == 1
     assert patch_cluster.call_count == 2
     assert len(patch_cluster.call_args[1]["tracks"]) == 2000
