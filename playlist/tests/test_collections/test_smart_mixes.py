@@ -365,7 +365,7 @@ def test_main__downsample(patch_get_playlist, patch_cluster):
         patch(track_obj, return_value=tracks) as patch_fetch,
         patch(cf_obj, return_value=cf_matrix) as patch_cf,
     ):
-        runner.invoke(smart_mix_main, ["test", "--count=3"])
+        runner.invoke(smart_mix_main, ["test", "--count=3", "-f"])
 
     # patch_cluster should have been called with 2/3 of the tracks
     assert patch_fetch.call_count == 1
@@ -380,9 +380,9 @@ def test_main__downsample(patch_get_playlist, patch_cluster):
         patch(track_obj, return_value=tracks) as patch_fetch,
         patch(cf_obj, return_value=cf_matrix) as patch_cf,
     ):
-        runner.invoke(smart_mix_main, ["test", "--count=3"])
+        runner.invoke(smart_mix_main, ["test", "--count=3", "-f"])
 
-    # patch_cluster should have been called with 1000 tracks
+    # patch_cluster should have been called with 2000 tracks
     assert patch_fetch.call_count == 1
     assert patch_cluster.call_count == 2
     assert len(patch_cluster.call_args[1]["tracks"]) == 2000
