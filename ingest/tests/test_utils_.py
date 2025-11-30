@@ -75,6 +75,28 @@ def test_annotate_mbid(monkeypatch):
     assert r["error"] == "foo"
 
 
+def test__get_artist_data__release_browse(monkeypatch):
+    """Test the handler for browsing releases in _get_artist_data."""
+    release_list = [{"id": f"release-{i}"} for i in range(250)]
+    data = {
+        "artist": {
+            "id": "artist-mbid",
+            "release-count": len(release_list),
+            "release-list": release_list[:25],
+        }
+    }
+    monkeypatch.setattr(utils_.musicbrainzngs, "get_artist_by_id", lambda *_, **__: data)
+
+    # mock browse_releases to return slices of the release list
+    monkeypatch.setattr(
+        utils_.musicbrainzngs,
+        "browse_releases",
+        lambda limit, offset, **__: {"release-list": release_list[offset : offset + limit]},
+    )
+    result = utils_._get_artist_data("artist-mbid")
+    assert len(result["artist"]["release-list"]) == 250
+
+
 def test_annotate_mbid_batch(monkeypatch):
     monkeypatch.setattr(utils_, "_get_recording_data", lambda _: dict(a=1))
     monkeypatch.setattr(utils_, "_get_release_data", lambda _: dict(b=2))
