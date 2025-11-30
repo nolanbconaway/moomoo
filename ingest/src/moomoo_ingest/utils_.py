@@ -3,6 +3,7 @@
 import datetime
 import hashlib
 import os
+from itertools import groupby
 from pathlib import Path
 from typing import Iterable, Iterator
 
@@ -110,7 +111,7 @@ def _get_release_data(release_mbid: str) -> dict:
 
 def _get_artist_data(artist_mbid: str) -> dict:
     """Get artist data from MusicBrainz."""
-    return musicbrainzngs.get_artist_by_id(
+    data = musicbrainzngs.get_artist_by_id(
         artist_mbid,
         includes=[
             "releases",
@@ -124,6 +125,32 @@ def _get_artist_data(artist_mbid: str) -> dict:
             "ratings",
         ],
     )
+    # if more than 25 releases, fetch all releases via browse. see limitation here:
+    # https://python-musicbrainzngs.readthedocs.io/en/v0.7.1/usage/?highlight=browse#regular-musicbrainz-data
+    release_count = int(data["artist"].get("release-count", 0))
+
+    if release_count > 25:
+        release_list = []  # data['artist']['release-list']
+        limit = 25
+        offsets = range(0, release_count, limit)
+        for offset in offsets:
+            releases = musicbrainzngs.browse_releases(
+                artist=artist_mbid, includes=[], limit=limit, offset=offset
+            )
+            release_list += releases["release-list"]
+
+        # deduplicate the release list in case a release was added during the fetches
+        release_list = [
+            next(iter(releases))
+            for _, releases in groupby(
+                sorted(release_list, key=lambda x: x["id"]), key=lambda x: x["id"]
+            )
+        ]
+
+        # reassign to expected location
+        data["artist"]["release-list"] = release_list
+
+    return data
 
 
 ENTITIES = ["recording", "release", "artist", "release-group"]
