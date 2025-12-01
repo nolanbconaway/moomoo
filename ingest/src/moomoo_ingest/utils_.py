@@ -9,6 +9,16 @@ from typing import Iterable, Iterator
 
 import musicbrainzngs
 
+SPECIAL_PURPOSE_ARTISTS = {
+    "f731ccc4-e22a-43af-a747-64213329e088",  # anonymous
+    "33cf029c-63b0-41a0-9855-be2a3665fb3b",  # data
+    "314e1c25-dde7-4e4d-b2f4-0a7b9f7c56dc",  # dialogue
+    "eec63d3c-3b81-4ad4-b1e4-7c147d4d2b61",  # no artist
+    "9be7f096-97ec-4615-8957-8d40b5dcbc41",  # traditional
+    "125ec42a-7229-4250-afc5-e057484327fe",  # unknown
+    "89ad4ac3-39f7-470e-963a-56509c546377",  # various artists
+}
+
 
 def moomoo_version() -> str:
     """Get the version of this package."""
@@ -129,7 +139,8 @@ def _get_artist_data(artist_mbid: str) -> dict:
     # https://python-musicbrainzngs.readthedocs.io/en/v0.7.1/usage/?highlight=browse#regular-musicbrainz-data
     release_count = int(data["artist"].get("release-count", 0))
 
-    if release_count > 25:
+    # no need to walk large release lists for special purpose artists
+    if release_count > 25 and artist_mbid not in SPECIAL_PURPOSE_ARTISTS:
         release_list = []  # data['artist']['release-list']
         limit = 25
         offsets = range(0, release_count, limit)
