@@ -367,6 +367,55 @@ class ListenBrainzCollaborativeFilteringScore(BaseTable):
             f(session)
 
 
+class MusicBrainzDataDump(BaseTable):
+    """Model for musicbrainz_data_dumps table."""
+
+    __tablename__ = "musicbrainz_data_dumps"
+
+    slug: Mapped[str] = mapped_column(primary_key=True, unique=True, nullable=False)
+    packet_number: Mapped[int] = mapped_column(nullable=False)
+    entity: Mapped[str] = mapped_column(nullable=False)
+    dump_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp()
+    )
+    refreshed_at: Mapped[datetime.datetime] = mapped_column(nullable=True)
+
+    records: Mapped[list["MusicBrainzDataDumpRecord"]] = relationship(back_populates="dump")
+
+    def replace_records(self, records: list[dict], session: Session) -> None:
+        """Replace all records in the dump with the given records."""
+        # add dump id
+        for record in records:
+            record["slug"] = self.slug
+
+        session.query(MusicBrainzDataDumpRecord).filter(
+            MusicBrainzDataDumpRecord.slug == self.slug
+        ).delete()
+
+        if records:
+            MusicBrainzDataDumpRecord.bulk_insert(records, session=session)
+
+        self.refreshed_at = func.current_timestamp()
+        session.commit()
+
+
+class MusicBrainzDataDumpRecord(BaseTable):
+    """Model for musicbrainz_data_dump_records table."""
+
+    __tablename__ = "musicbrainz_data_dump_records"
+    __table_args__ = (UniqueConstraint("slug", "mbid"), {})
+
+    dump_record_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    slug: Mapped[str] = mapped_column(
+        ForeignKey(MusicBrainzDataDump.slug), nullable=False, index=True
+    )
+    mbid: Mapped[UUID] = mapped_column(nullable=False, index=True)
+    json_data: Mapped[dict[str, Any]] = mapped_column(nullable=False)
+
+    dump: Mapped["MusicBrainzDataDump"] = relationship(back_populates="records")
+
+
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
@@ -379,4 +428,6 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
     ListenBrainzCollaborativeFilteringScore,
+    MusicBrainzDataDump,
+    MusicBrainzDataDumpRecord,
 )
