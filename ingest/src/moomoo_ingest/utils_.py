@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 import musicbrainzngs
+import requests
+import tenacity
 
 SPECIAL_PURPOSE_ARTISTS = {
     "f731ccc4-e22a-43af-a747-64213329e088",  # anonymous
@@ -228,3 +230,16 @@ def batch(iterable, n=1) -> Iterator[Iterable]:
     length = len(iterable)
     for ndx in range(0, length, n):
         yield iterable[ndx : min(ndx + n, length)]
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(requests.exceptions.ConnectionError),
+    stop=tenacity.stop_after_attempt(5),
+    wait=tenacity.wait_exponential(multiplier=1, max=60),
+    reraise=True,
+)
+def request_with_retry(method: str, url: str, timeout: int = 30, **kwargs) -> requests.Response:
+    """Simple request wrapper with retries."""
+    resp = requests.request(method=method, url=url, timeout=timeout, **kwargs)
+    resp.raise_for_status()
+    return resp
