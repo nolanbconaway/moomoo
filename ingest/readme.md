@@ -16,6 +16,9 @@ MOOMOO_CONTACT_EMAIL=...
 
 MOOMOO_DOCKER_POSTGRES_URI=host.docker.internal... # or whatever
 MOOMOO_MEDIA_LIBRARY=/path/to/music  # mounted at /mnt/music in docker.
+
+
+METABRAINZ_LIVE_DATA_TOKEN=... # to consume the live data feed (https://metabrainz.org/api/)
 ```
 
 ## Usage
