@@ -33,6 +33,24 @@ def get_token_from_env() -> str:
     return token
 
 
+def parse_json_objects(s):
+    """Chatgpt'd this function to parse multiple json objects from a string."""
+    decoder = json.JSONDecoder()
+    idx = 0
+    n = len(s)
+
+    while idx < n:
+        # Skip whitespace
+        while idx < n and s[idx].isspace():
+            idx += 1
+        if idx >= n:
+            break
+
+        obj, end = decoder.raw_decode(s, idx)
+        yield obj
+        idx = end  # continue after the parsed object
+
+
 def get_latest_packet_number_from_api() -> int:
     resp = request_with_retry(
         method="GET", url=f"{API_BASE}/replication-info", params={"token": get_token_from_env()}
@@ -72,24 +90,6 @@ def drop_dumps(session: Session, max_age_days: int) -> None:
         ).delete(synchronize_session=False)
         session.delete(dump)
         session.commit()
-
-
-def parse_json_objects(s):
-    """Chatgpt'd this function to parse multiple json objects from a string."""
-    decoder = json.JSONDecoder()
-    idx = 0
-    n = len(s)
-
-    while idx < n:
-        # Skip whitespace
-        while idx < n and s[idx].isspace():
-            idx += 1
-        if idx >= n:
-            break
-
-        obj, end = decoder.raw_decode(s, idx)
-        yield obj
-        idx = end  # continue after the parsed object
 
 
 @dataclasses.dataclass
@@ -227,11 +227,12 @@ def main(drop_age_days: Optional[int], packet: Optional[int], entities: list[str
 
         click.echo(f"Downloading {len(packets)} dumps for entity {entity}.")
         for packet_number in tqdm(packets, disable=None):
+            click.echo(f"Downloading dump for {packet_number}-{entity}...")
             try:
                 dump = DataDump.download(entity=entity, packet_number=packet_number)
-            except Exception as e:
+            except Exception:
                 click.echo(
-                    f"ERROR: Failed to download dump for {packet_number}-{entity}: {e}",
+                    f"ERROR: Failed to download dump for {packet_number}-{entity}",
                     color="red",
                     err=True,
                 )
@@ -247,3 +248,5 @@ def main(drop_age_days: Optional[int], packet: Optional[int], entities: list[str
 
             with get_session() as session:
                 dump.to_db(session=session)
+
+    click.echo("MusicBrainz data dump collection complete.")
