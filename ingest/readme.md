@@ -17,7 +17,6 @@ MOOMOO_CONTACT_EMAIL=...
 MOOMOO_DOCKER_POSTGRES_URI=host.docker.internal... # or whatever
 MOOMOO_MEDIA_LIBRARY=/path/to/music  # mounted at /mnt/music in docker.
 
-
 METABRAINZ_LIVE_DATA_TOKEN=... # to consume the live data feed (https://metabrainz.org/api/)
 ```
 
@@ -27,11 +26,16 @@ Some example use of each CLI here:
 
 ```sh
 $ moomoo-ingest db create
-$ moomoo-ingest annotate-mbids --before=2023-10-20 --limit 20
-$ moomoo-ingest artist-stats --before=2023-10-20 --limit 20
+$ moomoo-ingest annotate-mbids --new --updated
+$ moomoo-ingest artist-stats --new
 $ moomoo-ingest listens --since-last <username>
 $ moomoo-ingest local-files ~/Music --procs=10
 $ moomoo-ingest similar-user-activity <username>
+$ moomoo-ingest msid-map --new
+$ moomoo-ingest listenbrainz-feedback
+$ moomoo-ingest listenbrainz-data-dump --new
+$ moomoo-ingest update-artist-similarity-matrix --new
+$ moomoo-ingest musicbrainz-data-dump
 ```
 
 ### Docker
