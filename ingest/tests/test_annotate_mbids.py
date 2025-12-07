@@ -56,7 +56,7 @@ def test_select_topn_from_multilist_dicts():
     l3 = [{"mbid": 5}, {"mbid": 6}, {"mbid": 7}]
     res = annotate_mbids.select_topn_from_multilist_dicts([l1, l2, l3], N=5, identity_key="mbid")
     expected_mbids = [1, 2, 3, 4, 5]
-    res_mbids = [i["mbid"] for i in res]
+    res_mbids = sorted([i["mbid"] for i in res])
     assert res_mbids == expected_mbids
 
     # test with inf limit
@@ -64,7 +64,7 @@ def test_select_topn_from_multilist_dicts():
         [l1, l2, l3], N=float("inf"), identity_key="mbid"
     )
     expected_mbids = [1, 2, 3, 4, 5, 6, 7]
-    res_mbids = [i["mbid"] for i in res]
+    res_mbids = sorted([i["mbid"] for i in res])
     assert res_mbids == expected_mbids
 
 

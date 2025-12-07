@@ -15,7 +15,6 @@ import datetime
 import os
 import random
 import sys
-from itertools import chain, groupby
 from typing import Optional
 
 import click
@@ -119,6 +118,7 @@ def select_topn_from_multilist_dicts(
     output = []
 
     for lst in lists:
+        random.shuffle(lst)
         for item in lst:
             k = item[identity_key]  # the dedupe key
             if k not in seen:
