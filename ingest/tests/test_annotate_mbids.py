@@ -38,7 +38,6 @@ def create_tables():
 )
 def test_cli_date_args(args, exit_0):
     """Test the datetime flags are required together."""
-    MusicBrainzAnnotation.create()
     load_mbids_table([])  # empty data, should do nothing
     runner = CliRunner()
 
