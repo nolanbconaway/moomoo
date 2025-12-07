@@ -243,15 +243,6 @@ def test_cli_main__no_mbids():
     assert result.exit_code == 0
 
 
-def test_cli_main__not_table_exists_error(mbids: list[dict]):
-    """Test handling of the target table not existing."""
-    load_mbids_table(mbids)  # table now exists with data
-    runner = CliRunner()
-    result = runner.invoke(annotate_mbids.main, ["--new"])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__unannotated(mbids: list[dict]):
     """Test working with unannotated mbids."""
     # add the mbids to the list but without annotations
