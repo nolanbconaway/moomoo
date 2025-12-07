@@ -22,14 +22,20 @@ from sqlalchemy import text
 from tqdm import tqdm
 
 from . import utils_
-from .db import MusicBrainzAnnotation, execute_sql_fetchall, get_session
+from .db import (
+    MusicBrainzAnnotation,
+    MusicBrainzDataDump,
+    MusicBrainzDataDumpRecord,
+    execute_sql_fetchall,
+    get_session,
+)
 
 
 def get_unannotated_mbids() -> list[dict]:
     """Get mbids that have not been annotated from the mbids table."""
     dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-        select mbids.mbid as mbid, mbids.entity
+        select mbids.mbid as mbid, mbids.entity, '0 new' as source
         from {dbt_schema}.mbids
         left join {MusicBrainzAnnotation.table_name()} as src on mbids.mbid = src.mbid
         where src.mbid is null
@@ -38,11 +44,34 @@ def get_unannotated_mbids() -> list[dict]:
     return execute_sql_fetchall(sql, params=dict(entities=utils_.ENTITIES))
 
 
-def get_re_annotate_mbids(before: datetime.datetime) -> list[dict]:
-    """Get mbids that were annotated between from_dt and to_dt."""
+def get_updated_mbids() -> list[dict]:
+    """Get mbids that have updates in the musicbrainz database since they were last annotated."""
+    sql = f"""
+    with last_update as (
+        select
+            dumps.entity
+            , records.mbid
+            , max(dumps.dump_timestamp) as ts
+        from {MusicBrainzDataDump.table_name()} as dumps
+        inner join {MusicBrainzDataDumpRecord.table_name()} as records using (slug)
+        where dumps.entity = any(:entities)
+        group by 1, 2
+    )
+
+    select mbid, entity, '1 update' as source
+    from {MusicBrainzAnnotation.table_name()} as annotations
+    inner join last_update using (entity, mbid)
+    -- the dumps are hourly, but i want to be safe so adding a 10min buffer.
+    where annotations.ts_utc < last_update.ts - interval '70 minutes'
+    """
+    return execute_sql_fetchall(sql, params=dict(entities=utils_.ENTITIES))
+
+
+def get_very_old_annotations(before: datetime.datetime) -> list[dict]:
+    """Get mbids that were annotated before a given timestamp."""
     dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-        select mbids.mbid, mbids.entity
+        select mbids.mbid, mbids.entity, '2 old' as source
         from {dbt_schema}.mbids
         inner join {MusicBrainzAnnotation.table_name()} as src
             on mbids.mbid::varchar = src.mbid::varchar
@@ -76,12 +105,43 @@ def drop_dangling_annotations():
     return deleted
 
 
+def select_topn_from_multilist_dicts(
+    lists: list[list[dict]], N: int, identity_key: str
+) -> list[dict]:
+    """Chatgpt to deduplicate and select top N from multiple lists of dicts.
+
+    Selects up to N unique items from multiple lists of dictionaries based on a specified identity
+    key. Grabs items from the input lists in order, ensuring no duplicates based on the identity
+    key.
+    """
+    seen = set()
+    output = []
+
+    for lst in lists:
+        random.shuffle(lst)
+        for item in lst:
+            k = item[identity_key]  # the dedupe key
+            if k not in seen:
+                seen.add(k)
+                output.append(item)
+                if len(output) == N:
+                    return output
+
+    return output
+
+
 @click.command(help=__doc__)
 @click.option(
     "--new",
     "new_",
     is_flag=True,
     help="Option to detect new mbids that have not been annotated yet.",
+)
+@click.option(
+    "--updated",
+    "updated",
+    is_flag=True,
+    help="Option to detect mbids that have been updated since they were last annotated.",
 )
 @click.option(
     "--before",
@@ -102,39 +162,50 @@ def drop_dangling_annotations():
     help="Option to first drop any dangling annotations.",
     default=True,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int], drop: bool):
+def main(
+    new_: bool,
+    updated: bool,
+    before: Optional[datetime.datetime],
+    limit: Optional[int],
+    drop: bool,
+):
     """Run the main CLI."""
     # drop dangling annotations
     if drop:
         drop_dangling_annotations()
 
-    # get list of mbids to annotate
-    to_ingest: list[dict] = []
+    # get  of mbids to annotate
     if new_:
-        click.echo("Getting unannotated mbids...")
         unannotated = get_unannotated_mbids()
-        to_ingest += unannotated
         click.echo(f"Found {len(unannotated)} unannotated mbid(s).")
+    else:
+        unannotated = []
 
     if before:
-        click.echo(f"Getting mbids to re-annotate (before {before})...")
-        reannotate = get_re_annotate_mbids(before)
-        to_ingest += reannotate
-        click.echo(f"Found {len(reannotate)} mbid(s) to re-annotate.")
+        old_annotations = get_very_old_annotations(before)
+        click.echo(f"Found {len(old_annotations)} very old mbid(s) to re-annotate.")
+    else:
+        old_annotations = []
 
+    if updated:
+        updated_mbids = get_updated_mbids()
+        click.echo(f"Found {len(updated_mbids)} updated mbid(s) to re-annotate.")
+    else:
+        updated_mbids = []
+
+    limit = limit or float("inf")  # use all if no limit specified
+    to_ingest = select_topn_from_multilist_dicts(
+        [unannotated, updated_mbids, old_annotations],
+        N=limit,
+        identity_key="mbid",
+    )
     # exit if there is nothing to do
-    click.echo(f"Found {len(to_ingest)} total mbid(s) to annotate.")
+    click.echo(f"Annotating {len(to_ingest)} total mbid(s).")
     if not to_ingest:
         click.echo("Nothing to do.")
         sys.exit(0)
 
-    # limit if needed
-    if limit and len(to_ingest) > limit:
-        click.echo(f"Limiting to {limit} mbid(s) randomly.")
-        to_ingest = random.sample(to_ingest, k=limit)
-
     # annotate and insert
-    click.echo("Annotating...")
     annotated = utils_.annotate_mbid_batch(to_ingest)
     with get_session() as session:
         for args, res in tqdm(zip(to_ingest, annotated), disable=None, total=len(to_ingest)):
