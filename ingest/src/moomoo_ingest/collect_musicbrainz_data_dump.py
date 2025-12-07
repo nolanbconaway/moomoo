@@ -66,11 +66,30 @@ def drop_dumps(session: Session, max_age_days: int) -> None:
         session.query(MusicBrainzDataDump).filter(MusicBrainzDataDump.dump_timestamp < cutoff).all()
     )
     for dump in old_dumps:
+        click.echo(f"Dropping old dump {dump.slug} from db.")
         session.query(MusicBrainzDataDumpRecord).filter(
             MusicBrainzDataDumpRecord.slug == dump.slug
         ).delete(synchronize_session=False)
         session.delete(dump)
         session.commit()
+
+
+def parse_json_objects(s):
+    """Chatgpt'd this function to parse multiple json objects from a string."""
+    decoder = json.JSONDecoder()
+    idx = 0
+    n = len(s)
+
+    while idx < n:
+        # Skip whitespace
+        while idx < n and s[idx].isspace():
+            idx += 1
+        if idx >= n:
+            break
+
+        obj, end = decoder.raw_decode(s, idx)
+        yield obj
+        idx = end  # continue after the parsed object
 
 
 @dataclasses.dataclass
@@ -114,11 +133,9 @@ class DataDump:
             timestamp = ts_fileobj.read()
             records = entity_fileobj.read()
 
-        records = [
-            record
-            for line in records.decode("utf-8").splitlines()
-            if ("id" in (record := json.loads(line)))
-        ]
+        # read json lines. some lines have \n char so use a special stream reader.
+
+        records = [record for record in parse_json_objects(records.decode()) if "id" in record]
         # timestamp is formatted like '2025-12-04 23:31:59.823155+00', which is not isoformat.
         # drop the tz and just assume utc
 
@@ -174,22 +191,30 @@ class DataDump:
     default=None,
     help="If set, drop dumps older than this many days from the db",
 )
+@click.option("--packet", type=int, default=None, help="Specific packet number to download.")
 @click.option(
-    "--packet", type=int, default=None, help="Specific packet number to download, for all entities."
+    "--entity",
+    "entities",
+    type=click.Choice(ENTITIES),
+    multiple=True,
+    default=ENTITIES,
+    help="Entities for which to download dumps.",
 )
-def main(drop_age_days: Optional[int], packet: Optional[int]) -> None:
+def main(drop_age_days: Optional[int], packet: Optional[int], entities: list[str]) -> None:
     click.echo("Starting MusicBrainz data dump collection...")
     api_latest = get_latest_packet_number_from_api()
+    click.echo(f"Latest packet number from API: {api_latest}")
+
     with get_session() as session:
         entity_latest = {
-            entity: get_latest_packet_number_from_db(session, entity) for entity in ENTITIES
+            entity: get_latest_packet_number_from_db(session, entity) for entity in entities
         }
 
     # Drop old dumps if requested
     if drop_age_days is not None:
         drop_dumps(session=session, max_age_days=drop_age_days)
 
-    for entity in ENTITIES:
+    for entity in entities:
         db_latest = entity_latest[entity]
         if db_latest is None:
             # dumps are hourly, so start 7 days back if no dumps exist
@@ -202,7 +227,15 @@ def main(drop_age_days: Optional[int], packet: Optional[int]) -> None:
 
         click.echo(f"Downloading {len(packets)} dumps for entity {entity}.")
         for packet_number in tqdm(packets, disable=None):
-            dump = DataDump.download(entity=entity, packet_number=packet_number)
+            try:
+                dump = DataDump.download(entity=entity, packet_number=packet_number)
+            except Exception as e:
+                click.echo(
+                    f"ERROR: Failed to download dump for {packet_number}-{entity}: {e}",
+                    color="red",
+                    err=True,
+                )
+                raise
 
             if dump is None:
                 click.echo(
