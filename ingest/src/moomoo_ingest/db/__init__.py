@@ -15,6 +15,8 @@ from .ddl import (
     LocalFileExcludeRegex,
     MessyBrainzNameMap,
     MusicBrainzAnnotation,
+    MusicBrainzDataDump,
+    MusicBrainzDataDumpRecord,
 )
 
 __all__ = [
@@ -28,6 +30,8 @@ __all__ = [
     "LocalFileExcludeRegex",
     "ListenBrainzSimilarUserActivity",
     "MusicBrainzAnnotation",
+    "MusicBrainzDataDump",
+    "MusicBrainzDataDumpRecord",
     "ListenBrainzArtistStats",
     "ListenBrainzCollaborativeFilteringScore",
     "MessyBrainzNameMap",

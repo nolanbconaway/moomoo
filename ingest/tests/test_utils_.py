@@ -3,6 +3,7 @@
 import datetime
 
 import pytest
+import requests
 
 from moomoo_ingest import utils_
 
@@ -123,3 +124,27 @@ def test_annotate_mbid_batch(monkeypatch):
     assert results[3]["data"] == dict(d=4)
     assert results[4]["_success"] is False
     assert results[4]["error"] == "Unknown entity type: INVALID."
+
+
+def test_request_with_retry(monkeypatch):
+    call_count = dict(count=0)
+
+    class MockResponse:
+        def raise_for_status(self):
+            pass
+
+        @property
+        def text(self):
+            return "success"
+
+    def mock_request(*_, **__):
+        call_count["count"] += 1
+        if call_count["count"] < 3:
+            raise requests.exceptions.ConnectionError("Simulated connection error.")
+        return MockResponse()
+
+    monkeypatch.setattr(requests, "request", mock_request)
+
+    response = utils_.request_with_retry("GET", "http://example.com")
+    assert response.text == "success"
+    assert call_count["count"] == 3

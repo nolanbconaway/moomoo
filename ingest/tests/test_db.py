@@ -1,7 +1,7 @@
 import datetime
 import re
 from pathlib import Path
-from uuid import uuid1
+from uuid import UUID, uuid1
 
 import psycopg
 import pytest
@@ -19,6 +19,8 @@ from moomoo_ingest.db.ddl import (
     ListenBrainzDataDumpRecord,
     ListenBrainzListen,
     LocalFileExcludeRegex,
+    MusicBrainzDataDump,
+    MusicBrainzDataDumpRecord,
 )
 
 
@@ -369,3 +371,27 @@ def test_ListenBrainzCollaborativeFilteringScore__reset_pk():
     )
     rows = ListenBrainzCollaborativeFilteringScore.select_star()
     assert [row["mbid_pair_id"] for row in rows] == [3, 1]
+
+
+def test_MusicBrainzDataDump__replace_records():
+    session = get_session()
+    MusicBrainzDataDump.create()
+    MusicBrainzDataDumpRecord.create()
+
+    dump = MusicBrainzDataDump(
+        slug="test",
+        packet_number=1,
+        entity="artist",
+        dump_timestamp=datetime.datetime(2021, 1, 1),
+    )
+    session.add(dump)
+    session.commit()
+    assert dump.records == []
+
+    record = dict(mbid=str(uuid1()), json_data={})
+    dump.replace_records([record], session=session)
+    assert len(dump.records) == 1
+    assert dump.records[0].mbid == UUID(record["mbid"])
+
+    dump.replace_records([], session=session)
+    assert len(dump.records) == 0
