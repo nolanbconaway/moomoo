@@ -21,6 +21,7 @@ def remove_env_variables(monkeypatch):
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
     monkeypatch.delenv("MOOMOO_MEDIA_LIBRARY", raising=False)
     monkeypatch.setenv("METABRAINZ_LIVE_DATA_TOKEN", "not-real")
+    monkeypatch.setenv("LISTENBRAINZ_USER_TOKEN", "not-real")
 
 
 @pytest.fixture(autouse=True)
@@ -34,6 +35,11 @@ def disable_musicbrainzngs_calls(monkeypatch):
     monkeypatch.setattr(musicbrainzngs, "get_release_by_id", f)
     monkeypatch.setattr(musicbrainzngs, "get_release_group_by_id", f)
     monkeypatch.setattr(musicbrainzngs, "get_artist_by_id", f)
+
+
+@pytest.fixture(autouse=True)
+def disable_listenbrainz_auth(monkeypatch):
+    monkeypatch.setattr("liblistenbrainz.ListenBrainz.set_auth_token", lambda *_: None)
 
 
 @pytest.fixture(autouse=True)

@@ -13,10 +13,7 @@ def get_mock_lb_http(*responses) -> mock.Mock:
     def side_effect(*args, **kwargs):
         yield from responses
 
-    return mock.patch(
-        "moomoo_ingest.collect_listenbrainz_feedback.ListenBrainz._get",
-        side_effect=side_effect(),
-    )
+    return mock.patch("liblistenbrainz.ListenBrainz._get", side_effect=side_effect())
 
 
 def test_cli_main__no_data(monkeypatch):

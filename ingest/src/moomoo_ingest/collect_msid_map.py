@@ -16,7 +16,6 @@ import sys
 from typing import Optional
 
 import click
-from liblistenbrainz import ListenBrainz
 from liblistenbrainz.errors import ListenBrainzAPIException
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
@@ -34,7 +33,7 @@ where recording_md5 is not null
 """
 
 # global ListenBrainz client, rate limiting is handled internally
-client = ListenBrainz()
+client = utils_.get_listenbrainz_client()
 
 
 def get_new_recordings() -> list[dict]:

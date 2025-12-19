@@ -18,10 +18,7 @@ def mbids() -> list[uuid.UUID]:
 
 def mock_lb_http(*responses) -> Mock:
     """Make patched objects for the whole module."""
-    return patch(
-        "moomoo_ingest.artist_stats.ListenBrainz._get",
-        Mock(side_effect=responses),
-    )
+    return patch("liblistenbrainz.ListenBrainz._get", Mock(side_effect=responses))
 
 
 def test_get_artist_stats__exception_handling():
