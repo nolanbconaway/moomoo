@@ -20,7 +20,7 @@ def load_resource_json(name):
 def monkeypatch_lb_get(monkeypatch):
     """Auto mock the ListenBrainz._get method."""
     monkeypatch.setattr(
-        'liblistenbrainz.ListenBrainz._get',
+        "liblistenbrainz.ListenBrainz._get",
         lambda *a, **kw: load_resource_json("sample_listenbrainz_listen.json"),
     )
 
@@ -104,7 +104,7 @@ def test_cli_main__from_dt__pass_args():
 def test_cli_main__no_data(monkeypatch):
     # override auto mock
     monkeypatch.setattr(
-        'liblistenbrainz.ListenBrainz._get',
+        "liblistenbrainz.ListenBrainz._get",
         lambda *a, **kw: dict(payload=dict(count=0, listens=[])),
     )
 
