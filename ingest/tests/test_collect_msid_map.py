@@ -64,9 +64,7 @@ def load_local_files_table(data: list[dict]):
 def monkeypatch_lb_get(monkeypatch):
     """Auto mock the ListenBrainz._get method."""
     monkeypatch.setattr(
-        collect_msid_map.ListenBrainz,
-        "_get",
-        lambda *_, **__: dict(recording_name="ok"),
+        "liblistenbrainz.ListenBrainz._get", lambda *_, **__: dict(recording_name="ok")
     )
 
 

@@ -19,10 +19,7 @@ def get_mock_lb_http(similar_users, activity) -> mock.Mock:
             while True:
                 yield activity
 
-    return mock.patch(
-        "moomoo_ingest.collect_similar_user_activity.ListenBrainz._get",
-        mock.Mock(side_effect=side_effect()),
-    )
+    return mock.patch("liblistenbrainz.ListenBrainz._get", mock.Mock(side_effect=side_effect()))
 
 
 def test_last_ingest_ts():

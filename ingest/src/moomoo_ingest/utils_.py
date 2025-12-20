@@ -10,6 +10,7 @@ from typing import Iterable, Iterator
 import musicbrainzngs
 import requests
 import tenacity
+from liblistenbrainz import ListenBrainz
 
 SPECIAL_PURPOSE_ARTISTS = {
     "f731ccc4-e22a-43af-a747-64213329e088",  # anonymous
@@ -56,6 +57,17 @@ def utcnow() -> datetime.datetime:
 def md5(*args: str) -> str:
     """Get the md5 hash of the given strings."""
     return hashlib.md5("-".join(args).encode()).hexdigest()
+
+
+def get_listenbrainz_client() -> ListenBrainz:
+    """Get a ListenBrainz client.
+
+    Sets the auth token from the LISTENBRAINZ_USER_TOKEN environment variable. Extracted here
+    also to facilitate mocking in tests.
+    """
+    client = ListenBrainz()
+    client.set_auth_token(os.environ.get("LISTENBRAINZ_USER_TOKEN"), check_validity=False)
+    return client
 
 
 def _get_recording_data(recording_mbid: str) -> dict:

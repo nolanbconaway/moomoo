@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import click
-from liblistenbrainz import ListenBrainz
 from liblistenbrainz.errors import ListenBrainzAPIException
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
@@ -25,7 +24,7 @@ PAGE_SIZE = 100
 
 
 # global ListenBrainz client, rate limiting is handled internally
-client = ListenBrainz()
+client = utils_.get_listenbrainz_client()
 
 
 @dataclass
