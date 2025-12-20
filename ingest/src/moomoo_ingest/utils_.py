@@ -66,7 +66,7 @@ def get_listenbrainz_client() -> ListenBrainz:
     also to facilitate mocking in tests.
     """
     client = ListenBrainz()
-    client.set_auth_token(os.environ["LISTENBRAINZ_USER_TOKEN"], check_validity=False)
+    client.set_auth_token(os.environ.get("LISTENBRAINZ_USER_TOKEN"), check_validity=False)
     return client
 
 
