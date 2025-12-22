@@ -17,7 +17,14 @@ from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
+from requests.exceptions import RetryError
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 from tqdm import tqdm
 
 from . import utils_
@@ -64,11 +71,29 @@ def get_old_recordings(before: datetime.datetime) -> list[dict]:
     return execute_sql_fetchall(sql, params=dict(before=before))
 
 
+def after_logger(state: RetryCallState) -> None:
+    """After call strategy that logs failed attempts."""
+    if not state.outcome.failed:
+        return
+
+    # Extract arguments from either args or kwargs
+    recording = state.kwargs.get("recording_name", state.args[0] if len(state.args) > 0 else None)
+    release = state.kwargs.get("release_name", state.args[1] if len(state.args) > 1 else None)
+    artist = state.kwargs.get("artist_name", state.args[2] if len(state.args) > 2 else None)
+    exception_type = type(state.outcome.exception()).__name__
+    click.echo(
+        f"Attempt {state.attempt_number} failed for recording: {recording}, "
+        f"release: {release}, artist: {artist} with exception: "
+        f"{exception_type}"
+    )
+
+
 @retry(
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(5),
-    retry=retry_if_exception_type(ListenBrainzAPIException),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=5, max=30),
+    retry=retry_if_exception_type((ListenBrainzAPIException, RetryError)),
     reraise=True,
+    after=after_logger,
 )
 def lookup_msid(recording_name: str, release_name: str, artist_name: str) -> dict:
     """Lookup data for a recording."""
