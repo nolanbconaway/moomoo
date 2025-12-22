@@ -73,7 +73,7 @@ def get_old_recordings(before: datetime.datetime) -> list[dict]:
 
 def after_logger(state: RetryCallState) -> None:
     """After call strategy that logs failed attempts."""
-    if not state.outcome or not state.outcome.failed:
+    if not state.outcome.failed:
         return
 
     # Extract arguments from either args or kwargs
