@@ -26,11 +26,11 @@ with spikes_unconstrained as (
 
   from {{ ref('listens') }} as t0
   inner join {{ ref('listens') }} as tn
-    on tn.recording_mbid = t0.recording_mbid
+    on t0.recording_mbid = tn.recording_mbid
       and t0.recording_mbid is not null
-      and tn.username = t0.username
-      and tn.listen_at_ts_utc < (t0.listen_at_ts_utc + interval '1 day')
-      and tn.listen_at_ts_utc > t0.listen_at_ts_utc
+      and t0.username = tn.username
+      and (t0.listen_at_ts_utc + interval '1 day') > tn.listen_at_ts_utc
+      and t0.listen_at_ts_utc < tn.listen_at_ts_utc
 
   group by t0.listen_md5
   having count(1) >= 5

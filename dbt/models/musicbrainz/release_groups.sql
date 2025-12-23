@@ -1,11 +1,15 @@
-{{ config(
-  indexes=[
-    {'columns': ['release_group_mbid'], 'unique': True},
-    {'columns': ['release_group_title']},
-    {'columns': ['artist_credit_phrase']},
-    {'columns': ['_ingest_insert_ts_utc']},
-  ]
-) }}
+{{
+  config(
+    materialized='incremental',
+    unique_key="release_group_mbid",
+    indexes=[
+      {'columns': ['release_group_mbid'], 'unique': True},
+      {'columns': ['release_group_title']},
+      {'columns': ['artist_credit_phrase']},
+      {'columns': ['_ingest_insert_ts_utc']},
+    ]
+  )
+}}
 
 select
   mbid as release_group_mbid
@@ -27,3 +31,11 @@ from {{ source('pyingest', 'musicbrainz_annotations') }}
 
 where entity = 'release-group'
   and {{ json_get('payload_json', ['_success']) }} = 'true'
+
+-- noqa: disable=all
+  {% if is_incremental() %}
+    and ts_utc > (
+      select max(t._ingest_insert_ts_utc) - interval '5 minutes' from {{ this }} as t
+    )
+  {% endif %}
+-- noqa: enable=all
