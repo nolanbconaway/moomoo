@@ -29,7 +29,7 @@ with base_ as (
   where entity = 'artist'
     and {{ json_get('payload_json', ['_success']) }} = 'true'
 
-    {% if is_incremental() %}
+    {% if is_incremental() %}  -- noqa: LT02
       and ts_utc > (
         select max(t._ingest_insert_ts_utc) - interval '5 minutes' from {{ this }} as t
       )
