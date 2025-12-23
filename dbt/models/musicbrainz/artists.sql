@@ -28,13 +28,13 @@ with base_ as (
 
   where entity = 'artist'
     and {{ json_get('payload_json', ['_success']) }} = 'true'
-    -- noqa: disable=all
+-- noqa: disable=all
     {% if is_incremental() %}
       and ts_utc > (
         select max(t._ingest_insert_ts_utc) - interval '5 minutes' from {{ this }} as t
       )
     {% endif %}
-    -- noqa: enable=all
+-- noqa: enable=all
 )
 
 , release_timeline as (
