@@ -32,4 +32,4 @@ where entity = 'release'
     and ts_utc > (
       select max(t._ingest_insert_ts_utc) - interval '5 minutes' from {{ this }} as t
     )
-  {% endif %}
+  {% endif %}  -- noqa: LT02
