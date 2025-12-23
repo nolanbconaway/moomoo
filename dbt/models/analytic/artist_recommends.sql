@@ -75,7 +75,7 @@ select
 
 from agg_scores
 inner join max_score_artist using (artist_mbid_b)
-left join {{ ref('artists') }} as artist_b on artist_b.artist_mbid = agg_scores.artist_mbid_b
-left join {{ ref('artists') }} as artist_a on artist_a.artist_mbid = max_score_artist.artist_mbid_a
+left join {{ ref('artists') }} as artist_b on agg_scores.artist_mbid_b = artist_b.artist_mbid
+left join {{ ref('artists') }} as artist_a on max_score_artist.artist_mbid_a = artist_a.artist_mbid
 
 order by agg_scores.max_score desc

@@ -87,6 +87,6 @@ select
   , base.insert_ts_utc
 
 from {{ source('pyingest', 'listenbrainz_similar_user_activity') }} as base
-inner join exploded on exploded.payload_id = base.payload_id
+inner join exploded on base.payload_id = exploded.payload_id
 
 where exploded.mbid is not null
