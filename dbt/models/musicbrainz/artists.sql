@@ -1,10 +1,13 @@
 {{ config(
-  indexes=[
-    {'columns': ['artist_mbid'], 'unique': True},
-    {'columns': ['artist_name']},
-    {'columns': ['_ingest_insert_ts_utc']},
-    ]
-  ) }}
+    materialized='incremental',
+    unique_key='artist_mbid',
+    indexes=[
+      {'columns': ['artist_mbid'], 'unique': True},
+      {'columns': ['artist_name']},
+      {'columns': ['_ingest_insert_ts_utc']},
+      ],
+    )
+}}
 
 
 with base_ as (
@@ -25,6 +28,10 @@ with base_ as (
 
   where entity = 'artist'
     and {{ json_get('payload_json', ['_success']) }} = 'true'
+
+    {% if is_incremental() %}
+    and ts_utc > (select max(_ingest_insert_ts_utc) - interval '5 minutes' from {{ this }})
+    {% endif %}
 )
 
 , release_timeline as (

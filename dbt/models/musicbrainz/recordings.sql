@@ -1,12 +1,15 @@
-{{ config(
-  indexes=[
-    {'columns': ['recording_mbid'], 'unique': True},
-    {'columns': ['recording_title']},
-    {'columns': ['artist_credit_phrase']},
-    {'columns': ['_ingest_insert_ts_utc']},
-
-  ]
-) }}
+{{
+  config(
+    materialized='incremental',
+    unique_key='recording_mbid',
+    indexes=[
+      {'columns': ['recording_mbid'], 'unique': True},
+      {'columns': ['recording_title']},
+      {'columns': ['artist_credit_phrase']},
+      {'columns': ['_ingest_insert_ts_utc']},
+    ]
+  )
+}}
 
 select
   mbid as recording_mbid
@@ -22,3 +25,7 @@ from {{ source('pyingest', 'musicbrainz_annotations') }}
 
 where entity = 'recording'
   and {{ json_get('payload_json', ['_success']) }} = 'true'
+
+  {% if is_incremental() %}
+  and ts_utc > (select max(_ingest_insert_ts_utc) - interval '5 minutes' from {{ this }})
+  {% endif %}
