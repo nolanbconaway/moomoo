@@ -33,5 +33,7 @@ where entity = 'release-group'
   and {{ json_get('payload_json', ['_success']) }} = 'true'
 
   {% if is_incremental() %}
-  and ts_utc > (select max(_ingest_insert_ts_utc) - interval '5 minutes' from {{ this }})
+    and ts_utc > (
+      select max(t._ingest_insert_ts_utc) - interval '5 minutes' from {{ this }} as t
+    )
   {% endif %}
