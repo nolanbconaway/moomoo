@@ -172,6 +172,9 @@ def _get_artist_data(artist_mbid: str) -> dict:
                 offset=offset,
                 release_type=release_types,
             )
+
+            # because we potentially filter by release type, we may get fewer releases than reported
+            # in the release-count, so break early if no more releases are returned
             if not releases.get("release-list"):
                 break
 
