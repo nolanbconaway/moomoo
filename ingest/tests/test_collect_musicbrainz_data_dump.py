@@ -149,6 +149,67 @@ def test_DataDump__download(tarball_bytes: bytes, requests_mock: requests_mock_l
         lib.DataDump.download(entity="artist", packet_number=9999)
 
 
+def test_DataDump__get_containers():
+    """Test extracting container entities from records."""
+    # release-group entity
+    dump = lib.DataDump(
+        entity="release-group",
+        packet_number=1,
+        timestamp=datetime.datetime.now(),
+        records=[],
+    )
+    record = {
+        "id": str(uuid1()),
+        "artist-credit": [{"artist": {"id": str(uuid1())}}, {"artist": {"id": str(uuid1())}}],
+    }
+    containers = dump.get_containers(record=record)
+    assert len(containers) == 2
+    for container in containers:
+        assert container["entity"] == "artist"
+
+    # release entity
+    dump = lib.DataDump(
+        entity="release",
+        packet_number=1,
+        timestamp=datetime.datetime.now(),
+        records=[],
+    )
+    release_group_id = str(uuid1())
+    artist_id1 = str(uuid1())
+    artist_id2 = str(uuid1())
+    record = {
+        "id": str(uuid1()),
+        "release-group": {"id": release_group_id},
+        "artist-credit": [{"artist": {"id": artist_id1}}, {"artist": {"id": artist_id2}}],
+    }
+    containers = dump.get_containers(record=record)
+    assert len(containers) == 3
+    assert dict(mbid=release_group_id, entity="release-group") in containers
+    assert dict(mbid=artist_id1, entity="artist") in containers
+    assert dict(mbid=artist_id2, entity="artist") in containers
+
+    # nothing for recording or artist entities yet
+    dump = lib.DataDump(
+        entity="artist",
+        packet_number=1,
+        timestamp=datetime.datetime.now(),
+        records=[],
+    )
+    record = {"id": str(uuid1())}
+    containers = dump.get_containers(record=record)
+    assert containers == []
+
+    dump = lib.DataDump(
+        entity="recording",
+        packet_number=1,
+        timestamp=datetime.datetime.now(),
+        records=[],
+    )
+    record = {"id": str(uuid1())}
+    containers = dump.get_containers(record=record)
+    assert containers == []
+
+
 def test_DataDump__to_db():
     dump = lib.DataDump(
         entity="artist",

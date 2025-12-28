@@ -19,6 +19,7 @@ SPECIAL_PURPOSE_ARTISTS = {
     "eec63d3c-3b81-4ad4-b1e4-7c147d4d2b61",  # no artist
     "9be7f096-97ec-4615-8957-8d40b5dcbc41",  # traditional
     "125ec42a-7229-4250-afc5-e057484327fe",  # unknown
+    "fdcc79ef-0832-4c23-a4f9-5c5a4160083d",  # unknown
     "89ad4ac3-39f7-470e-963a-56509c546377",  # various artists
 }
 
@@ -153,6 +154,11 @@ def _get_artist_data(artist_mbid: str) -> dict:
     # https://python-musicbrainzngs.readthedocs.io/en/v0.7.1/usage/?highlight=browse#regular-musicbrainz-data
     release_count = int(data["artist"].get("release-count", 0))
 
+    # if > 1000 releases, limit to main release types only (exclude anthologies, compilations, etc)
+    release_types = (
+        [] if release_count < 1000 else ["nat", "album", "single", "ep", "broadcast", "other"]
+    )
+
     # no need to walk large release lists for special purpose artists
     if release_count > 25 and artist_mbid not in SPECIAL_PURPOSE_ARTISTS:
         release_list = []  # data['artist']['release-list']
@@ -160,8 +166,18 @@ def _get_artist_data(artist_mbid: str) -> dict:
         offsets = range(0, release_count, limit)
         for offset in offsets:
             releases = musicbrainzngs.browse_releases(
-                artist=artist_mbid, includes=[], limit=limit, offset=offset
+                artist=artist_mbid,
+                includes=[],
+                limit=limit,
+                offset=offset,
+                release_type=release_types,
             )
+
+            # because we potentially filter by release type, we may get fewer releases than reported
+            # in the release-count, so break early if no more releases are returned
+            if not releases.get("release-list"):
+                break
+
             release_list += releases["release-list"]
 
         # deduplicate the release list in case a release was added during the fetches

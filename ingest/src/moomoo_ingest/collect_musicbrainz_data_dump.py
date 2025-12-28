@@ -175,13 +175,49 @@ class DataDump:
             records=[
                 dict(
                     mbid=record["id"],
-                    json_data=dict(),  # no need to store anything for now.
+                    json_data=dict(
+                        containers=self.get_containers(record=record),
+                    ),
                 )
                 for record in self.records
             ],
         )
 
         return db_dump
+
+    def get_containers(self, record: dict) -> list[dict]:
+        """Get the containers for a given record.
+
+        E.g., if a release-group, get the arists to which it belongs and return them as a list of
+        dicts like
+
+            [
+                {"mbid": "...", "entity": "artist"}
+                ...
+            ]
+        """
+        try:
+            if self.entity == "release-group":
+                return [
+                    dict(mbid=i["artist"]["id"], entity="artist") for i in record["artist-credit"]
+                ]
+
+            if self.entity == "release":
+                release_group = record["release-group"]["id"]
+                artists = [i["artist"]["id"] for i in record["artist-credit"]]
+                containers = []
+                containers.append(dict(mbid=release_group, entity="release-group"))
+                for artist in artists:
+                    containers.append(dict(mbid=artist, entity="artist"))
+
+                return containers
+
+            # not doing anything for releases or artists yet...
+        except Exception:
+            print(record)
+            raise
+
+        return []
 
 
 @click.command()
