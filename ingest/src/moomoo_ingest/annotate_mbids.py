@@ -47,7 +47,8 @@ def get_unannotated_mbids() -> list[dict]:
 def get_updated_mbids() -> list[dict]:
     """Get mbids that have updates in the musicbrainz database since they were last annotated."""
     sql = f"""
-    with last_update as (
+    with updates as (
+        -- the actual record updated
         select
             dumps.entity
             , records.mbid
@@ -56,13 +57,41 @@ def get_updated_mbids() -> list[dict]:
         inner join {MusicBrainzDataDumpRecord.table_name()} as records using (slug)
         where dumps.entity = any(:entities)
         group by 1, 2
+
+        union all
+
+        -- each of the containers updated
+        select
+            container ->> 'entity' as entity
+            , (container ->> 'mbid')::uuid as mbid
+            , max(dumps.dump_timestamp) as ts
+        from {MusicBrainzDataDump.table_name()} as dumps
+        inner join {MusicBrainzDataDumpRecord.table_name()} as records using (slug)
+          , jsonb_array_elements(records.json_data -> 'containers') as container
+
+        where records.json_data -> 'containers' is not null
+          and container ->> 'mbid' is not null
+          and container ->> 'entity' is not null
+          and dumps.entity = any(:entities)
+          and container ->> 'entity' = any(:entities)
+
+        group by 1, 2
+    )
+
+    -- dedupe to get the last update per (entity, mbid)
+    , last_update as (
+        select entity, mbid, max(ts) as ts
+        from updates
+        group by 1, 2
     )
 
     select mbid, entity, '1 update' as source
     from {MusicBrainzAnnotation.table_name()} as annotations
     inner join last_update using (entity, mbid)
-    -- the dumps are hourly, but i want to be safe so adding a 10min buffer.
-    where annotations.ts_utc < last_update.ts - interval '70 minutes'
+    -- the dumps are hourly, so the record could have been updated anytime within the hour. i think
+    -- the dump timestamp corresponds to the start of the period covered by the dump, so to be safe
+    -- assume that all records were updated at the very last minute and add a 20min buffer.
+    where annotations.ts_utc < last_update.ts + interval '20 minutes'
     """
     return execute_sql_fetchall(sql, params=dict(entities=utils_.ENTITIES))
 

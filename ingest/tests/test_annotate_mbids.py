@@ -189,13 +189,18 @@ def test_get_updated_mbids__any_data():
 
     # add data dump and record for the first mbid
     slug = f"test-slug-{entity}"
+    container_mbid = uuid.uuid4()
     MusicBrainzDataDump(
         slug=slug,
         packet_number=1,
         entity=entity,
         dump_timestamp=datetime.datetime.now() - datetime.timedelta(days=1),
     ).insert()
-    MusicBrainzDataDumpRecord(slug=slug, mbid=mbid, json_data=dict(a=1)).insert()
+    MusicBrainzDataDumpRecord(
+        slug=slug,
+        mbid=mbid,
+        json_data=dict(containers=[dict(mbid=container_mbid, entity="artist")]),
+    ).insert()
 
     # add an annotation older than the dump
     MusicBrainzAnnotation(
@@ -204,17 +209,30 @@ def test_get_updated_mbids__any_data():
         payload_json=dict(a=1),
         ts_utc=datetime.datetime.now() - datetime.timedelta(days=2),
     ).insert()
+    MusicBrainzAnnotation(
+        mbid=container_mbid,
+        entity="artist",
+        payload_json=dict(a=1),
+        ts_utc=datetime.datetime.now() - datetime.timedelta(days=2),
+    ).insert()
 
-    load_mbids_table([dict(mbid=mbid, entity=entity)])
+    load_mbids_table([dict(mbid=mbid, entity=entity), dict(mbid=container_mbid, entity="artist")])
     res = annotate_mbids.get_updated_mbids()
-    assert len(res) == 1
+    assert len(res) == 2
     assert res[0]["mbid"] == mbid
     assert res[0]["entity"] == entity
+    assert res[0]["source"] == "1 update"
 
     # update the annotation to be more recent than the dump
     MusicBrainzAnnotation(
         mbid=mbid,
         entity=entity,
+        payload_json=dict(a=1),
+        ts_utc=datetime.datetime.now(),
+    ).upsert()
+    MusicBrainzAnnotation(
+        mbid=container_mbid,
+        entity="artist",
         payload_json=dict(a=1),
         ts_utc=datetime.datetime.now(),
     ).upsert()
