@@ -1,4 +1,5 @@
 """Utility functions for the good of all."""
+
 import json
 import os
 import subprocess
@@ -7,7 +8,6 @@ import time
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, Union
 from uuid import UUID, uuid4
 
 import click
@@ -43,7 +43,7 @@ class MediaLibrary:
         """
         return path.resolve().relative_to(self.location)
 
-    def make_absolute(self, path: Union[Path, str]) -> Path:
+    def make_absolute(self, path: Path | str) -> Path:
         """Make a path absolute, within the media library.
 
         E.g., album/track.mp3 -> /home/user/music/album/track.mp3
@@ -61,7 +61,7 @@ class Playlist:
 
     playlist: list[Path]
     generator: str
-    description: Optional[str] = None
+    description: str | None = None
 
     # user should never set this
     playlist_id: UUID = field(default_factory=uuid4, init=False, repr=False)

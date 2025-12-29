@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 from httpx import HTTPStatusError
-from moomoo_client.http import Playlist, PlaylistRequester
 from pytest_httpx import HTTPXMock
+
+from moomoo_client.http import Playlist, PlaylistRequester
 
 
 @pytest.fixture(autouse=True)

@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from pytest_httpx import HTTPXMock
+
 from moomoo_client.cli.cli import cli as client_cli
 from moomoo_client.cli.playlist import cli as playlist_cli
-from pytest_httpx import HTTPXMock
 
 
 @pytest.fixture(autouse=True)
