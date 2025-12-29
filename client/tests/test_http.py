@@ -230,3 +230,14 @@ async def test_PlaylistRequester__request_user_smart_mixes(
     assert isinstance(plist, Playlist)
     assert plist.playlist == [local_files / "a", local_files / "b"]
     assert plist.description == description
+
+
+@pytest.mark.asyncio
+async def test_PlaylistRequester__request_version(
+    local_files: Path, httpx_mock: HTTPXMock
+):
+    """Test the request_version method."""
+    httpx_mock.add_response(json={"version": "123"})
+    requester = PlaylistRequester()
+    res = await requester.request_version()
+    assert res == "123"

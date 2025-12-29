@@ -58,7 +58,7 @@ class PlaylistRequester:
             finally:
                 resp.raise_for_status()
 
-        if not resp.json()["success"]:
+        if not resp.json().get("success", True):
             raise RuntimeError(resp.json()["error"])
 
         return resp.json()
@@ -172,3 +172,9 @@ class PlaylistRequester:
             )
             for plist in data["playlists"]
         ]
+
+    async def request_version(self) -> str:
+        """Asynchronously request the server version."""
+        endpoint = "/version"
+        data = await self.make_request(endpoint)
+        return data["version"]

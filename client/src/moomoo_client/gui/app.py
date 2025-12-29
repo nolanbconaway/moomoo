@@ -7,6 +7,7 @@ from toga.style import Pack
 from ..http import PlaylistRequester
 from ..logger import logger
 from ..utils_ import VERSION, Playlist
+from .gi_setup import Gtk
 
 USERNAME = os.environ["LISTENBRAINZ_USERNAME"]
 logger.info("listenbrainz_username", username=USERNAME)
@@ -108,13 +109,22 @@ class MoomooApp(toga.App):
         main_box.add(toga.Divider(style=Pack(padding_top=10, padding_bottom=20)))
         main_box.add(
             toga.Label(
-                text=f"v{VERSION}",
+                id="version_label",
+                text=f"app: v{VERSION}",
                 style=Pack(font_family="sans-serif", font_size=8),
             )
         )
 
         self.main_window.content = main_box
         self.main_window.show()
+        self.add_ctrl_w_accelerator(self.main_window)
+
+    def add_ctrl_w_accelerator(self, window: toga.MainWindow):
+        gtk_window = window._impl.native  # Gtk.Window
+        accel_group = Gtk.AccelGroup()
+        gtk_window.add_accel_group(accel_group)
+        key, mod = Gtk.accelerator_parse("<Control>w")
+        accel_group.connect(key, mod, Gtk.AccelFlags.VISIBLE, lambda *_: window.close())
 
     async def populate_artist_playlists(self, app: "MoomooApp"):
         logger.info("populate_artist_playlists")
@@ -160,10 +170,20 @@ class MoomooApp(toga.App):
         playlists_list.add_playlist(playlist)
         playlists_list.sort_table()
 
+    async def populate_http_version(self, app: "MoomooApp"):
+        logger.info("populate_http_version")
+        widget = app.widgets["version_label"]
+        requester = PlaylistRequester()
+        http_version = await requester.request_version()
+        logger.info("http_version", http_version=http_version)
+        widget.text = f"app: v{VERSION}, server: v{http_version}"
+
+
 
 def create_app() -> MoomooApp:
     logger.info("create_app")
     app = MoomooApp("moomoo gui", app_id="com.moomoo.ui")
+    app.add_background_task(app.populate_http_version)
     app.add_background_task(app.populate_artist_playlists)
     app.add_background_task(app.populate_loved_tracks)
     app.add_background_task(app.populate_revisit_releases)
