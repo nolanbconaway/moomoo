@@ -22,28 +22,33 @@ setup(
     long_description=readme,
     long_description_content_type="text/markdown",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     packages=find_packages("src"),
     package_dir={"": "src"},
     install_requires=[
         "click==8.*",
         "xspf-lib==0.3.*",
-        "httpx==0.26.*",
-        "toga==0.4.*",
-        "structlog==23.*",
+        "httpx==0.28.*",
+        "toga==0.5.*",
+        "structlog==25.*",
     ],
     extras_require=dict(
         test=[
-            "ruff==0.2.1",
-            "pytest==7.2.2",
-            "pytest-httpx==0.28.0",
-            "pytest-asyncio==0.23.3",
+            "ruff==0.14.10",
+            "pytest==9.0.2",
+            "pytest-httpx==0.36.0",
+            "pytest-asyncio==1.3.0",
         ]
     ),
     entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli.cli:cli"]},
-    package_data={"moomoo_client": ["version"]},
+    include_package_data=True,
+    package_data={
+        "moomoo_client": ["version"],
+        "moomoo_client.gui": ["resources/*"],
+    },
 )

@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from moomoo_client.utils_ import MediaLibrary, Playlist
 
 
@@ -12,7 +13,7 @@ def local_files(monkeypatch, tmp_path) -> Path:
     monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(tmp_path))
     tmp_path = Path(tmp_path)
     (tmp_path / "test.mp3").touch()
-    yield tmp_path
+    return tmp_path
 
 
 def test_MediaLibrary__location(monkeypatch):
@@ -50,7 +51,7 @@ def test_playlist__output_formats(local_files: Path):
     fpath = local_files / "test.mp3"
     playlist = Playlist([fpath], description="aaa", generator="bbb")
 
-    assert playlist.to_json() == '{"playlist": ["%s"], "description": "aaa"}' % fpath
+    assert playlist.to_json() == f'{{"playlist": ["{fpath}"], "description": "aaa"}}'
     xml = playlist.to_xml()
     assert "<track>" in xml
-    assert "<location>%s</location>" % fpath in xml
+    assert f"<location>{fpath}</location>" in xml

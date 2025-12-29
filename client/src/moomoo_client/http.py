@@ -4,7 +4,6 @@ import json
 import os
 from functools import cached_property
 from pathlib import Path
-from typing import Optional, Union
 
 import click
 import httpx
@@ -35,12 +34,12 @@ class PlaylistRequester:
             raise ValueError("MOOMOO_HOST environment variable not set.")
         return host
 
-    def request_tuples(self) -> list[tuple[str, Union[int, bool]]]:
+    def request_tuples(self) -> list[tuple[str, int | bool]]:
         """Convert to tuples, appropriate for passing to requests."""
         return [(k, v) for k, v in self.args.items()]
 
     async def make_request(
-        self, endpoint: str, params: Optional[list[tuple[str, Union[int, bool]]]] = None
+        self, endpoint: str, params: list[tuple[str, int | bool]] | None = None
     ) -> dict:
         """Make an async request to the moomoo server, handling errors."""
         logger.info("make_request", endpoint=endpoint, params=params)
@@ -59,7 +58,7 @@ class PlaylistRequester:
             finally:
                 resp.raise_for_status()
 
-        if not resp.json()["success"]:
+        if not resp.json().get("success", True):
             raise RuntimeError(resp.json()["error"])
 
         return resp.json()
@@ -173,3 +172,9 @@ class PlaylistRequester:
             )
             for plist in data["playlists"]
         ]
+
+    async def request_version(self) -> str:
+        """Asynchronously request the server version."""
+        endpoint = "/version"
+        data = await self.make_request(endpoint)
+        return data["version"]

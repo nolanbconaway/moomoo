@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 from httpx import HTTPStatusError
-from moomoo_client.http import Playlist, PlaylistRequester
 from pytest_httpx import HTTPXMock
+
+from moomoo_client.http import Playlist, PlaylistRequester
 
 
 @pytest.fixture(autouse=True)
@@ -229,3 +230,12 @@ async def test_PlaylistRequester__request_user_smart_mixes(
     assert isinstance(plist, Playlist)
     assert plist.playlist == [local_files / "a", local_files / "b"]
     assert plist.description == description
+
+
+@pytest.mark.asyncio
+async def test_PlaylistRequester__request_version(httpx_mock: HTTPXMock):
+    """Test the request_version method."""
+    httpx_mock.add_response(json={"version": "123"})
+    requester = PlaylistRequester()
+    res = await requester.request_version()
+    assert res == "123"

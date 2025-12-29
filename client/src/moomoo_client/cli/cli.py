@@ -1,4 +1,5 @@
 """A CLI for moomoo client."""
+
 import os
 
 import click
