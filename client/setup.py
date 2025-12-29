@@ -46,5 +46,9 @@ setup(
         ]
     ),
     entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli.cli:cli"]},
-    package_data={"moomoo_client": ["version"]},
+    include_package_data=True,
+    package_data={
+        "moomoo_client": ["version"],
+        "moomoo_client.gui": ["resources/*"],
+    },
 )
