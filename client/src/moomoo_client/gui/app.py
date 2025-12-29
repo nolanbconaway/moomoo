@@ -1,4 +1,6 @@
+import asyncio
 import os
+from pathlib import Path
 
 import toga
 from toga.sources.list_source import Row as TogaRow
@@ -9,6 +11,7 @@ from ..logger import logger
 from ..utils_ import VERSION, Playlist
 from .gi_setup import Gtk
 
+RESOURCES = Path(__file__).resolve().parent / "resources"
 USERNAME = os.environ["LISTENBRAINZ_USERNAME"]
 logger.info("listenbrainz_username", username=USERNAME)
 
@@ -34,7 +37,7 @@ class PlaylistTable(toga.Table):
             on_activate=self.activate_playlist_handler,
             style=Pack(
                 flex=1,
-                padding_right=5,
+                margin_right=5,
                 font_family="monospace",
             ),
         )
@@ -83,7 +86,7 @@ class MoomooApp(toga.App):
         No http, etc.
         """
         self.main_window = toga.MainWindow(title=self.formal_name, size=(800, 1000))
-        main_box = toga.Box(style=Pack(direction="column", padding=10))
+        main_box = toga.Box(style=Pack(direction="column", margin=10))
         main_box.add(
             toga.Label(
                 text="Welcome to Moomoo GUI!",
@@ -91,7 +94,7 @@ class MoomooApp(toga.App):
             )
         )
 
-        main_box.add(toga.Divider(style=Pack(padding_top=10, padding_bottom=20)))
+        main_box.add(toga.Divider(style=Pack(margin_top=10, margin_bottom=20)))
         main_box.add(
             toga.Label(
                 text="Double click a playlist to open it in Strawberry.",
@@ -102,11 +105,11 @@ class MoomooApp(toga.App):
         playlists = toga.ScrollContainer(
             horizontal=False,
             content=PlaylistTable(id="playlists_list"),
-            style=Pack(padding_top=10, height=900),
+            style=Pack(margin_top=10, height=900),
         )
         main_box.add(playlists)
 
-        main_box.add(toga.Divider(style=Pack(padding_top=10, padding_bottom=20)))
+        main_box.add(toga.Divider(style=Pack(margin_top=10, margin_bottom=20)))
         main_box.add(
             toga.Label(
                 id="version_label",
@@ -178,17 +181,27 @@ class MoomooApp(toga.App):
         logger.info("http_version", http_version=http_version)
         widget.text = f"app: v{VERSION}, server: v{http_version}"
 
+    async def on_running(self, **_):
+        funcs = [
+            self.populate_http_version,
+            self.populate_artist_playlists,
+            self.populate_loved_tracks,
+            self.populate_revisit_releases,
+            self.populate_smart_mix,
+            self.populate_revisit_tracks,
+        ]
+
+        tasks = set()
+        for func in funcs:
+            task = asyncio.create_task(func(self))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
 
 
 def create_app() -> MoomooApp:
     logger.info("create_app")
-    app = MoomooApp("moomoo gui", app_id="com.moomoo.ui")
-    app.add_background_task(app.populate_http_version)
-    app.add_background_task(app.populate_artist_playlists)
-    app.add_background_task(app.populate_loved_tracks)
-    app.add_background_task(app.populate_revisit_releases)
-    app.add_background_task(app.populate_smart_mix)
-    app.add_background_task(app.populate_revisit_tracks)
+    app = MoomooApp("moomoo gui", app_id="com.moomoo.ui", icon=RESOURCES / "icon.png")
+
     return app
 
 

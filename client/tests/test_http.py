@@ -233,9 +233,7 @@ async def test_PlaylistRequester__request_user_smart_mixes(
 
 
 @pytest.mark.asyncio
-async def test_PlaylistRequester__request_version(
-    local_files: Path, httpx_mock: HTTPXMock
-):
+async def test_PlaylistRequester__request_version(httpx_mock: HTTPXMock):
     """Test the request_version method."""
     httpx_mock.add_response(json={"version": "123"})
     requester = PlaylistRequester()
