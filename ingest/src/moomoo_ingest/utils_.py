@@ -1,8 +1,10 @@
 """Utility functions for the good of all."""
 
+import asyncio
 import datetime
 import hashlib
 import os
+from concurrent.futures import ProcessPoolExecutor
 from itertools import groupby
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -22,6 +24,10 @@ SPECIAL_PURPOSE_ARTISTS = {
     "fdcc79ef-0832-4c23-a4f9-5c5a4160083d",  # unknown
     "89ad4ac3-39f7-470e-963a-56509c546377",  # various artists
 }
+
+# timeout applied to annotation functions, which may consist of dozens of requests internally
+MUSICBRAINZ_TIMEOUT = 5 * 60
+EXECUTOR = ProcessPoolExecutor(max_workers=1)
 
 
 def moomoo_version() -> str:
@@ -69,6 +75,10 @@ def get_listenbrainz_client() -> ListenBrainz:
     client = ListenBrainz()
     client.set_auth_token(os.environ.get("LISTENBRAINZ_USER_TOKEN"), check_validity=False)
     return client
+
+
+class MusicBrainzTimeoutError(Exception):
+    """Custom exception for MusicBrainz timeouts."""
 
 
 def _get_recording_data(recording_mbid: str) -> dict:
@@ -197,21 +207,13 @@ def _get_artist_data(artist_mbid: str) -> dict:
 ENTITIES = ["recording", "release", "artist", "release-group"]
 
 
-def annotate_mbid(mbid: str, entity: str) -> dict:
-    """Enrich a MusicBrainz IDs with data from MusicBrainz.
+async def _annotate_mbid_async(mbid: str, entity: str) -> dict:
+    """Async base for annotate_mbid.
 
-    Expected input:
-
-    - mbid: the MusicBrainz ID
-    - entity: the type of entity: 'recording', 'release', 'artist', 'release-group'
-
-    Returns a dicts with the following keys:
-
-    - _success: boolean indicating whether the request was successful
-    - _args: a dict containing the mbid and entity type of the request
-    - error: error message if the request was not successful
-    - data: the data returned from MusicBrainz if the request was successful
+    Figures out which sync function to call based on entity type, then runs it in an executor with
+    a timeout. Raises MusicBrainzTimeoutError on timeout.
     """
+
     # check contact email set
     if not os.environ.get("MOOMOO_CONTACT_EMAIL"):
         raise ValueError("MOOMOO_CONTACT_EMAIL environment variable not set.")
@@ -227,31 +229,35 @@ def annotate_mbid(mbid: str, entity: str) -> dict:
     if fn is None:
         return dict(_success=False, _args=args, error=f"Unknown entity type: {entity}.")
 
+    loop = asyncio.get_running_loop()
+    task = loop.run_in_executor(EXECUTOR, fn, mbid)
     try:
-        return dict(_success=True, _args=args, data=fn(mbid))
+        data = await asyncio.wait_for(task, timeout=MUSICBRAINZ_TIMEOUT)
+        return dict(_success=True, _args=args, data=data)
+    except asyncio.TimeoutError as e:
+        raise MusicBrainzTimeoutError from e
     except Exception as e:
         return dict(_success=False, _args=args, error=str(e))
 
 
-def annotate_mbid_batch(mbids_maps: Iterable[dict]) -> Iterator[dict]:
-    """Enrich MusicBrainz IDs with data from MusicBrainz.
+def annotate_mbid(mbid: str, entity: str) -> dict:
+    """Enrich a MusicBrainz IDs with data from MusicBrainz.
 
-    Expected input is a list/iterable of dicts with the following keys:
+    Expected input:
 
     - mbid: the MusicBrainz ID
-    - entity: the type of entity, e.g. 'recording', 'release', 'artist'
+    - entity: the type of entity: 'recording', 'release', 'artist', 'release-group'
 
-    Yields a generator of dicts with the following keys:
+    Returns a dicts with the following keys:
 
     - _success: boolean indicating whether the request was successful
     - _args: a dict containing the mbid and entity type of the request
     - error: error message if the request was not successful
     - data: the data returned from MusicBrainz if the request was successful
+
+    Raises MusicBrainzTimeoutError on timeout.
     """
-    for mbid_map in mbids_maps:
-        mbid = mbid_map["mbid"]
-        entity = mbid_map["entity"]
-        yield annotate_mbid(mbid, entity)
+    return asyncio.run(_annotate_mbid_async(mbid, entity))
 
 
 def batch(iterable, n=1) -> Iterator[Iterable]:

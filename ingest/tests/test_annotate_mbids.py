@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from moomoo_ingest import annotate_mbids
 from moomoo_ingest.db import MusicBrainzAnnotation, MusicBrainzDataDump, MusicBrainzDataDumpRecord
-from moomoo_ingest.utils_ import ENTITIES
+from moomoo_ingest.utils_ import ENTITIES, MusicBrainzTimeoutError
 
 from .conftest import load_mbids_table
 
@@ -25,6 +25,16 @@ def create_tables():
     MusicBrainzAnnotation.create()
     MusicBrainzDataDump.create()
     MusicBrainzDataDumpRecord.create()
+
+
+@pytest.fixture(autouse=True)
+def mock_annotate_mbid(monkeypatch):
+    """Mock the annotate mbid function to return success."""
+    monkeypatch.setattr(
+        annotate_mbids.utils_,
+        "annotate_mbid",
+        lambda *_, **__: dict(_success=True, data={"a": 1}),
+    )
 
 
 @pytest.mark.parametrize(
@@ -240,118 +250,119 @@ def test_get_updated_mbids__any_data():
     assert len(res) == 0
 
 
-def test_cli_main__no_mbids():
-    """Test nothing is done if nothing is requested."""
-    load_mbids_table([])  # empty data, should do nothing
-    runner = CliRunner()
+def test_fetch_from_queue(monkeypatch):
+    """Test the fetch from queue function."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    runfn = annotate_mbids.fetch_from_queue
 
     # nothing to do
-    result = runner.invoke(annotate_mbids.main)
-    assert "Nothing to do." in result.output
-    assert result.exit_code == 0
+    assert runfn(new_=False, updated=False, reannotate_ts=None, batch_size=10) == []
 
-    # nothing is done if no new mbids are found.
-    result = runner.invoke(annotate_mbids.main, ["--new"])
-    assert "Nothing to do." in result.output
-    assert result.exit_code == 0
+    # request made but no mbids
+    monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
+    monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
+    monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
+    assert runfn(new_=True, updated=True, reannotate_ts=now, batch_size=10) == []
 
-    # nothing is done if no re-annotated mbids are found.
-    result = runner.invoke(annotate_mbids.main, ["--before=2023-01-01"])
-    assert "Nothing to do." in result.output
-    assert result.exit_code == 0
+    # add some mbids to each category
+    monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [dict(mbid=1)])
+    monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [dict(mbid=2)])
+    monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [dict(mbid=3)])
+    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=10)
+    assert {i["mbid"] for i in res} == {1, 2, 3}
+
+    # only new mbids
+    res = runfn(new_=True, updated=False, reannotate_ts=None, batch_size=10)
+    assert {i["mbid"] for i in res} == {1}
+
+    # only updated mbids
+    res = runfn(new_=False, updated=True, reannotate_ts=None, batch_size=10)
+    assert {i["mbid"] for i in res} == {2}
+
+    # only reannotated mbids
+    res = runfn(new_=False, updated=False, reannotate_ts=now, batch_size=10)
+    assert {i["mbid"] for i in res} == {3}
+
+    # take first from new, then updated, then reannotated for batch size
+    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=1)
+    assert {i["mbid"] for i in res} == {1}
+    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=2)
+    assert {i["mbid"] for i in res} == {1, 2}
 
 
-def test_cli_main__unannotated(mbids: list[dict]):
-    """Test working with unannotated mbids."""
-    # add the mbids to the list but without annotations
-    load_mbids_table(mbids)
+def test_ingest_batch(monkeypatch):
+    """Test the ingest batch function."""
+    # nothing to do
+    assert annotate_mbids.ingest_batch(batch=[]) == 0
 
-    runner = CliRunner()
-    result = runner.invoke(annotate_mbids.main, ["--new"])
-    assert f"Found {len(mbids)} unannotated mbid(s)." in result.output
-    assert result.exit_code == 0
+    batch = [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(500)]
+    count = annotate_mbids.ingest_batch(batch=batch)
+    assert count == len(batch)
 
     res = MusicBrainzAnnotation.select_star()
     assert isinstance(res[0]["mbid"], uuid.UUID)  # make sure deserialization works
-    assert len(res) == len(mbids)
+    assert len(res) == len(batch)
+
+    # timeout handler
+    def mock_annotate_mbid(*_, **__) -> dict:
+        raise MusicBrainzTimeoutError()
+
+    monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", mock_annotate_mbid)
+    assert annotate_mbids.ingest_batch(batch=batch) == 0  # all should timeout
 
 
-def test_cli_main__updated():
-    """Test working with updated mbids."""
-    mbid = uuid.uuid4()
-    entity = "recording"
-
-    # add data dump and record for the first mbid
-    slug = f"test-slug-{entity}"
-    MusicBrainzDataDump(
-        slug=slug,
-        packet_number=1,
-        entity=entity,
-        dump_timestamp=datetime.datetime.now() - datetime.timedelta(days=1),
-    ).insert()
-    MusicBrainzDataDumpRecord(slug=slug, mbid=mbid, json_data=dict(a=1)).insert()
-
-    # add an annotation older than the dump
-    MusicBrainzAnnotation(
-        mbid=mbid,
-        entity=entity,
-        payload_json=dict(a=1),
-        ts_utc=datetime.datetime.now() - datetime.timedelta(days=2),
-    ).insert()
-
-    load_mbids_table([dict(mbid=mbid, entity=entity)])
-    runner = CliRunner()
-    result = runner.invoke(annotate_mbids.main, ["--updated"])
-    assert "Found 1 updated mbid(s) to re-annotate." in result.output
-    assert result.exit_code == 0
-
-    res = MusicBrainzAnnotation.select_star()
-    assert len(res) == 1
-
-
-def test_cli_main__reannotated(mbids: list[dict]):
-    """Test working with re-annotated mbids."""
-    load_mbids_table(mbids)
-
-    # add annotations for before 2021-01-01
-    for i in mbids:
-        MusicBrainzAnnotation(
-            mbid=i["mbid"],
-            entity=i["entity"],
-            payload_json=dict(a=uuid.uuid1()),
-            ts_utc="2020-01-01",
-        ).upsert()
-
-    runner = CliRunner()
-    result = runner.invoke(annotate_mbids.main, ["--before=2021-01-01"])
-    assert f"Annotating {len(mbids)} total mbid(s)." in result.output
-    assert result.exit_code == 0
-
-    res = MusicBrainzAnnotation.select_star()
-    assert len(res) == len(mbids)
-
-
-def test_cli_main__limit(mbids: list[dict]):
+def test_cli_main(monkeypatch):
     """Test limit handler"""
-    load_mbids_table(mbids)
-
-    limit = len(mbids) // 2
+    load_mbids_table([])  # start with empty table. needed for --drop handler
     runner = CliRunner()
-    result = runner.invoke(annotate_mbids.main, ["--new", f"--limit={limit}"])
-    assert f"Annotating {limit} total mbid(s)." in result.output
-    assert result.exit_code == 0
 
-    res = MusicBrainzAnnotation.select_star()
-    assert len(res) == limit
+    # patch the fetcher to return some data
+    monkeypatch.setattr(
+        annotate_mbids,
+        "get_unannotated_mbids",
+        lambda: [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(10)],
+    )
+    monkeypatch.setattr(
+        annotate_mbids,
+        "get_updated_mbids",
+        lambda: [dict(mbid=uuid.uuid4(), entity="artist") for _ in range(10)],
+    )
+    monkeypatch.setattr(
+        annotate_mbids,
+        "get_very_old_annotations",
+        lambda _: [dict(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
+    )
 
-    # drop the annotations so i can run it again
-    MusicBrainzAnnotation.create(drop=True)
+    # nothing to do
+    result = runner.invoke(annotate_mbids.main, [])
+    assert "Nothing to do." in result.output
+
+    # with everything
+    result = runner.invoke(annotate_mbids.main, ["--new", "--updated", "--before=2020-01-01"])
+    assert "Annotating 30 total mbid(s)." in result.output
+    assert len(MusicBrainzAnnotation.select_star()) == 30
+
+    # add a limit
+    result = runner.invoke(
+        annotate_mbids.main,
+        ["--new", "--updated", "--before=2020-01-01", "--limit=5"],
+    )
+    assert "Annotating 5 total mbid(s)." in result.output
 
     # limit > mbids
-    limit = len(mbids) * 2
-    result = runner.invoke(annotate_mbids.main, ["--new", f"--limit={limit}"])
-    assert f"Annotating {len(mbids)} total mbid(s)." in result.output
-    assert result.exit_code == 0
+    result = runner.invoke(
+        annotate_mbids.main,
+        ["--new", "--updated", "--before=2020-01-01", "--limit=100"],
+    )
+    assert "Annotating 30 total mbid(s)." in result.output
 
-    res = MusicBrainzAnnotation.select_star()
-    assert len(res) == len(mbids)
+    # timeout
+    def mock_annotate_mbid(*_, **__) -> dict:
+        raise MusicBrainzTimeoutError()
+
+    monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", mock_annotate_mbid)
+    result = runner.invoke(
+        annotate_mbids.main,
+        ["--new", "--updated", "--before=2020-01-01", "--limit=5"],
+    )
+    assert "Timeout annotating mbid" in result.output
