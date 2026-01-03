@@ -5,7 +5,8 @@ import click
 
 from .annotate_mbids import fetch_from_queue, ingest_batch
 
-BATCH_SLEEP_SECONDS = 10  # sleep this many seconds between batches
+ANY_DATA_SLEEP_SECONDS = 10  # sleep this many seconds between batches if data found
+NO_DATA_SLEEP_SECONDS = 60 * 5  # sleep this many seconds if no data found
 REPORT_INTERVAL_ITEMS = 25  # report every N items annotated
 
 
@@ -72,13 +73,19 @@ def main(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int)
     """Run the main CLI."""
     try:
         while True:
-            run(
+            n = run(
                 new_=new_,
                 updated=updated,
                 reannotate_after_days=reannotate_after_days,
                 batch_size=batch_size,
             )
-            time.sleep(BATCH_SLEEP_SECONDS)
+            if n > 0:
+                log_with_timestamp(f"Annotated {n} items, sleeping {ANY_DATA_SLEEP_SECONDS}s.")
+                time.sleep(ANY_DATA_SLEEP_SECONDS)
+            else:
+                log_with_timestamp(f"Nothig done, sleeping {NO_DATA_SLEEP_SECONDS}s.")
+                time.sleep(NO_DATA_SLEEP_SECONDS)
+
     except Exception as e:
         log_with_timestamp(f"Fatal error, exiting: {e}", err=True)
         raise
