@@ -14,12 +14,10 @@ option to limit the total run time.
 import datetime
 import os
 import random
-import sys
-from typing import Optional
+from typing import Callable, Optional
 
 import click
 from sqlalchemy import text
-from tqdm import tqdm
 
 from . import utils_
 from .db import (
@@ -159,6 +157,126 @@ def select_topn_from_multilist_dicts(
     return output
 
 
+def fetch_from_queue(
+    new_: bool,
+    updated: bool,
+    reannotate_ts: datetime.datetime | None,
+    batch_size: int | None,
+    loggerfn: Callable | None = None,
+) -> list[dict]:
+    """Fetch mbids to annotate from the "queue".
+
+    Fetches mbids from the db according to the specified criteria. Returns a maximum of batch_size
+    mbids, selected first from new mbids, then updated mbids, then old annotations to re-annotate.
+
+    Args:
+        new_: Whether to include new mbids that have not been annotated yet.
+        updated: Whether to include mbids that have been updated since last annotation.
+        reannotate_ts: Timestamp before which to re-annotate old annotations.
+        batch_size: Maximum number of mbids to fetch.
+
+
+    Returns:
+        List of dicts with mbid and entity keys.
+    """
+    if not loggerfn:
+        loggerfn = lambda _: None  # noqa: E731
+
+    if new_:
+        unannotated = get_unannotated_mbids()
+        loggerfn(f"Found {len(unannotated)} unannotated mbid(s).")
+    else:
+        unannotated = []
+
+    if updated:
+        updated_mbids = get_updated_mbids()
+        loggerfn(f"Found {len(updated_mbids)} updated mbid(s) to re-annotate.")
+    else:
+        updated_mbids = []
+
+    if reannotate_ts is not None:
+        old_annotations = get_very_old_annotations(reannotate_ts)
+        loggerfn(f"Found {len(old_annotations)} very old mbid(s) to re-annotate.")
+    else:
+        old_annotations = []
+
+    return select_topn_from_multilist_dicts(
+        [unannotated, updated_mbids, old_annotations],
+        N=batch_size if batch_size is not None else float("inf"),
+        identity_key="mbid",
+    )
+
+
+def ingest_batch(
+    batch: list[dict], report_interval: int = 25, loggerfn: Callable | None = None
+) -> int:
+    """Ingest a batch of mbids.
+
+    Iterates through the batch, annotating each mbid and inserting/updating the
+    MusicBrainzAnnotation table. Posts progress logs every report_interval items.
+
+    Returns the number of mbids annotated. Maybe less than the batch in the case of skips due to
+    timeouts.
+    """
+    if not loggerfn:
+        loggerfn = lambda _: None  # noqa: E731
+
+    # exit if there is nothing to do
+    loggerfn(f"Annotating {len(batch)} total mbid(s).")
+    if not batch:
+        loggerfn("Nothing to do.")
+        return 0
+
+    # annotate and insert
+    count_annotated = 0
+    count_skipped = 0
+    start_ts = datetime.datetime.now(datetime.timezone.utc)
+    with get_session() as session:
+        for args in batch:
+            try:
+                res = utils_.annotate_mbid(args["mbid"], args["entity"])
+                count_annotated += 1
+            except utils_.MusicBrainzTimeoutError:
+                loggerfn(f"Timeout annotating mbid {args['mbid']}, {args['entity']}, skipping.")
+                count_skipped += 1
+                continue
+
+            MusicBrainzAnnotation(
+                mbid=args["mbid"],
+                entity=args["entity"],
+                payload_json=res,
+                ts_utc=utils_.utcnow(),
+            ).upsert(session=session)
+
+            # log every report_interval annotations
+            count_processed = count_annotated + count_skipped
+            if count_processed % report_interval == 0:
+                elapsed = datetime.datetime.now(datetime.timezone.utc) - start_ts
+                remaining_timedelta = (elapsed / count_processed) * (len(batch) - count_processed)
+                remaining_mins = remaining_timedelta.total_seconds() / 60
+
+                p = count_processed / len(batch)
+
+                loggerfn(
+                    f"Processed {count_processed} ({p:.2%}) mbids. "
+                    + f"Estimated remaining: {remaining_mins:0.2f} minutes."
+                )
+
+    # log the final stats
+    count_processed = count_annotated + count_skipped
+    total_elapsed = datetime.datetime.now(datetime.timezone.utc) - start_ts
+    total_mins = total_elapsed.total_seconds() / 60
+    anns_per_sec = count_processed / total_elapsed.total_seconds()
+    loggerfn(
+        f"Annotated of {count_annotated} mbid(s), "
+        + f"skipped {count_skipped} mbid(s) "
+        + f"in {total_mins:0.2f} minutes. "
+        + f"Rate: {anns_per_sec:0.2f} anns/sec."
+    )
+
+    return count_annotated
+
+
 @click.command(help=__doc__)
 @click.option(
     "--new",
@@ -203,53 +321,15 @@ def main(
     if drop:
         drop_dangling_annotations()
 
-    # get  of mbids to annotate
-    if new_:
-        unannotated = get_unannotated_mbids()
-        click.echo(f"Found {len(unannotated)} unannotated mbid(s).")
-    else:
-        unannotated = []
-
-    if before:
-        old_annotations = get_very_old_annotations(before)
-        click.echo(f"Found {len(old_annotations)} very old mbid(s) to re-annotate.")
-    else:
-        old_annotations = []
-
-    if updated:
-        updated_mbids = get_updated_mbids()
-        click.echo(f"Found {len(updated_mbids)} updated mbid(s) to re-annotate.")
-    else:
-        updated_mbids = []
-
-    limit = limit or float("inf")  # use all if no limit specified
-    to_ingest = select_topn_from_multilist_dicts(
-        [unannotated, updated_mbids, old_annotations],
-        N=limit,
-        identity_key="mbid",
+    # get mbids to annotate
+    batch = fetch_from_queue(
+        new_=new_,
+        updated=updated,
+        reannotate_ts=before,
+        batch_size=limit,
+        loggerfn=click.echo,
     )
-    # exit if there is nothing to do
-    click.echo(f"Annotating {len(to_ingest)} total mbid(s).")
-    if not to_ingest:
-        click.echo("Nothing to do.")
-        sys.exit(0)
-
-    # annotate and insert
-    with get_session() as session:
-        for args in tqdm(to_ingest, disable=None, total=len(to_ingest)):
-            try:
-                res = utils_.annotate_mbid(args["mbid"], args["entity"])
-            except utils_.MusicBrainzTimeoutError:
-                click.echo(
-                    f"Timeout annotating mbid {args['mbid']}, {args['entity']}, skipping.", err=True
-                )
-                continue
-            MusicBrainzAnnotation(
-                mbid=args["mbid"],
-                entity=args["entity"],
-                payload_json=res,
-                ts_utc=utils_.utcnow(),
-            ).upsert(session=session)
+    ingest_batch(batch, loggerfn=click.echo)
 
     click.echo("Done.")
 

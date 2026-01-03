@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import hashlib
 import os
+from concurrent.futures import ProcessPoolExecutor
 from itertools import groupby
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -23,7 +24,10 @@ SPECIAL_PURPOSE_ARTISTS = {
     "fdcc79ef-0832-4c23-a4f9-5c5a4160083d",  # unknown
     "89ad4ac3-39f7-470e-963a-56509c546377",  # various artists
 }
-MUSICBRAINZ_TIMEOUT = 5 * 60  # seconds
+
+# timeout applied to annotation functions, which may consist of dozens of requests internally
+MUSICBRAINZ_TIMEOUT = 5 * 60
+EXECUTOR = ProcessPoolExecutor(max_workers=1)
 
 
 def moomoo_version() -> str:
@@ -226,7 +230,7 @@ async def _annotate_mbid_async(mbid: str, entity: str) -> dict:
         return dict(_success=False, _args=args, error=f"Unknown entity type: {entity}.")
 
     loop = asyncio.get_running_loop()
-    task = loop.run_in_executor(None, fn, mbid)
+    task = loop.run_in_executor(EXECUTOR, fn, mbid)
     try:
         data = await asyncio.wait_for(task, timeout=MUSICBRAINZ_TIMEOUT)
         return dict(_success=True, _args=args, data=data)
