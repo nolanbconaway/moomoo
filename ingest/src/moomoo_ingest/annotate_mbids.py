@@ -268,7 +268,7 @@ def ingest_batch(
     total_mins = total_elapsed.total_seconds() / 60
     anns_per_sec = count_processed / total_elapsed.total_seconds()
     loggerfn(
-        f"Annotated of {count_annotated} mbid(s), "
+        f"Annotated {count_annotated} mbid(s), "
         + f"skipped {count_skipped} mbid(s) "
         + f"in {total_mins:0.2f} minutes. "
         + f"Rate: {anns_per_sec:0.2f} anns/sec."
