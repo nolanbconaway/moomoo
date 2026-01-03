@@ -355,3 +355,21 @@ def test_cli_main__limit(mbids: list[dict]):
 
     res = MusicBrainzAnnotation.select_star()
     assert len(res) == len(mbids)
+
+
+def test_cli_main__timeout(mbids: list[dict], monkeypatch):
+    """Test limit handler"""
+    load_mbids_table(mbids)
+
+    # patch the annotate_mbid to raise timeout for one mbid
+    monkeypatch.setattr(
+        annotate_mbids.utils_,
+        "annotate_mbid",
+        lambda *_: (_ for _ in ()).throw(annotate_mbids.utils_.MusicBrainzTimeoutError()),
+    )
+    limit = 1
+    runner = CliRunner()
+    result = runner.invoke(annotate_mbids.main, ["--new", f"--limit={limit}"])
+    assert f"Annotating {limit} total mbid(s)." in result.output
+    assert "Timeout annotating mbid" in result.output
+    assert result.exit_code == 0

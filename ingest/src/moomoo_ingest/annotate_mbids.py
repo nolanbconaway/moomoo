@@ -235,9 +235,15 @@ def main(
         sys.exit(0)
 
     # annotate and insert
-    annotated = utils_.annotate_mbid_batch(to_ingest)
     with get_session() as session:
-        for args, res in tqdm(zip(to_ingest, annotated), disable=None, total=len(to_ingest)):
+        for args in tqdm(to_ingest, disable=None, total=len(to_ingest)):
+            try:
+                res = utils_.annotate_mbid(args["mbid"], args["entity"])
+            except utils_.MusicBrainzTimeoutError:
+                click.echo(
+                    f"Timeout annotating mbid {args['mbid']}, {args['entity']}, skipping.", err=True
+                )
+                continue
             MusicBrainzAnnotation(
                 mbid=args["mbid"],
                 entity=args["entity"],
