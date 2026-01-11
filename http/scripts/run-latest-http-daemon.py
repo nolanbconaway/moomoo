@@ -11,13 +11,12 @@ Does the following:
 6. If built, kills any existing http server processes, and starts the latest version.
 """
 
+import argparse
 import json
 import os
 import subprocess
 import sys
 import time
-
-import click
 
 GH_URL = "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/http/src/moomoo_http/version"
 CONTAINER_NAME = "moomoo-http-latest"
@@ -115,7 +114,7 @@ def stop_existing_containers(version: str) -> None:
         if container["Image"].startswith(f"moomoo-http-v{version}"):
             container_id = container["ID"]
             print(f"Stopping container {container_id}")
-            subprocess.check_output(["docker", "stop", container_id])
+            subprocess.check_output(["docker", "rm", "-f", container_id])
 
 
 def tail_logs(container_id: str, n: int = 10) -> None:
@@ -125,32 +124,64 @@ def tail_logs(container_id: str, n: int = 10) -> None:
     print(output)
 
 
-@click.command()
-@click.option(
-    "--force-stop/-no-force-stop",
-    "force_stop",
-    is_flag=True,
-    default=False,
-    help="Force stop existing containers.",
-)
-@click.option(
-    "--detach/--no-detach",
-    "detach",
-    is_flag=True,
-    default=True,
-    help="Run the container in detached mode.",
-)
-@click.option(
-    "--restart/--no-restart",
-    "restart",
-    is_flag=True,
-    default=True,
-    help="Whether to restart the container automatically on failure.",
-)
-@click.option(
-    "--port", default=5600, type=int, help="Port on which to run the HTTP server."
-)
-def main(force_stop: bool, detach: bool, restart: bool, port: int) -> None:
+def parse_arguments():
+    """Parse command-line arguments using argparse."""
+    parser = argparse.ArgumentParser(description="Run the latest HTTP daemon.")
+    parser.add_argument(
+        "--force-stop",
+        action="store_true",
+        help="Force stop existing containers.",
+        default=False,
+    )
+    parser.add_argument(
+        "--no-force-stop",
+        action="store_false",
+        dest="force_stop",
+        help="Do not force stop existing containers.",
+        default=True,
+    )
+    parser.add_argument(
+        "--detach",
+        action="store_true",
+        help="Run the container in detached mode.",
+        default=True,
+    )
+    parser.add_argument(
+        "--no-detach",
+        action="store_false",
+        dest="detach",
+        help="Run the container in attached mode.",
+        default=False,
+    )
+    parser.add_argument(
+        "--restart",
+        action="store_true",
+        help="Restart the container automatically on failure.",
+        default=True,
+    )
+    parser.add_argument(
+        "--no-restart",
+        action="store_false",
+        dest="restart",
+        help="Do not restart the container automatically on failure.",
+        default=False,
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5600,
+        help="Port on which to run the HTTP server (default: 5600).",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_arguments()
+    force_stop = args.force_stop
+    detach = args.detach
+    restart = args.restart
+    port = args.port
+
     print("Fetching the latest moomoo-http version from GitHub...")
     gh_version = get_gh_version()
     if gh_version is None:
