@@ -1,5 +1,5 @@
 [tool.ruff]
-include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
 line-length = 100
 
 [tool.ruff.lint]
