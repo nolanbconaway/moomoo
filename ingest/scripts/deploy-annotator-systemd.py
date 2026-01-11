@@ -16,7 +16,7 @@ SYSTEMD_TARGET = Path(f"/etc/systemd/system/{SYSTEMD_NAME}")
 
 def run_command(command, *args, **kwargs):
     """Use subprocess to run a command, printing it first.'
-    
+
     Needed here because we need sudo for some commands.
     """
     print("Running: " + " ".join(map(str, command)))
