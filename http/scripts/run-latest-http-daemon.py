@@ -173,9 +173,11 @@ def main(force_stop: bool, detach: bool, restart: bool) -> None:
         print(f"Latest moomoo-http version {gh_version} is not built locally. Exiting.")
         sys.exit(1)
 
-    if running_version is not None or force_stop:
+    if running_version is not None:
         print("Stopping existing moomoo-http containers...")
         stop_existing_containers(running_version)
+    elif force_stop:
+        print("Force stop requested but no running container found, skipping stop.")
 
         # check no longer running
         if check_currently_running() is not None:
@@ -204,7 +206,7 @@ def main(force_stop: bool, detach: bool, restart: bool) -> None:
 
     container_id = new_container["ID"]
     print(f"New moomoo-http container {container_id} is running.")
-    print(f"Tailing the lines of logs for container {container_id}.")
+    print(f"Tailing the last 10 lines of logs for container {container_id}.")
     print("See more logs with:\n")
     print(f"    docker logs --follow {container_id}")
     print()
