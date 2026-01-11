@@ -1,14 +1,14 @@
 #! /usr/bin/env python3
-"""Runs the latest version of the annotator daemon from GitHub.
+"""Runs the latest version of the http server from GitHub.
 
 Does the following:
 
 1. Fetches the latest version number from GitHub.
-2, Checks if that version is currently running.
+2. Checks if that version is currently running.
 3. If running, exits.
 4. If not running, checks that the latest version is built locally.
 5. If not built, exits with an error.
-6. If built, kills any existing annotator daemon processes, and starts the latest version.
+6. If built, kills any existing http server processes, and starts the latest version.
 """
 
 import argparse
@@ -18,79 +18,75 @@ import subprocess
 import sys
 import time
 
-GH_URL = (
-    "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/ingest/src/moomoo_ingest/version"
-)
-CONTAINER_NAME = "moomoo-annotator-daemon-latest"
+GH_URL = "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/http/src/moomoo_http/version"
+CONTAINER_NAME = "moomoo-http-latest"
 
 
 def check_currently_running() -> dict | None:
-    """Check if any moomoo-ingest container is running."""
+    """Check if any moomoo-http container is running."""
     cmd = ["docker", "ps", "--format=json"]
     output = subprocess.check_output(cmd).decode("utf-8")
     for line in output.splitlines():
         container = json.loads(line)
-        if container["Image"].startswith("moomoo-ingest-v"):
-            print("Detected running moomoo-ingest container")
-            version = container["Image"].split("moomoo-ingest-v")[-1]
+        if container["Image"].startswith("moomoo-http-v"):
+            print("Detected running moomoo-http container")
+            version = container["Image"].split("moomoo-http-v")[-1]
             container["moomoo_version"] = version
             return container
 
-    print("No running moomoo-ingest container detected")
+    print("No running moomoo-http container detected")
     return None
 
 
 def get_gh_version() -> str:
-    """Get the latest moomoo-ingest version from GitHub."""
+    """Get the latest moomoo-http version from GitHub."""
     try:
         output = subprocess.check_output(["curl", "--silent", GH_URL]).decode("utf-8")
     except subprocess.CalledProcessError as e:
-        print(f"Failed to get the latest moomoo-ingest version from GitHub: {e}")
+        print(f"Failed to get the latest moomoo-http version from GitHub: {e}")
         return None
 
     res = output.strip()
-    print(f"Latest moomoo-ingest version: {res}")
+    print(f"Latest moomoo-http version: {res}")
     return res
 
 
 def check_version_available(version: str) -> bool:
-    """Check if the latest moomoo-ingest version is available."""
+    """Check if the latest moomoo-http version is available."""
     cmd = ["docker", "image", "ls", "--format=json"]
     output = subprocess.check_output(cmd).decode("utf-8")
 
     images = [
         json.loads(line)
         for line in output.splitlines()
-        if json.loads(line)["Repository"].startswith("moomoo-ingest-v")
+        if json.loads(line)["Repository"].startswith("moomoo-http-v")
     ]
     if not images:
-        print("No moomoo-ingest images found")
+        print("No moomoo-http images found")
         return False
 
-    res = any(image["Repository"] == f"moomoo-ingest-v{version}" for image in images)
+    res = any(image["Repository"] == f"moomoo-http-v{version}" for image in images)
 
     if not res:
-        print(f"moomoo-ingest-v{version} not found")
+        print(f"moomoo-http-v{version} not found")
     else:
-        print(f"moomoo-ingest-v{version} found")
+        print(f"moomoo-http-v{version} found")
 
     return res
 
 
-def docker_run(version: str, detach: bool, restart: bool) -> None:
-    """Run the moomoo annotator daemon container."""
+def docker_run(version: str, detach: bool, restart: bool, port: int) -> None:
+    """Run the moomoo http server container."""
     postgres_uri = os.environ["MOOMOO_DOCKER_POSTGRES_URI"]
     moomoo_dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    moomoo_contact_email = os.environ["MOOMOO_CONTACT_EMAIL"]
-    repo_name = f"moomoo-ingest-v{version}"
+    repo_name = f"moomoo-http-v{version}"
     cmd = [
         "docker",
         "run",
+        f"--publish={port}:8080",
         "--add-host=host.docker.internal:host-gateway",
         "--env",
         f"MOOMOO_DBT_SCHEMA={moomoo_dbt_schema}",
-        "--env",
-        f"MOOMOO_CONTACT_EMAIL={moomoo_contact_email}",
         "--env",
         "PYTHONUNBUFFERED=1",
         "--env",
@@ -104,18 +100,18 @@ def docker_run(version: str, detach: bool, restart: bool) -> None:
 
     cmd += ["--restart=unless-stopped"] if restart else ["--rm"]
 
-    cmd += [repo_name, "moomoo-ingest", "annotation-daemon"]
-    # print(shlex.join(cmd))
+    # run on port 8080 inside the container, but expose to host on specified port
+    cmd += [repo_name, "moomoo-http", "serve", "--port=8080", "--host=0.0.0.0"]
     subprocess.run(cmd, check=True)
 
 
 def stop_existing_containers(version: str) -> None:
-    """Stop any existing moomoo-ingest containers."""
+    """Stop any existing moomoo-http containers."""
     cmd = ["docker", "ps", "--format=json"]
     output = subprocess.check_output(cmd).decode("utf-8")
     for line in output.splitlines():
         container = json.loads(line)
-        if container["Image"].startswith(f"moomoo-ingest-v{version}"):
+        if container["Image"].startswith(f"moomoo-http-v{version}"):
             container_id = container["ID"]
             print(f"Stopping container {container_id}")
             subprocess.check_output(["docker", "rm", "-f", container_id])
@@ -184,18 +180,21 @@ def main() -> None:
     force_stop = args.force_stop
     detach = args.detach
     restart = args.restart
+    port = args.port
 
-    print("Fetching the latest moomoo-ingest version from GitHub...")
+    print("Fetching the latest moomoo-http version from GitHub...")
     gh_version = get_gh_version()
     if gh_version is None:
-        print("Failed to get the latest moomoo-ingest version from GitHub")
+        print("Failed to get the latest moomoo-http version from GitHub")
         sys.exit(1)
 
-    print("Checking currently running moomoo-ingest container...")
+    print("Checking currently running moomoo-http container...")
     running_container = check_currently_running()
-    running_version = None if running_container is None else running_container["moomoo_version"]
+    running_version = (
+        None if running_container is None else running_container["moomoo_version"]
+    )
     if running_version == gh_version and not force_stop:
-        print(f"Latest moomoo-ingest version {gh_version} is already running. Exiting.")
+        print(f"Latest moomoo-http version {gh_version} is already running. Exiting.")
         container_id = running_container["ID"]
         print("Follow the logs with:\n")
         print(f"    docker logs --follow {container_id}")
@@ -204,25 +203,28 @@ def main() -> None:
         tail_logs(container_id, n=10)
         sys.exit(0)
 
-    print("Checking if the latest moomoo-ingest version is built locally...")
+    print("Checking if the latest moomoo-http version is built locally...")
     if not check_version_available(gh_version):
-        print(f"Latest moomoo-ingest version {gh_version} is not built locally. Exiting.")
+        print(f"Latest moomoo-http version {gh_version} is not built locally. Exiting.")
         sys.exit(1)
 
-    if running_version is not None or force_stop:
-        print("Stopping existing moomoo-ingest containers...")
+    if running_version is not None:
+        print("Stopping existing moomoo-http containers...")
         stop_existing_containers(running_version)
+    elif force_stop:
+        print("Force stop requested but no running container found, skipping stop.")
 
         # check no longer running
         if check_currently_running() is not None:
-            print("Failed to stop existing moomoo-ingest container. Exiting.")
+            print("Failed to stop existing moomoo-http container. Exiting.")
             sys.exit(1)
 
     if detach:
-        print(f"Starting moomoo-ingest version {gh_version} in detached mode.")
+        print(f"Starting moomoo-http version {gh_version} in detached mode.")
     else:
-        print(f"Starting moomoo-ingest version {gh_version}. Press Ctrl+C to exit.")
-    docker_run(gh_version, detach=detach, restart=restart)
+        print(f"Starting moomoo-http version {gh_version}. Press Ctrl+C to exit.")
+
+    docker_run(gh_version, detach=detach, restart=restart, port=port)
 
     # can exit here if not detached, as logs will be shown in the foreground
     if not detach:
@@ -232,15 +234,15 @@ def main() -> None:
     print("Waiting 5 seconds for the new container to start...")
     time.sleep(5)
 
-    print("Checking if the new moomoo-ingest container is running...")
+    print("Checking if the new moomoo-http container is running...")
     new_container = check_currently_running()
     if new_container is None or new_container["moomoo_version"] != gh_version:
-        print("Failed to start the new moomoo-ingest container. Exiting.")
+        print("Failed to start the new moomoo-http container. Exiting.")
         sys.exit(1)
 
     container_id = new_container["ID"]
-    print(f"New moomoo-ingest container {container_id} is running.")
-    print(f"Tailing the lines of logs for container {container_id}.")
+    print(f"New moomoo-http container {container_id} is running.")
+    print(f"Tailing the last 10 lines of logs for container {container_id}.")
     print("See more logs with:\n")
     print(f"    docker logs --follow {container_id}")
     print()

@@ -1,0 +1,21 @@
+[Unit]
+Description=Moomoo HTTP Server
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={WHOAMI}
+WorkingDirectory={MOOMOO_HTTP_PATH}
+EnvironmentFile={MOOMOO_HTTP_ENVVFILE}
+ExecStart={MOOMOO_HTTP_LAUNCHER} --no-detach --force-stop --no-restart --port=5600
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+# Graceful stop
+ExecStop=/usr/bin/docker stop -t 5 moomoo-http-latest | xargs /usr/bin/docker rm
+
+[Install]
+WantedBy=multi-user.target
