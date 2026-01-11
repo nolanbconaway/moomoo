@@ -22,6 +22,7 @@ import click
 GH_URL = (
     "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/ingest/src/moomoo_ingest/version"
 )
+CONTAINER_NAME = "moomoo-annotator-daemon-latest"
 
 
 def check_currently_running() -> dict | None:
@@ -96,6 +97,8 @@ def docker_run(version: str, detach: bool, restart: bool) -> None:
         "--env",
         "PYTHONUNBUFFERED=1",
         "--add-host=host.docker.internal:host-gateway",
+        "--name",
+        CONTAINER_NAME,
     ]
 
     if detach:
@@ -143,7 +146,7 @@ def tail_logs(container_id: str, n: int = 10) -> None:
     help="Run the container in detached mode.",
 )
 @click.option(
-    "--restart/-no-restart",
+    "--restart/--no-restart",
     "restart",
     is_flag=True,
     default=True,
