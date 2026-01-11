@@ -12,7 +12,7 @@ EnvironmentFile={MOOMOO_HTTP_ENVVFILE}
 ExecStart={MOOMOO_HTTP_LAUNCHER} --no-detach --force-stop --no-restart --port=5600
 Restart=always
 RestartSec=5
-TimeoutStopSec=40
+TimeoutStopSec=30
 
 # Graceful stop
 ExecStop=/usr/bin/docker stop -t 5 moomoo-http-latest | xargs /usr/bin/docker rm
