@@ -33,9 +33,9 @@ def main() -> None:
 
     assert template_path.exists(), f"Template file not found: {template_path}"
     assert envvfile_path.exists(), f".env file not found: {envvfile_path}"
-    assert (
-        http_daemon_launcher_path.exists()
-    ), f"HTTP daemon launcher not found: {http_daemon_launcher_path}"
+    assert http_daemon_launcher_path.exists(), (
+        f"HTTP daemon launcher not found: {http_daemon_launcher_path}"
+    )
 
     service_txt = template_path.read_text().format(
         MOOMOO_HTTP_ENVVFILE=str(envvfile_path),
