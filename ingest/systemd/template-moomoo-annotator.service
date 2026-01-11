@@ -1,7 +1,8 @@
 [Unit]
 Description=Moomoo Annotator Daemon
-After=docker.service
+After=network-online.target docker.service
 Requires=docker.service
+Wants=network-online.target
 
 [Service]
 Type=simple
