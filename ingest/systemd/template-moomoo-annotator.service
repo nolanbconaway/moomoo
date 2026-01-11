@@ -1,0 +1,22 @@
+[Unit]
+Description=Moomoo Annotator Daemon (Docker-managed restart)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User={WHOAMI}
+WorkingDirectory={MOOMOO_INGEST_PATH}
+
+# Environment for the Python script
+EnvironmentFile={MOOMOO_INGEST_ENVVFILE}
+
+# Run the Python launcher
+ExecStart={MOOMOO_ANNOTATOR_DAEMON_LAUNCHER} --no-detach --force-stop
+
+TimeoutStartSec=0
+TimeoutStopSec=40
+
+[Install]
+WantedBy=multi-user.target
