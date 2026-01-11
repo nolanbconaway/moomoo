@@ -9,13 +9,13 @@ Type=simple
 User={WHOAMI}
 WorkingDirectory={MOOMOO_HTTP_PATH}
 EnvironmentFile={MOOMOO_HTTP_ENVVFILE}
-ExecStart={MOOMOO_HTTP_DAEMON_LAUNCHER} --no-detach --force-stop --no-restart
+ExecStart={MOOMOO_HTTP_LAUNCHER} --no-detach --force-stop --no-restart --port=5600
 Restart=always
 RestartSec=5
 TimeoutStopSec=40
 
 # Graceful stop
-ExecStop=/usr/bin/docker stop -t 30 moomoo-http-daemon-latest
+ExecStop=/usr/bin/docker stop -t 30 moomoo-http-latest
 
 [Install]
 WantedBy=multi-user.target

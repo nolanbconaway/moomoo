@@ -19,10 +19,8 @@ import time
 
 import click
 
-GH_URL = (
-    "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/http/src/moomoo_http/version"
-)
-CONTAINER_NAME = "moomoo-http-daemon-latest"
+GH_URL = "https://raw.githubusercontent.com/nolanbconaway/moomoo/main/http/src/moomoo_http/version"
+CONTAINER_NAME = "moomoo-http-latest"
 
 
 def check_currently_running() -> dict | None:
@@ -78,7 +76,7 @@ def check_version_available(version: str) -> bool:
     return res
 
 
-def docker_run(version: str, detach: bool, restart: bool) -> None:
+def docker_run(version: str, detach: bool, restart: bool, port: int) -> None:
     """Run the moomoo http server container."""
     postgres_uri = os.environ["MOOMOO_DOCKER_POSTGRES_URI"]
     moomoo_dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
@@ -86,14 +84,14 @@ def docker_run(version: str, detach: bool, restart: bool) -> None:
     cmd = [
         "docker",
         "run",
+        f"--publish={port}:8080",
         "--add-host=host.docker.internal:host-gateway",
-        "--env",
-        f"MOOMOO_POSTGRES_URI={postgres_uri}",
         "--env",
         f"MOOMOO_DBT_SCHEMA={moomoo_dbt_schema}",
         "--env",
         "PYTHONUNBUFFERED=1",
-        "--publish=5600:8080",
+        "--env",
+        f"MOOMOO_POSTGRES_URI={postgres_uri}",
         "--name",
         CONTAINER_NAME,
     ]
@@ -103,7 +101,8 @@ def docker_run(version: str, detach: bool, restart: bool) -> None:
 
     cmd += ["--restart=unless-stopped"] if restart else ["--rm"]
 
-    cmd += [repo_name, "make", "http"]
+    # run on port 8080 inside the container, but expose to host on specified port
+    cmd += [repo_name, "moomoo-http", "serve", "--port=8080", "--host=0.0.0.0"]
     subprocess.run(cmd, check=True)
 
 
@@ -148,7 +147,10 @@ def tail_logs(container_id: str, n: int = 10) -> None:
     default=True,
     help="Whether to restart the container automatically on failure.",
 )
-def main(force_stop: bool, detach: bool, restart: bool) -> None:
+@click.option(
+    "--port", default=5600, type=int, help="Port on which to run the HTTP server."
+)
+def main(force_stop: bool, detach: bool, restart: bool, port: int) -> None:
     print("Fetching the latest moomoo-http version from GitHub...")
     gh_version = get_gh_version()
     if gh_version is None:
@@ -157,7 +159,9 @@ def main(force_stop: bool, detach: bool, restart: bool) -> None:
 
     print("Checking currently running moomoo-http container...")
     running_container = check_currently_running()
-    running_version = None if running_container is None else running_container["moomoo_version"]
+    running_version = (
+        None if running_container is None else running_container["moomoo_version"]
+    )
     if running_version == gh_version and not force_stop:
         print(f"Latest moomoo-http version {gh_version} is already running. Exiting.")
         container_id = running_container["ID"]
@@ -188,7 +192,8 @@ def main(force_stop: bool, detach: bool, restart: bool) -> None:
         print(f"Starting moomoo-http version {gh_version} in detached mode.")
     else:
         print(f"Starting moomoo-http version {gh_version}. Press Ctrl+C to exit.")
-    docker_run(gh_version, detach=detach, restart=restart)
+
+    docker_run(gh_version, detach=detach, restart=restart, port=port)
 
     # can exit here if not detached, as logs will be shown in the foreground
     if not detach:

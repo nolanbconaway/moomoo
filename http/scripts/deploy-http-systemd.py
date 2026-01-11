@@ -39,7 +39,7 @@ def main() -> None:
 
     service_txt = template_path.read_text().format(
         MOOMOO_HTTP_ENVVFILE=str(envvfile_path),
-        MOOMOO_HTTP_DAEMON_LAUNCHER=str(http_daemon_launcher_path),
+        MOOMOO_HTTP_LAUNCHER=str(http_daemon_launcher_path),
         MOOMOO_HTTP_PATH=str(repo_path),
         WHOAMI=getpass.getuser(),
     )
