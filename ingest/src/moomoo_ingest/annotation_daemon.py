@@ -83,7 +83,7 @@ def main(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int)
                 log_with_timestamp(f"Annotated {n} items, sleeping {ANY_DATA_SLEEP_SECONDS}s.")
                 time.sleep(ANY_DATA_SLEEP_SECONDS)
             else:
-                log_with_timestamp(f"Nothig done, sleeping {NO_DATA_SLEEP_SECONDS}s.")
+                log_with_timestamp(f"Nothing done, sleeping {NO_DATA_SLEEP_SECONDS}s.")
                 time.sleep(NO_DATA_SLEEP_SECONDS)
 
     except Exception as e:

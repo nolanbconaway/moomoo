@@ -24,14 +24,15 @@ def version():
 @cli.command()
 @click.option("--host", envvar="MOOMOO_HOST", default="127.0.0.1")
 @click.option("--port", envvar="MOOMOO_PORT", default=5000, type=int)
-def serve(host: str, port: int) -> None:
+@click.option("--threads", envvar="MOOMOO_THREADS", default=8, type=int)
+def serve(host: str, port: int, threads: int) -> None:
     """Run the moomoo http server."""
     app = create_app()
     logger = logging.getLogger("waitress")
     logger.setLevel(logging.INFO)
 
     click.echo(f"Starting moomoo http server on {host}:{port}")
-    waitress.serve(app, host=host, port=port)
+    waitress.serve(app, host=host, port=port, threads=threads)
 
 
 if __name__ == "__main__":
