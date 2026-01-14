@@ -1,7 +1,7 @@
 """Deploy the http server as a systemd service.
 
-Uses the run-latest-http-daemon.py script to run the latest http server, setting up management
-with systemd using the systemd/template-moomoo-http.service file.
+Uses the run-latest-http-daemon.py script to run the latest http server, setting up
+management with systemd using the systemd/template-moomoo-http.service file.
 """
 
 import getpass
