@@ -3,7 +3,7 @@ import time
 
 import click
 
-from .annotate_mbids import fetch_from_queue, ingest_batch
+from .annotate_mbids import annotate_and_upsert, fetch_queue
 
 ANY_DATA_SLEEP_SECONDS = 10  # sleep this many seconds between batches if data found
 NO_DATA_SLEEP_SECONDS = 60 * 5  # sleep this many seconds if no data found
@@ -16,8 +16,17 @@ def log_with_timestamp(message: str, *args, **kwargs):
     click.echo(f"[{timestamp}] {message}", *args, **kwargs)
 
 
-def run(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int) -> int:
-    """Run a batch of annotations."""
+def run(
+    new_: bool,
+    updated: bool,
+    reannotate_after_days: int,
+    batch_size: int,
+    ingest_dependents: bool = True,
+) -> int:
+    """Run a batch of annotations.
+
+    Returns the number of items processed.
+    """
     log_with_timestamp(f"Starting annotation of batch of size {batch_size}.")
 
     reannotate_ts = (
@@ -29,28 +38,30 @@ def run(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int) 
         )
     )
 
-    batch = fetch_from_queue(
+    queue = fetch_queue(
         new_=new_,
         updated=updated,
         reannotate_ts=reannotate_ts,
-        batch_size=batch_size,
+        limit=batch_size,
         loggerfn=log_with_timestamp,
     )
-    n = ingest_batch(batch=batch, loggerfn=log_with_timestamp)
+    annotated, skipped = annotate_and_upsert(
+        queue=queue, loggerfn=log_with_timestamp, ingest_dependents=ingest_dependents
+    )
     log_with_timestamp("Completed annotation batch.")
-    return n
+    return annotated + skipped
 
 
 @click.command(help=__doc__)
 @click.option(
-    "--new",
+    "--new/--no-new",
     "new_",
     is_flag=True,
     default=True,
     help="Option to detect new mbids that have not been annotated yet.",
 )
 @click.option(
-    "--updated",
+    "--updated/--no-updated",
     "updated",
     is_flag=True,
     default=True,
@@ -69,7 +80,20 @@ def run(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int) 
     type=int,
     default=200,
 )
-def main(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int) -> int:
+@click.option(
+    "--dependents/--no-dependents",
+    "ingest_dependents",
+    is_flag=True,
+    default=True,
+    help="Whether to ingest dependent mbids found during annotation.",
+)
+def main(
+    new_: bool,
+    updated: bool,
+    reannotate_after_days: int,
+    batch_size: int,
+    ingest_dependents: bool,
+) -> int:
     """Run the main CLI."""
     try:
         while True:
@@ -78,6 +102,7 @@ def main(new_: bool, updated: bool, reannotate_after_days: int, batch_size: int)
                 updated=updated,
                 reannotate_after_days=reannotate_after_days,
                 batch_size=batch_size,
+                ingest_dependents=ingest_dependents,
             )
             if n > 0:
                 log_with_timestamp(f"Annotated {n} items, sleeping {ANY_DATA_SLEEP_SECONDS}s.")

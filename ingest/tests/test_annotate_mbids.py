@@ -2,11 +2,13 @@
 
 import datetime
 import uuid
+from collections import deque
 
 import pytest
 from click.testing import CliRunner
 
 from moomoo_ingest import annotate_mbids
+from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.db import MusicBrainzAnnotation, MusicBrainzDataDump, MusicBrainzDataDumpRecord
 from moomoo_ingest.utils_ import ENTITIES, MusicBrainzTimeoutError
 
@@ -37,6 +39,20 @@ def mock_annotate_mbid(monkeypatch):
     )
 
 
+def test_Mbid_dataclass():
+    """Test the Mbid dataclass."""
+    # test from sql rows
+    data = [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(5)]
+    mbids = Mbid.from_sql_rows(data)
+    assert len(mbids) == 5
+    assert all(str(i.mbid) == str(j["mbid"]) for i, j in zip(mbids, data))
+    assert Mbid.from_sql_rows([]) == []  # no data
+
+    # test to dict
+    mbid = Mbid(mbid=uuid.uuid4(), entity="artist")
+    assert mbid.to_dict() == dict(mbid=mbid.mbid, entity=mbid.entity)
+
+
 @pytest.mark.parametrize(
     "args, exit_0",
     [
@@ -57,24 +73,6 @@ def test_cli_date_args(args, exit_0):
         assert result.exit_code == 0
     else:
         assert result.exit_code != 0
-
-
-def test_select_topn_from_multilist_dicts():
-    l1 = [{"mbid": 1}, {"mbid": 2}, {"mbid": 3}]
-    l2 = [{"mbid": 3}, {"mbid": 4}, {"mbid": 5}]
-    l3 = [{"mbid": 5}, {"mbid": 6}, {"mbid": 7}]
-    res = annotate_mbids.select_topn_from_multilist_dicts([l1, l2, l3], N=5, identity_key="mbid")
-    expected_mbids = [1, 2, 3, 4, 5]
-    res_mbids = sorted([i["mbid"] for i in res])
-    assert res_mbids == expected_mbids
-
-    # test with inf limit
-    res = annotate_mbids.select_topn_from_multilist_dicts(
-        [l1, l2, l3], N=float("inf"), identity_key="mbid"
-    )
-    expected_mbids = [1, 2, 3, 4, 5, 6, 7]
-    res_mbids = sorted([i["mbid"] for i in res])
-    assert res_mbids == expected_mbids
 
 
 def test_drop_dangling_annotations():
@@ -229,9 +227,8 @@ def test_get_updated_mbids__any_data():
     load_mbids_table([dict(mbid=mbid, entity=entity), dict(mbid=container_mbid, entity="artist")])
     res = annotate_mbids.get_updated_mbids()
     assert len(res) == 2
-    assert res[0]["mbid"] == mbid
-    assert res[0]["entity"] == entity
-    assert res[0]["source"] == "1 update"
+    assert res[0].mbid == mbid
+    assert res[0].entity == entity
 
     # update the annotation to be more recent than the dump
     MusicBrainzAnnotation(
@@ -250,65 +247,199 @@ def test_get_updated_mbids__any_data():
     assert len(res) == 0
 
 
-def test_fetch_from_queue(monkeypatch):
+def test_fetch_queue(monkeypatch):
     """Test the fetch from queue function."""
     now = datetime.datetime.now(datetime.timezone.utc)
-    runfn = annotate_mbids.fetch_from_queue
+    runfn = annotate_mbids.fetch_queue
 
     # nothing to do
-    assert runfn(new_=False, updated=False, reannotate_ts=None, batch_size=10) == []
+    assert runfn(new_=False, updated=False, reannotate_ts=None, limit=10) == deque([])
 
     # request made but no mbids
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
-    assert runfn(new_=True, updated=True, reannotate_ts=now, batch_size=10) == []
+    assert runfn(new_=True, updated=True, reannotate_ts=now, limit=10) == deque([])
 
     # add some mbids to each category
-    monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [dict(mbid=1)])
-    monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [dict(mbid=2)])
-    monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [dict(mbid=3)])
-    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=10)
-    assert {i["mbid"] for i in res} == {1, 2, 3}
+    monkeypatch.setattr(
+        annotate_mbids, "get_unannotated_mbids", lambda: [Mbid(mbid=1, entity="fake")]
+    )
+    monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [Mbid(mbid=2, entity="fake")])
+    monkeypatch.setattr(
+        annotate_mbids, "get_very_old_annotations", lambda _: [Mbid(mbid=3, entity="fake")]
+    )
+    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=10)
+    assert {i.mbid for i in res} == {1, 2, 3}
 
     # only new mbids
-    res = runfn(new_=True, updated=False, reannotate_ts=None, batch_size=10)
-    assert {i["mbid"] for i in res} == {1}
+    res = runfn(new_=True, updated=False, reannotate_ts=None, limit=10)
+    assert {i.mbid for i in res} == {1}
 
     # only updated mbids
-    res = runfn(new_=False, updated=True, reannotate_ts=None, batch_size=10)
-    assert {i["mbid"] for i in res} == {2}
+    res = runfn(new_=False, updated=True, reannotate_ts=None, limit=10)
+    assert {i.mbid for i in res} == {2}
 
     # only reannotated mbids
-    res = runfn(new_=False, updated=False, reannotate_ts=now, batch_size=10)
-    assert {i["mbid"] for i in res} == {3}
+    res = runfn(new_=False, updated=False, reannotate_ts=now, limit=10)
+    assert {i.mbid for i in res} == {3}
 
     # take first from new, then updated, then reannotated for batch size
-    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=1)
-    assert {i["mbid"] for i in res} == {1}
-    res = runfn(new_=True, updated=True, reannotate_ts=now, batch_size=2)
-    assert {i["mbid"] for i in res} == {1, 2}
+    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=1)
+    assert {i.mbid for i in res} == {1}
+    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=2)
+    assert {i.mbid for i in res} == {1, 2}
 
 
-def test_ingest_batch(monkeypatch):
+def test_list_dependents():
+    artist_payload = {
+        "_args": {"entity": "artist", "mbid": str(uuid.uuid4())},
+        "_success": True,
+        "data": {"artist": {"release-list": [{"id": str(uuid.uuid4())} for _ in range(3)]}},
+    }
+    assert annotate_mbids.list_dependents(artist_payload) == [
+        Mbid(mbid=uuid.UUID(release["id"]), entity="release")
+        for release in artist_payload["data"]["artist"]["release-list"]
+    ]
+
+    # no success.
+    fail_payload = artist_payload.copy()
+    fail_payload["_success"] = False
+    assert not annotate_mbids.list_dependents(fail_payload)
+
+    # no data, no release list, or no artist
+    nodata_payload = artist_payload.copy()
+    del nodata_payload["data"]
+    assert not annotate_mbids.list_dependents(nodata_payload)
+
+    noartist_payload = artist_payload.copy()
+    noartist_payload["data"] = {}
+    assert not annotate_mbids.list_dependents(noartist_payload)
+
+    norelease_payload = artist_payload.copy()
+    norelease_payload["data"]["artist"] = {}
+    assert not annotate_mbids.list_dependents(norelease_payload)
+
+    # no args.
+    noargs_payload = artist_payload.copy()
+    del noargs_payload["_args"]
+    assert not annotate_mbids.list_dependents(noargs_payload)
+
+    # args but no entity.
+    noentity_payload = artist_payload.copy()
+    del noentity_payload["_args"]["entity"]
+    assert not annotate_mbids.list_dependents(noentity_payload)
+
+    # release entity
+    release_payload = {
+        "_args": {"entity": "release", "mbid": str(uuid.uuid4())},
+        "_success": True,
+        "data": {"release": {"release-group": {"id": str(uuid.uuid4())}}},
+    }
+    assert annotate_mbids.list_dependents(release_payload) == [
+        Mbid(
+            mbid=uuid.UUID(release_payload["data"]["release"]["release-group"]["id"]),
+            entity="release-group",
+        )
+    ]
+
+
+def test_filter_dependent_mbids():
+    # no dependents, should return empty list
+    assert annotate_mbids.filter_dependent_mbids([]) == []
+
+    # make some mbids
+    dependents = [
+        Mbid(mbid=uuid.uuid4(), entity="recording"),
+        Mbid(mbid=uuid.uuid4(), entity="artist"),
+    ]
+
+    # sort dependents. the query sorts on mbid, and we need to match that order for comparison.
+    dependents.sort(key=lambda x: x.mbid)
+
+    # nothing in the db, should return all
+    assert annotate_mbids.filter_dependent_mbids(dependents) == dependents
+
+    # add one to the db and check it is filtered out
+    MusicBrainzAnnotation(
+        mbid=dependents[0].mbid,
+        entity=dependents[0].entity,
+        payload_json=dict(a=1),
+        ts_utc=datetime.datetime.now(),
+    ).upsert()
+    res = annotate_mbids.filter_dependent_mbids(dependents)
+    assert len(res) == 1
+    assert res[0] == dependents[1]
+
+
+def test_annotate_and_upsert():
     """Test the ingest batch function."""
     # nothing to do
-    assert annotate_mbids.ingest_batch(batch=[]) == 0
+    assert annotate_mbids.annotate_and_upsert(queue=deque([])) == (0, 0)
 
-    batch = [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(500)]
-    count = annotate_mbids.ingest_batch(batch=batch)
-    assert count == len(batch)
+    n_items = 500
+    queue = deque([Mbid(mbid=uuid.uuid4(), entity="recording") for _ in range(n_items)])
+    assert annotate_mbids.annotate_and_upsert(queue=queue) == (n_items, 0)
 
     res = MusicBrainzAnnotation.select_star()
+    assert len(res) == n_items
     assert isinstance(res[0]["mbid"], uuid.UUID)  # make sure deserialization works
-    assert len(res) == len(batch)
 
-    # timeout handler
+
+def test_annotate_and_upsert__timeout(monkeypatch):
+    """Test the ingest batch function timeout handling."""
+
     def mock_annotate_mbid(*_, **__) -> dict:
         raise MusicBrainzTimeoutError()
 
     monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", mock_annotate_mbid)
-    assert annotate_mbids.ingest_batch(batch=batch) == 0  # all should timeout
+
+    n_items = 500
+    queue = deque([Mbid(mbid=uuid.uuid4(), entity="recording") for _ in range(n_items)])
+    assert annotate_mbids.annotate_and_upsert(queue=queue) == (0, n_items)  # all should timeout
+
+    # should be no annotations in the db
+    res = MusicBrainzAnnotation.select_star()
+    assert len(res) == 0
+
+
+def test_annotate_and_upsert__dependents(monkeypatch):
+    artist_mbid = uuid.uuid4()
+    release_mbid = uuid.uuid4()
+    release_group_mbid = uuid.uuid4()
+    artist_payload = {
+        "_args": {"entity": "artist", "mbid": str(artist_mbid)},
+        "_success": True,
+        "data": {"artist": {"release-list": [{"id": str(release_mbid)}]}},
+    }
+    release_payload = {
+        "_args": {"entity": "release", "mbid": str(release_mbid)},
+        "_success": True,
+        "data": {"release": {"release-group": {"id": str(release_group_mbid)}}},
+    }
+    release_group_payload = {
+        "_args": {"entity": "release-group", "mbid": str(release_group_mbid)},
+        "_success": True,
+        "data": {"release-group": {}},
+    }
+
+    # patch the annotate mbid function to return the payloads in order
+    payloads = [artist_payload, release_payload, release_group_payload]
+    monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", lambda *_, **__: payloads.pop(0))
+
+    queue = deque([Mbid(mbid=artist_mbid, entity="artist")])
+    annotated, skipped = annotate_mbids.annotate_and_upsert(queue=queue, ingest_dependents=True)
+    assert annotated == 3  # artist + release + release-group
+    assert skipped == 0
+
+    # run it again. this time there should be only one annotation, as the dependents are already
+    # annotated
+    payloads = [artist_payload, release_payload, release_group_payload]
+    monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", lambda *_, **__: payloads.pop(0))
+    queue = deque([Mbid(mbid=artist_mbid, entity="artist")])
+    annotated, skipped = annotate_mbids.annotate_and_upsert(queue=queue, ingest_dependents=True)
+    assert annotated == 1
+    assert skipped == 0
 
 
 def test_cli_main(monkeypatch):
@@ -320,17 +451,17 @@ def test_cli_main(monkeypatch):
     monkeypatch.setattr(
         annotate_mbids,
         "get_unannotated_mbids",
-        lambda: [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(10)],
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="recording") for _ in range(10)],
     )
     monkeypatch.setattr(
         annotate_mbids,
         "get_updated_mbids",
-        lambda: [dict(mbid=uuid.uuid4(), entity="artist") for _ in range(10)],
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="artist") for _ in range(10)],
     )
     monkeypatch.setattr(
         annotate_mbids,
         "get_very_old_annotations",
-        lambda _: [dict(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
+        lambda _: [Mbid(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
     )
 
     # nothing to do
@@ -366,3 +497,43 @@ def test_cli_main(monkeypatch):
         ["--new", "--updated", "--before=2020-01-01", "--limit=5"],
     )
     assert "Timeout annotating mbid" in result.output
+
+
+def test_cli_main__dependents(monkeypatch):
+    load_mbids_table([])  # start with empty table. needed for --drop handler
+    artist_mbid = uuid.uuid4()
+    release_mbid = uuid.uuid4()
+    release_group_mbid = uuid.uuid4()
+    artist_payload = {
+        "_args": {"entity": "artist", "mbid": str(artist_mbid)},
+        "_success": True,
+        "data": {"artist": {"release-list": [{"id": str(release_mbid)}]}},
+    }
+    release_payload = {
+        "_args": {"entity": "release", "mbid": str(release_mbid)},
+        "_success": True,
+        "data": {"release": {"release-group": {"id": str(release_group_mbid)}}},
+    }
+    release_group_payload = {
+        "_args": {"entity": "release-group", "mbid": str(release_group_mbid)},
+        "_success": True,
+        "data": {"release-group": {}},
+    }
+    payloads = [artist_payload, release_payload, release_group_payload]
+    monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", lambda *_, **__: payloads.pop(0))
+
+    # patch the queue fetcher to return the artist mbid
+    monkeypatch.setattr(
+        annotate_mbids, "fetch_queue", lambda **__: deque([Mbid(mbid=artist_mbid, entity="artist")])
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(annotate_mbids.main, ["--dependents"])
+
+    #  "Annotating 1 total mbid(s)." should appear 3x
+    assert result.output.count("Annotating 1 total mbid(s).") == 3
+
+    #  Found 1 dependent mbid(s) to annotate. should appear 2x, for release and release-group
+    assert result.output.count("Found 1 dependent mbid(s) to annotate.") == 2
+
+    assert len(MusicBrainzAnnotation.select_star()) == 3

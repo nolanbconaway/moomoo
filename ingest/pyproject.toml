@@ -14,4 +14,5 @@ select = [
 ]
 ignore = [
     "B017", # `pytest.raises(Exception)` should be considered evil.
+    "E731", # rewrite lambda assignments as def
 ]

@@ -9,6 +9,7 @@ import uuid
 import pytest
 
 from moomoo_ingest import annotate_mbids, annotation_daemon
+from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.db import MusicBrainzAnnotation
 
 
@@ -24,17 +25,17 @@ def test_run(monkeypatch):
     monkeypatch.setattr(
         annotate_mbids,
         "get_unannotated_mbids",
-        lambda: [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(10)],
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="recording") for _ in range(10)],
     )
     monkeypatch.setattr(
         annotate_mbids,
         "get_updated_mbids",
-        lambda: [dict(mbid=uuid.uuid4(), entity="artist") for _ in range(10)],
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="artist") for _ in range(10)],
     )
     monkeypatch.setattr(
         annotate_mbids,
         "get_very_old_annotations",
-        lambda _: [dict(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
+        lambda _: [Mbid(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
     )
 
     # nothing to do
