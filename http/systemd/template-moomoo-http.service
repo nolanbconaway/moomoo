@@ -15,7 +15,8 @@ RestartSec=5
 TimeoutStopSec=30
 
 # Graceful stop
-ExecStop=/usr/bin/docker stop -t 5 moomoo-http-latest | xargs /usr/bin/docker rm
+ExecStop=/usr/bin/docker stop -t 5 moomoo-http-latest || true
+ExecStop=/usr/bin/docker rm -f moomoo-http-latest || true
 
 [Install]
 WantedBy=multi-user.target

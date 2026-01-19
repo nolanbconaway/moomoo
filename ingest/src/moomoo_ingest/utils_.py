@@ -4,10 +4,11 @@ import asyncio
 import datetime
 import hashlib
 import os
+import random
 from concurrent.futures import ProcessPoolExecutor
 from itertools import groupby
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 
 import musicbrainzngs
 import requests
@@ -191,12 +192,7 @@ def _get_artist_data(artist_mbid: str) -> dict:
             release_list += releases["release-list"]
 
         # deduplicate the release list in case a release was added during the fetches
-        release_list = [
-            next(iter(releases))
-            for _, releases in groupby(
-                sorted(release_list, key=lambda x: x["id"]), key=lambda x: x["id"]
-            )
-        ]
+        release_list = list(unique_by(release_list, key=lambda x: x["id"]))
 
         # reassign to expected location
         data["artist"]["release-list"] = release_list
@@ -264,6 +260,43 @@ def batch(iterable, n=1) -> Iterator[Iterable]:
     length = len(iterable)
     for ndx in range(0, length, n):
         yield iterable[ndx : min(ndx + n, length)]
+
+
+def unique_by(items: Iterable, key: Callable) -> Iterator[dict]:
+    """Yield unique items from an iterable of dicts based on a specified key."""
+    for _, group in groupby(sorted(items, key=key), key=key):
+        yield next(iter(group))
+
+
+def topn_from_multilists(
+    lists: list[list], N: int, identity_fn: Callable, shuffle: bool = True
+) -> list:
+    """Deduplicate and select N items from lists of lists.
+
+    Selects up to N unique items from lists of lists based on a specified identity func.
+    Grabs items from the input lists in order, ensuring no duplicates based on the identity.
+
+    Args:
+        lists: A list of lists containing the items from which to select.
+        N: The maximum number of unique items to select.
+        identity_fn: A callable that takes an item and returns its unique identity.
+        shuffle: Whether to shuffle each input list before selecting items.
+    """
+    seen = set()
+    output = []
+
+    for lst in lists:
+        if shuffle:
+            random.shuffle(lst)
+        for item in lst:
+            k = identity_fn(item)
+            if k not in seen:
+                seen.add(k)
+                output.append(item)
+                if len(output) == N:
+                    return output
+
+    return output
 
 
 @tenacity.retry(

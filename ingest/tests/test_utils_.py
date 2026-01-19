@@ -74,27 +74,33 @@ def test_annotate_mbid(monkeypatch):
     r = utils_.annotate_mbid(mbid="123", entity="recording")
     assert r["_success"] is True
     assert r["data"] == dict(a=1)
+    assert r["_args"] == dict(mbid="123", entity="recording")
 
     r = utils_.annotate_mbid(mbid="123", entity="release")
     assert r["_success"] is True
     assert r["data"] == dict(b=2)
+    assert r["_args"] == dict(mbid="123", entity="release")
 
     r = utils_.annotate_mbid(mbid="123", entity="artist")
     assert r["_success"] is True
     assert r["data"] == dict(c=3)
+    assert r["_args"] == dict(mbid="123", entity="artist")
 
     r = utils_.annotate_mbid(mbid="123", entity="release-group")
     assert r["_success"] is True
     assert r["data"] == dict(d=4)
+    assert r["_args"] == dict(mbid="123", entity="release-group")
 
     r = utils_.annotate_mbid(mbid="123", entity="INVALID")
     assert r["_success"] is False
     assert r["error"] == "Unknown entity type: INVALID."
+    assert r["_args"] == dict(mbid="123", entity="INVALID")
 
     monkeypatch.setattr(utils_, "_get_recording_data", mock_raise_exception)
     r = utils_.annotate_mbid(mbid="123", entity="recording")
     assert r["_success"] is False
     assert r["error"] == "foo"
+    assert r["_args"] == dict(mbid="123", entity="recording")
 
 
 def test__get_artist_data__release_browse(monkeypatch):
@@ -141,3 +147,42 @@ def test_request_with_retry(monkeypatch):
     response = utils_.request_with_retry("GET", "http://example.com")
     assert response.text == "success"
     assert call_count["count"] == 3
+
+
+def test_batch():
+    x = list(range(10))
+    assert list(utils_.batch(x, 3)) == [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9]]
+    assert list(utils_.batch(x, 4)) == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9]]
+    assert list(utils_.batch(x, 15)) == [list(range(10))]
+
+    # edge case: empty list
+    assert list(utils_.batch([], 3)) == []
+
+    # check that type of input is preserved
+    x = tuple(range(10))
+    assert list(utils_.batch(x, 3)) == [(0, 1, 2), (3, 4, 5), (6, 7, 8), (9,)]
+
+
+def test_unique_by():
+    items = [{"id": 1, "val": "a"}, {"id": 2, "val": "b"}, {"id": 1, "val": "c"}]
+    unique_items = list(utils_.unique_by(items, key=lambda x: x["id"]))
+    assert unique_items == [{"id": 1, "val": "a"}, {"id": 2, "val": "b"}]
+
+    unique_items = list(utils_.unique_by(items, key=lambda x: x["val"]))
+    assert unique_items == [{"id": 1, "val": "a"}, {"id": 2, "val": "b"}, {"id": 1, "val": "c"}]
+
+
+def test_topn_from_multilists():
+    l1 = [{"mbid": 1}, {"mbid": 2}, {"mbid": 3}]
+    l2 = [{"mbid": 3}, {"mbid": 4}, {"mbid": 5}]
+    l3 = [{"mbid": 5}, {"mbid": 6}, {"mbid": 7}]
+    res = utils_.topn_from_multilists([l1, l2, l3], N=5, identity_fn=lambda x: x["mbid"])
+    expected_mbids = [1, 2, 3, 4, 5]
+    res_mbids = sorted([i["mbid"] for i in res])
+    assert res_mbids == expected_mbids
+
+    # test with inf limit
+    res = utils_.topn_from_multilists([l1, l2, l3], N=float("inf"), identity_fn=lambda x: x["mbid"])
+    expected_mbids = [1, 2, 3, 4, 5, 6, 7]
+    res_mbids = sorted([i["mbid"] for i in res])
+    assert res_mbids == expected_mbids
