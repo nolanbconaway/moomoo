@@ -3,13 +3,19 @@
 import datetime
 import uuid
 from collections import deque
+from unittest import mock
 
 import pytest
 from click.testing import CliRunner
 
 from moomoo_ingest import annotate_mbids
 from moomoo_ingest.annotate_mbids import Mbid
-from moomoo_ingest.db import MusicBrainzAnnotation, MusicBrainzDataDump, MusicBrainzDataDumpRecord
+from moomoo_ingest.db import (
+    AnnotationQueueLog,
+    MusicBrainzAnnotation,
+    MusicBrainzDataDump,
+    MusicBrainzDataDumpRecord,
+)
 from moomoo_ingest.utils_ import ENTITIES, MusicBrainzTimeoutError
 
 from .conftest import load_mbids_table
@@ -27,6 +33,7 @@ def create_tables():
     MusicBrainzAnnotation.create()
     MusicBrainzDataDump.create()
     MusicBrainzDataDumpRecord.create()
+    AnnotationQueueLog.create()
 
 
 @pytest.fixture(autouse=True)
@@ -247,6 +254,47 @@ def test_get_updated_mbids__any_data():
     assert len(res) == 0
 
 
+def test_update_annotation_queue_log(monkeypatch):
+    # nothing to do, so no update
+    src_mbid_map = dict()
+    assert annotate_mbids.update_annotation_queue_log(src_mbid_map) is False
+
+    # freeze time
+    ts = datetime.datetime.now(datetime.timezone.utc)
+    monkeypatch.setattr("moomoo_ingest.utils_.utcnow", lambda: ts)
+
+    # add some mbids to the map
+    src_mbid_map = dict(fake=[Mbid(mbid=1, entity="artist")])
+    assert annotate_mbids.update_annotation_queue_log(src_mbid_map) is True
+    rows = AnnotationQueueLog.select_star()
+    assert len(rows) == len(ENTITIES)
+    rows = {i["entity"]: i["queue_size"] for i in rows}
+    assert all(rows[i] == 0 if i != "artist" else 1 for i in ENTITIES)
+
+    # if run again, there should be no update because the timestamp is the same
+    assert annotate_mbids.update_annotation_queue_log(src_mbid_map) is False
+
+    # but if the time is moved forward, there should be an update
+    new_ts = ts + datetime.timedelta(minutes=10)
+    monkeypatch.setattr("moomoo_ingest.utils_.utcnow", lambda: new_ts)
+    assert annotate_mbids.update_annotation_queue_log(src_mbid_map) is True
+
+    # check that there is two log entries
+    rows = AnnotationQueueLog.select_star()
+    assert len(rows) == 2 * len(ENTITIES)
+    assert len(set(i["as_of_ts_utc"] for i in rows)) == 2
+
+    # more complex case: one entity is updated, one is not.
+    # timestamp stays the same, so only the new entity should be updated
+    src_mbid_map = dict(
+        fake=[Mbid(mbid=1, entity="artist")],
+        another=[Mbid(mbid=2, entity="recording")],
+    )
+    assert annotate_mbids.update_annotation_queue_log(src_mbid_map) is True
+    rows = AnnotationQueueLog.select_star()
+    assert len(rows) == 3 * len(ENTITIES)
+
+
 def test_fetch_queue(monkeypatch):
     """Test the fetch from queue function."""
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -289,6 +337,42 @@ def test_fetch_queue(monkeypatch):
     assert {i.mbid for i in res} == {1}
     res = runfn(new_=True, updated=True, reannotate_ts=now, limit=2)
     assert {i.mbid for i in res} == {1, 2}
+
+
+def test_fetch_queue__queue_logging(monkeypatch):
+    """Test that the correct queues are logged."""
+    monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
+    monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
+    monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
+
+    # nothing logged, so empty dict is passed as the mbid map
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(new_=False, updated=False, reannotate_ts=None, limit=1)
+        mock_log.assert_called_once_with(src_mbid_map=dict())
+
+    # called with new
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(new_=True, updated=False, reannotate_ts=None, limit=1)
+        mock_log.assert_called_once_with(src_mbid_map=dict(new=[]))
+
+    # called with updated
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(new_=False, updated=True, reannotate_ts=None, limit=1)
+        mock_log.assert_called_once_with(src_mbid_map=dict(updated=[]))
+
+    # called with reannotated
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(
+            new_=False, updated=False, reannotate_ts=datetime.datetime.now(), limit=1
+        )
+        mock_log.assert_called_once_with(src_mbid_map=dict(old=[]))
+
+    # called with all
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(
+            new_=True, updated=True, reannotate_ts=datetime.datetime.now(), limit=1
+        )
+        mock_log.assert_called_once_with(src_mbid_map=dict(new=[], updated=[], old=[]))
 
 
 def test_list_dependents():

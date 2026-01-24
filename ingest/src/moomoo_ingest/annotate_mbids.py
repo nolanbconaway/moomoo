@@ -24,12 +24,15 @@ from sqlalchemy.orm import Session
 
 from . import utils_
 from .db import (
+    AnnotationQueueLog,
     MusicBrainzAnnotation,
     MusicBrainzDataDump,
     MusicBrainzDataDumpRecord,
     execute_sql_fetchall,
     get_session,
 )
+
+QUEUE_LOG_TIMEOUT_SECONDS = 5 * 60  # 5 minutes
 
 
 @dataclasses.dataclass
@@ -157,6 +160,38 @@ def drop_dangling_annotations(loggerfn: Callable | None = None) -> int:
     return deleted
 
 
+def update_annotation_queue_log(src_mbid_map: dict[str, list[Mbid]]) -> bool:
+    """Update the annotation queue log table with the current queue status.
+
+    Args:
+        src_mbid_map: Mapping of source to list of mbids to be annotated.
+
+    Skips the update if the last update was within QUEUE_LOG_TIMEOUT_SECONDS. Returns a boolean
+    indicating whether an update was performed.
+    """
+    now = utils_.utcnow()
+    any_updated = False
+    with get_session() as session:
+        for src, mbids in src_mbid_map.items():
+            # check if the queue log timeout has passed
+
+            latest = AnnotationQueueLog.last_update_timestamp(session=session, source=src)
+            if latest is not None:
+                elapsed = (now - latest).total_seconds()
+                if elapsed < QUEUE_LOG_TIMEOUT_SECONDS:
+                    continue
+
+            any_updated = True
+            for entity in utils_.ENTITIES:
+                AnnotationQueueLog(
+                    source=src,
+                    entity=entity,
+                    queue_size=sum(1 for mbid in mbids if mbid.entity == entity),
+                    as_of_ts_utc=now,
+                ).insert(session=session)
+    return any_updated
+
+
 def fetch_queue(
     new_: bool,
     updated: bool,
@@ -200,6 +235,21 @@ def fetch_queue(
     else:
         old_annotations = []
 
+    # update the annotation queue log
+    src_mbid_map = dict()
+    if new_:
+        src_mbid_map["new"] = unannotated
+    if updated:
+        src_mbid_map["updated"] = updated_mbids
+    if reannotate_ts is not None:
+        src_mbid_map["old"] = old_annotations
+
+    if update_annotation_queue_log(src_mbid_map=src_mbid_map):
+        loggerfn("Updated annotation queue log.")
+    else:
+        loggerfn("Skipped annotation queue log update.")
+
+    # combine results up to the limit
     result: list[Mbid] = utils_.topn_from_multilists(
         [unannotated, updated_mbids, old_annotations],
         N=limit if limit is not None else float("inf"),
