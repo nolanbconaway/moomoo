@@ -416,6 +416,30 @@ class MusicBrainzDataDumpRecord(BaseTable):
     dump: Mapped["MusicBrainzDataDump"] = relationship(back_populates="records")
 
 
+class AnnotationQueueLog(BaseTable):
+    """Model for annotation_queue_log table."""
+
+    __tablename__ = "annotation_queue_log"
+
+    log_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
+    source: Mapped[str] = mapped_column(nullable=False, index=True)
+    entity: Mapped[str] = mapped_column(nullable=False, index=True)
+    as_of_ts_utc: Mapped[datetime.datetime] = mapped_column(nullable=False, index=True)
+    queue_size: Mapped[int] = mapped_column(nullable=False)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+    @classmethod
+    def last_update_timestamp(cls, session: Session, source: str) -> datetime.datetime | None:
+        """Get the last update timestamp in the log for the given source.
+
+        Returns None if there are no log entries.
+        """
+        stmt = select(func.max(cls.as_of_ts_utc)).filter(cls.source == source)
+        return session.execute(stmt).scalar()
+
+
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
@@ -430,4 +454,5 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzCollaborativeFilteringScore,
     MusicBrainzDataDump,
     MusicBrainzDataDumpRecord,
+    AnnotationQueueLog,
 )

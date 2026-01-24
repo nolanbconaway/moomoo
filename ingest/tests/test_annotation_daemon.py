@@ -10,13 +10,14 @@ import pytest
 
 from moomoo_ingest import annotate_mbids, annotation_daemon
 from moomoo_ingest.annotate_mbids import Mbid
-from moomoo_ingest.db import MusicBrainzAnnotation
+from moomoo_ingest.db import AnnotationQueueLog, MusicBrainzAnnotation
 
 
 @pytest.fixture(autouse=True)
 def create_tables():
     """Create and drop the necessary tables for testing."""
     MusicBrainzAnnotation.create()
+    AnnotationQueueLog.create()
 
 
 def test_run(monkeypatch):
