@@ -13,6 +13,7 @@ from moomoo_ingest.db.cli import cli as db_cli
 from moomoo_ingest.db.connection import execute_sql_fetchall, get_engine, get_session
 from moomoo_ingest.db.ddl import (
     TABLES,
+    AnnotationQueueLog,
     BaseTable,
     ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
@@ -395,3 +396,15 @@ def test_MusicBrainzDataDump__replace_records():
 
     dump.replace_records([], session=session)
     assert len(dump.records) == 0
+
+
+def test_AnnotationQueueLog__last_update_timestamp():
+    AnnotationQueueLog.create()
+    session = get_session()
+    assert AnnotationQueueLog.last_update_timestamp(session=session, source="fake") is None
+
+    ts = datetime.datetime.now(datetime.timezone.utc)
+    log = AnnotationQueueLog(source="fake", entity="artist", as_of_ts_utc=ts, queue_size=10)
+    log.insert(session=session)
+    assert AnnotationQueueLog.last_update_timestamp(session=session, source="fake") == ts
+    assert AnnotationQueueLog.last_update_timestamp(session=session, source="other") is None

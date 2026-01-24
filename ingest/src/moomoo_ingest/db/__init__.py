@@ -3,6 +3,7 @@
 from .connection import execute_sql_fetchall, get_engine, get_session
 from .ddl import (
     TABLES,
+    AnnotationQueueLog,
     BaseTable,
     ListenBrainzArtistStats,
     ListenBrainzCollaborativeFilteringScore,
@@ -25,6 +26,7 @@ __all__ = [
     "execute_sql_fetchall",
     "BaseTable",
     "TABLES",
+    "AnnotationQueueLog",
     "ListenBrainzListen",
     "LocalFile",
     "LocalFileExcludeRegex",
