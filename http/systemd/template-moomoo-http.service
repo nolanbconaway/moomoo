@@ -14,9 +14,9 @@ Restart=always
 RestartSec=5
 TimeoutStopSec=30
 
-# Graceful stop
-ExecStop=/usr/bin/docker stop -t 5 moomoo-http-latest || true
-ExecStop=/usr/bin/docker rm -f moomoo-http-latest || true
+# Graceful stop. use - to ignore failures.
+ExecStop=-/usr/bin/docker stop -t 5 moomoo-http-latest
+ExecStop=-/usr/bin/docker rm -f moomoo-http-latest
 
 [Install]
 WantedBy=multi-user.target

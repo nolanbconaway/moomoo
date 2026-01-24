@@ -14,9 +14,9 @@ Restart=always
 RestartSec=5
 TimeoutStopSec=30
 
-# Graceful stop
-ExecStop=/usr/bin/docker stop -t 5 moomoo-annotator-daemon-latest || true
-ExecStop=/usr/bin/docker rm -f moomoo-annotator-daemon-latest || true
+# Graceful stop. use - to ignore failures.
+ExecStop=-/usr/bin/docker stop -t 5 moomoo-annotator-daemon-latest
+ExecStop=-/usr/bin/docker rm -f moomoo-annotator-daemon-latest
 
 [Install]
 WantedBy=multi-user.target
