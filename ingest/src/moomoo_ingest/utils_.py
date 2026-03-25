@@ -39,7 +39,7 @@ def moomoo_version() -> str:
 # set user agent for all musicbrainzngs requests
 musicbrainzngs.set_useragent(
     app="moomoo-ingest",
-    version="moomoo_version()",
+    version=moomoo_version(),
     contact=os.environ.get("MOOMOO_CONTACT_EMAIL"),
 )
 
