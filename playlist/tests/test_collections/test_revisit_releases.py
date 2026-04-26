@@ -9,8 +9,7 @@ from sqlalchemy.orm import Session
 from moomoo_playlist.collections.revisit_releases import list_revisit_releases
 from moomoo_playlist.collections.revisit_releases import main as revisit_releases_main
 from moomoo_playlist.db import execute_sql_fetchall
-from moomoo_playlist.generator import NoFilesRequestedError, QueryPlaylistGenerator
-from moomoo_playlist.playlist import Playlist
+from moomoo_playlist.playlist import Playlist, Track
 
 
 def populate_revisit_releases(session: Session, data: list[dict]):
@@ -100,16 +99,14 @@ def test_main__playlist_error(session: Session):
         [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
     runner = CliRunner()
-    playlist = Playlist(tracks=[])
-    with patch.object(
-        QueryPlaylistGenerator,
-        "get_playlist",
-        side_effect=[playlist, NoFilesRequestedError, playlist, playlist, playlist],
+    tracks = [Track(filepath="a")]
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        side_effect=[tracks, [], tracks, tracks, tracks],
     ):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
     assert res.exit_code == 0
     assert "No files found for release mbid" in res.output
-    assert "NoFilesRequestedError" in res.output
     assert "Saved 4 playlist(s) to database." in res.output
 
 
@@ -122,32 +119,35 @@ def test_main__stale_handler(session: Session):
 
     runner = CliRunner()
 
-    with patch.object(
-        QueryPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
-    ) as patch_get_playlist:
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        return_value=[Track(filepath="a")],
+    ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
-    assert patch_get_playlist.call_count == 5
+    assert patch_fetch_release_tracks.call_count == 5
     assert res.exit_code == 0
     assert "Saved 5 playlist(s) to database." in res.output
 
     # test stale handler
-    with patch.object(
-        QueryPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
-    ) as patch_get_playlist:
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        return_value=[Track(filepath="a")],
+    ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
-    assert patch_get_playlist.call_count == 0
+    assert patch_fetch_release_tracks.call_count == 0
     assert res.exit_code == 0
     assert "Collection is not stale; skipping." in res.output
 
     # test force flag
-    with patch.object(
-        QueryPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
-    ) as patch_get_playlist:
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        return_value=[Track(filepath="a")],
+    ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5", "--force"])
 
-    assert patch_get_playlist.call_count == 5
+    assert patch_fetch_release_tracks.call_count == 5
     assert res.exit_code == 0
     assert "Saved 5 playlist(s) to database." in res.output
 
@@ -159,10 +159,10 @@ def test_main__storage(session: Session):
         [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
     runner = CliRunner()
-    with patch.object(
-        QueryPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for i in range(10)],
+
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        return_value=[Track(filepath="a")],
     ):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
@@ -187,10 +187,9 @@ def test_main__storage(session: Session):
     ]
 
     # should replace with new playlists when run again
-    with patch.object(
-        QueryPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for _ in range(10)],
+    with patch(
+        "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
+        return_value=[Track(filepath="a")],
     ):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 

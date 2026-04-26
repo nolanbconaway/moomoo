@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from ..db import execute_sql_fetchall
+from ..db import execute_sql_fetchall, make_temp_table
 from .base import (
     BasePlaylistGenerator,
     NoFilesRequestedError,
@@ -116,7 +116,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         return sorted(res)
 
     @db_retry
-    def list_source_paths(self, session: Session) -> list[Path]:
+    def list_source_tracks(self, session: Session) -> list[Track]:
         """Fetch the local files for the mbids.
 
         Returns a list of files, which may be empty. It should not be considered sorted,
@@ -151,7 +151,26 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         if len(files) > self.limit_source_paths:
             files = random.sample(files, self.limit_source_paths)
 
-        return files
+        # convert to tracks
+        tmp_name = make_temp_table(
+            session=session,
+            types={"filepath": "text"},
+            data=[{"filepath": str(f)} for f in files],
+            pk="filepath",
+        )
+        sql = f"""
+            select
+                filepath
+                , recording_mbid
+                , release_mbid
+                , release_group_mbid
+                , artist_mbid
+                , coalesce(album_artist_mbid, artist_mbid) as album_artist_mbid
+                , floor(track_length_seconds)::int as track_length_seconds
+            from {schema}.local_files
+            inner join {tmp_name} using (filepath)
+        """
+        return [Track(**row) for row in execute_sql_fetchall(session=session, sql=sql)]
 
     def get_playlist(
         self,
@@ -181,14 +200,17 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         Returns:
             A Playlist object.
         """
-        source_paths = list(self.list_source_paths(session=session))
-        if not source_paths:
+        source_tracks = list(self.list_source_tracks(session=session))
+        source_paths = [t.filepath for t in source_tracks]
+        if not source_tracks:
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
         if seed_count == 0:
             seed_tracks = []
+        elif seed_count > len(source_tracks):
+            seed_tracks = source_tracks
         else:
-            seed_tracks = [Track(filepath=p) for p in random.sample(source_paths, seed_count)]
+            seed_tracks = random.sample(source_tracks, seed_count)
 
         if self.username is not None:
             listen_counts = fetch_user_listen_counts(

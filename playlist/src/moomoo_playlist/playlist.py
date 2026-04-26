@@ -1,6 +1,7 @@
 """Container classes for playlist data."""
 
 from dataclasses import dataclass
+from math import floor
 from pathlib import Path
 from typing import Callable
 from uuid import UUID
@@ -35,6 +36,10 @@ class Track:
             val = getattr(self, attr)
             if val is not None and isinstance(val, str):
                 setattr(self, attr, UUID(val))
+
+        # floor int track_length_seconds if it is a float
+        if self.track_length_seconds is not None and isinstance(self.track_length_seconds, float):
+            self.track_length_seconds = floor(self.track_length_seconds)
 
         # cast filepath to Path if it is a string
         if isinstance(self.filepath, str):

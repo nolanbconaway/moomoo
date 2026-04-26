@@ -45,13 +45,20 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
             self.files = random.sample(self.files, self.limit_source_paths)
 
     @db_retry
-    def list_source_paths(self, session: Session) -> list[Path]:
+    def list_source_tracks(self, session: Session) -> list[Track]:
         """List the paths requested by the user that are in the database."""
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         if len(self.files) == 1:
             # easy case, just get all files that start with the requested path
             sql = f"""
-                select filepath
+                select
+                  filepath
+                  , recording_mbid
+                  , release_mbid
+                  , release_group_mbid
+                  , artist_mbid
+                  , coalesce(album_artist_mbid, artist_mbid) as album_artist_mbid
+                  , floor(track_length_seconds)::int as track_length_seconds
                 from {schema}.local_files
                 where filepath like :path
                 order by random()
@@ -75,17 +82,22 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
 
             # join them to the local_files table to ensure they exist
             sql = f"""
-                select filepath
+                select
+                  filepath
+                  , recording_mbid
+                  , release_mbid
+                  , release_group_mbid
+                  , artist_mbid
+                  , coalesce(album_artist_mbid, artist_mbid) as album_artist_mbid
+                  , floor(track_length_seconds)::int as track_length_seconds
                 from {schema}.local_files
                 inner join {tmp_name} using (filepath)
             """
             params = None
 
         return sorted(
-            [
-                Path(row["filepath"])
-                for row in execute_sql_fetchall(session=session, sql=sql, params=params)
-            ]
+            [Track(**row) for row in execute_sql_fetchall(session=session, sql=sql, params=params)],
+            key=lambda t: t.filepath,
         )
 
     def get_playlist(
@@ -116,14 +128,17 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         Returns:
             A Playlist object.
         """
-        source_paths = self.list_source_paths(session)
-        if not source_paths:
+        source_tracks = self.list_source_tracks(session)
+        source_paths = [t.filepath for t in source_tracks]
+        if not source_tracks:
             raise NoFilesRequestedError("No paths requested (or found via request).")
 
         if seed_count == 0:
             seed_tracks = []
+        elif seed_count > len(source_tracks):
+            seed_tracks = source_tracks
         else:
-            seed_tracks = [Track(filepath=p) for p in random.sample(source_paths, seed_count)]
+            seed_tracks = random.sample(source_tracks, seed_count)
 
         if self.username is not None:
             listen_counts = fetch_user_listen_counts(

@@ -19,14 +19,15 @@ from ..conftest import load_local_files_table
         (["test1", "test2"], [Path("test1"), Path("test2")]),
     ],
 )
-def test_list_source_paths__multi_paths(paths, expect, session: Session):
+def test_list_source_tracks__multi_paths(paths, expect, session: Session):
     """Test that from_files lists the correct requested paths.
 
     Runs a db query to get the list of requested paths.
     """
     rows = [dict(filepath=p, embedding=None) for p in paths]
     load_local_files_table(rows)
-    ps = FromFilesPlaylistGenerator(Path("test1"), Path("test2")).list_source_paths(session)
+    tracks = FromFilesPlaylistGenerator(Path("test1"), Path("test2")).list_source_tracks(session)
+    ps = [t.filepath for t in tracks]
     assert set(ps) == set(expect)
 
 
@@ -39,10 +40,11 @@ def test_list_source_paths__multi_paths(paths, expect, session: Session):
         (["test1", "test2"], [Path("test1"), Path("test2")]),
     ],
 )
-def test_list_source_paths__parent_path(paths, expect, session: Session):
+def test_list_source_tracks__parent_path(paths, expect, session: Session):
     rows = [dict(filepath=p, embedding=None) for p in paths]
     load_local_files_table(data=rows)
-    ps = FromFilesPlaylistGenerator(Path("test")).list_source_paths(session)
+    tracks = FromFilesPlaylistGenerator(Path("test")).list_source_tracks(session)
+    ps = [t.filepath for t in tracks]
     assert set(ps) == set(expect)
 
 
@@ -54,20 +56,20 @@ def test_get_playlist__no_files_error(session: Session):
 
 
 @pytest.mark.parametrize("username", [None, "test"])
-@patch("moomoo_playlist.generator.FromFilesPlaylistGenerator.list_source_paths")
+@patch("moomoo_playlist.generator.FromFilesPlaylistGenerator.list_source_tracks")
 @patch("moomoo_playlist.generator.base.stream_similar_tracks")
 @patch("moomoo_playlist.generator.from_files.fetch_user_listen_counts")
 def test_get_playlist(
     mock_fetch_user_listen_counts,
     mock_stream_similar_tracks,
-    mock_list_source_paths,
+    mock_list_source_tracks,
     session: Session,
     username,
 ):
     """Test that get_playlist works."""
     # mock listed sources and stream
     mock_fetch_user_listen_counts.return_value = {Path("test/0"): 1}
-    mock_list_source_paths.return_value = [Path("test/0")]
+    mock_list_source_tracks.return_value = [Track(filepath=Path("test/0"))]
 
     mock_stream_similar_tracks.return_value = [
         Track(
@@ -110,4 +112,4 @@ def test_source_limit_handler(session: Session):
     load_local_files_table(data=rows)
 
     pg = FromFilesPlaylistGenerator(Path("test"))
-    assert len(pg.list_source_paths(session=session)) == n
+    assert len(pg.list_source_tracks(session=session)) == n

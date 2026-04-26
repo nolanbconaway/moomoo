@@ -28,12 +28,33 @@ def populate_loved_tracks(session: Session, data: list[dict]):
     """
     session.execute(text(sql))
 
+    # need local files table as well
+    sql = f"""
+        create table {schema}.local_files (
+            filepath varchar not null,
+            track_length_seconds int not null
+        )
+    """
+    session.execute(text(sql))
+
     for row in data:
         sql = f"""
             insert into {schema}.loved_tracks (filepath, username, love_at)
             values (:filepath, :username, :love_at)
         """
         session.execute(text(sql), row)
+
+        sql = f"""
+            insert into {schema}.local_files (filepath, track_length_seconds)
+            values (:filepath, :track_length_seconds)
+        """
+        session.execute(
+            text(sql),
+            {
+                "filepath": row["filepath"],
+                "track_length_seconds": row.get("track_length_seconds", 200),
+            },
+        )
 
     session.commit()
 
@@ -87,11 +108,11 @@ def test_main__storage(session: Session):
 
     # check ordering is descending on time.
     assert res[0]["playlist"] == [
-        {"filepath": "path/4"},
-        {"filepath": "path/3"},
-        {"filepath": "path/2"},
-        {"filepath": "path/1"},
-        {"filepath": "path/0"},
+        {"filepath": "path/4", "track_length_seconds": 200},
+        {"filepath": "path/3", "track_length_seconds": 200},
+        {"filepath": "path/2", "track_length_seconds": 200},
+        {"filepath": "path/1", "track_length_seconds": 200},
+        {"filepath": "path/0", "track_length_seconds": 200},
     ]
 
     # should replace with new playlists when run again
