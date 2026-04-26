@@ -50,7 +50,7 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
             recording_mbid=row["recording_mbid"],
             artist_mbid=row["artist_mbid"],
             album_artist_mbid=row["album_artist_mbid"] or row["artist_mbid"],
-            track_length_seconds=row['track_length_seconds']
+            track_length_seconds=row["track_length_seconds"],
         )
         for row in rows
     ]
