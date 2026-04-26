@@ -20,6 +20,7 @@ class Track:
     artist_mbid: UUID | None = None
     album_artist_mbid: UUID | None = None
     distance: float | None = None
+    track_length_seconds: int | None = None
 
     def __post_init__(self):
         # cast mbids to UUIDs if they are strings
@@ -62,6 +63,7 @@ class Track:
             res = self.add_if_not_none(res, key, str)
 
         res = self.add_if_not_none(res, "distance")
+        res = self.add_if_not_none(res, "track_length_seconds")
 
         if is_seed is not None:
             res["seed"] = is_seed
