@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from moomoo_playlist.collections.revisit_releases import list_revisit_releases
 from moomoo_playlist.collections.revisit_releases import main as revisit_releases_main
 from moomoo_playlist.db import execute_sql_fetchall
-from moomoo_playlist.playlist import Playlist, Track
+from moomoo_playlist.playlist import Track
 
 
 def populate_revisit_releases(session: Session, data: list[dict]):
