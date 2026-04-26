@@ -11,6 +11,8 @@ from moomoo_playlist import FromMbidsPlaylistGenerator as Gen
 from moomoo_playlist import NoFilesRequestedError, Track
 from moomoo_playlist.db import execute_sql_fetchall
 
+from ..conftest import load_local_files_table
+
 
 def test__files_for_recording_mbids(session: Session):
     """Test that _files_for_recording_mbids works."""
@@ -160,10 +162,11 @@ def test__files_for_artist_mbids(session: Session):
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_release_mbids")
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_release_group_mbids")
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator._files_for_artist_mbids")
-def test_list_source_paths(
+def test_list_source_tracks(
     patch_artist, patch_release_group, patch_release, patch_recording, session: Session
 ):
-    """Test that list_source_paths works."""
+    """Test that list_source_tracks works."""
+    load_local_files_table(data=[dict(filepath=f"test/{i}", embedding=None) for i in range(200)])
 
     # reset mocks to default
     def reset_mocks():
@@ -187,7 +190,7 @@ def test_list_source_paths(
 
     # test with mbids that dont map to entities
     generator = Gen(uuid4())
-    assert generator.list_source_paths(session=session) == []
+    assert generator.list_source_tracks(session=session) == []
     assert patch_recording.call_count == 0
     assert patch_release.call_count == 0
     assert patch_release_group.call_count == 0
@@ -201,7 +204,7 @@ def test_list_source_paths(
         dict(mbid=mbids[0]),
         session=session,
     )
-    assert generator.list_source_paths(session=session) == []
+    assert generator.list_source_tracks(session=session) == []
     assert patch_recording.call_count == 1
     assert patch_recording.call_args[0][0] == mbids
     assert patch_release.call_count == 1
@@ -214,7 +217,8 @@ def test_list_source_paths(
 
     # test dedupe
     patch_recording.return_value = patch_recording.return_value = [Path("test/0")]
-    assert generator.list_source_paths(session=session) == [Path("test/0")]
+    result = generator.list_source_tracks(session=session)
+    assert [t.filepath for t in result] == [Path("test/0")]
     reset_mocks()
 
     # test limit handler
@@ -222,32 +226,32 @@ def test_list_source_paths(
     patch_recording.return_value = patch_recording.return_value = [
         Path(f"test/{i}") for i in range(n * 2)
     ]
-    assert len(generator.list_source_paths(session=session)) == n
+    assert len(generator.list_source_tracks(session=session)) == n
 
 
-@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_paths")
-def test_get_playlist__no_files_error(mock_list_source_paths, session: Session):
+@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_tracks")
+def test_get_playlist__no_files_error(mock_list_source_tracks, session: Session):
     """Test that get_playlist errors when no files are requested."""
-    mock_list_source_paths.return_value = []
+    mock_list_source_tracks.return_value = []
     with pytest.raises(NoFilesRequestedError):
         Gen(uuid4()).get_playlist(session)
 
 
 @pytest.mark.parametrize("username", [None, "test"])
-@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_paths")
+@patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_tracks")
 @patch("moomoo_playlist.generator.base.stream_similar_tracks")
 @patch("moomoo_playlist.generator.from_mbids.fetch_user_listen_counts")
 def test_get_playlist(
     mock_fetch_user_listen_counts,
     mock_stream_similar_tracks,
-    mock_list_source_paths,
+    mock_list_source_tracks,
     session: Session,
     username,
 ):
     """Test that get_playlist works."""
     # mock listed sources and stream
     mock_fetch_user_listen_counts.return_value = {Path("test/0"): 1}
-    mock_list_source_paths.return_value = [Path("test/0")]
+    mock_list_source_tracks.return_value = [Track(filepath=Path("test/0"))]
 
     mock_stream_similar_tracks.return_value = [
         Track(

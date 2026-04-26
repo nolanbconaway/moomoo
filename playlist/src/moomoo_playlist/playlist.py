@@ -1,6 +1,7 @@
 """Container classes for playlist data."""
 
 from dataclasses import dataclass
+from math import floor
 from pathlib import Path
 from typing import Callable
 from uuid import UUID
@@ -20,6 +21,7 @@ class Track:
     artist_mbid: UUID | None = None
     album_artist_mbid: UUID | None = None
     distance: float | None = None
+    track_length_seconds: int | None = None
 
     def __post_init__(self):
         # cast mbids to UUIDs if they are strings
@@ -34,6 +36,10 @@ class Track:
             val = getattr(self, attr)
             if val is not None and isinstance(val, str):
                 setattr(self, attr, UUID(val))
+
+        # floor int track_length_seconds if it is a float
+        if self.track_length_seconds is not None and isinstance(self.track_length_seconds, float):
+            self.track_length_seconds = floor(self.track_length_seconds)
 
         # cast filepath to Path if it is a string
         if isinstance(self.filepath, str):
@@ -62,6 +68,7 @@ class Track:
             res = self.add_if_not_none(res, key, str)
 
         res = self.add_if_not_none(res, "distance")
+        res = self.add_if_not_none(res, "track_length_seconds")
 
         if is_seed is not None:
             res["seed"] = is_seed

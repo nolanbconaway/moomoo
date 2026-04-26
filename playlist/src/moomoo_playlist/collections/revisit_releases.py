@@ -11,8 +11,8 @@ from tqdm import tqdm
 
 from ..db import db_retry, execute_sql_fetchall, get_session
 from ..ddl import PlaylistCollection
-from ..generator import NoFilesRequestedError, QueryPlaylistGenerator
 from ..logger import get_logger
+from ..playlist import Playlist, Track
 
 collection_name = "revisit-releases"
 logger = get_logger().bind(module=__name__)
@@ -76,6 +76,31 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
     return sorted(res, key=lambda x: (x.artist_name, x.title))
 
 
+def fetch_release_tracks(session: Session, mbid: UUID) -> list[Track]:
+    """Fetch tracks for a release."""
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+        select
+            filepath
+            , local_files.recording_mbid
+            , local_files.release_mbid
+            , local_files.release_group_mbid
+            , local_files.artist_mbid
+            , coalesce(local_files.album_artist_mbid, local_files.artist_mbid) as album_artist_mbid
+            , floor(local_files.track_length_seconds)::int as track_length_seconds
+        from {schema}.map__file_release_group
+        inner join {schema}.local_files using (filepath)
+        where release_group_mbid=:mbid
+        order by filepath
+    """
+    rows = execute_sql_fetchall(session=session, sql=sql, params=dict(mbid=str(mbid)))
+
+    if not rows:
+        logger.exception(f"No files found for release mbid={mbid}.")
+
+    return [Track(**row) for row in rows]
+
+
 @click.command("revisit-releases")
 @click.argument("username", required=True, envvar="LISTENBRAINZ_USERNAME")
 @click.option(
@@ -105,25 +130,18 @@ def main(username: str, count: int, force: bool):
     releases = list_revisit_releases(username=username, count=count, session=session)
 
     logger.info(f"Generating playlists for {len(releases)} releases.")
-    sql = f"""
-        select filepath
-        from {os.environ["MOOMOO_DBT_SCHEMA"]}.map__file_release_group
-        where release_group_mbid=:mbid
-        order by filepath
-    """
-
     playlists = []
     for release in tqdm(releases, disable=None, total=len(releases)):
-        generator = QueryPlaylistGenerator(sql, params=dict(mbid=release.mbid))
-        try:
-            playlist = generator.get_playlist(session=session)
-        except NoFilesRequestedError:
+        tracks = fetch_release_tracks(session=session, mbid=release.mbid)
+        if not tracks:
             logger.exception(f"No files found for release mbid={release.mbid}.")
             continue
 
-        # set title based on list index, in case there was an exception
-        playlist.title = f"Revisit Release {len(playlists) + 1}"
-        playlist.description = f"Revisit: {release.title} - {release.artist_name}"
+        playlist = Playlist(
+            tracks=tracks,
+            title=f"Revisit Release {len(playlists) + 1}",
+            description=f"Revisit: {release.title} - {release.artist_name}",
+        )
         playlists.append(playlist)
 
     if len(playlists) == 0:

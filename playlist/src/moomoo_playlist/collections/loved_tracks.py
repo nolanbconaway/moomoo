@@ -16,8 +16,8 @@ logger = get_logger().bind(module=__name__)
 
 
 @db_retry
-def list_loved_tracks(username: str, session: Session) -> list[Path]:
-    """List the user's loved tracks, returning a list of Paths.
+def list_loved_tracks(username: str, session: Session) -> list[Track]:
+    """List the user's loved tracks, returning a list of Tracks.
 
     Order is loved at time, in descending order.
     """
@@ -25,15 +25,19 @@ def list_loved_tracks(username: str, session: Session) -> list[Path]:
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-        select filepath
+        select filepath, local_files.track_length_seconds
         from {schema}.loved_tracks
+        inner join {schema}.local_files using (filepath)
         where username = :username
         order by love_at desc
     """
     rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
 
     logger.info(f"Found {len(rows)} tracks.")
-    return [Path(row["filepath"]) for row in rows]
+    return [
+        Track(filepath=Path(row["filepath"]), track_length_seconds=row["track_length_seconds"])
+        for row in rows
+    ]
 
 
 @click.command("loved-tracks")
@@ -41,15 +45,15 @@ def list_loved_tracks(username: str, session: Session) -> list[Path]:
 def main(username: str):
     """Create a playlist of the user's loved tracks."""
     session = get_session()
-    paths = list_loved_tracks(username=username, session=session)
+    tracks = list_loved_tracks(username=username, session=session)
 
-    if len(paths) == 0:
+    if len(tracks) == 0:
         logger.warning("No loved tracks found.")
         return
 
-    logger.info(f"Creating playlist for {len(paths)} loved tracks.")
+    logger.info(f"Creating playlist for {len(tracks)} loved tracks.")
     playlist = Playlist(
-        [Track(filepath=path) for path in paths],
+        tracks,
         title="Loved Tracks",
         description=f"Tracks that {username} has loved on ListenBrainz.",
     )

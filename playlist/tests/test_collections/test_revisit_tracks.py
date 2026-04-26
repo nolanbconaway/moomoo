@@ -39,6 +39,15 @@ def populate_revisit_tracks(session: Session, data: list[dict]):
     """
     session.execute(text(sql))
 
+    # need local_files as well
+    sql = f"""
+        create table {schema}.local_files (
+            filepath text,
+            track_length_seconds real
+        )
+    """
+    session.execute(text(sql))
+
     for row in data:
         row["recording_mbid"] = row.get("recording_mbid", uuid4())
         row["artist_mbid"] = row.get("artist_mbid", uuid4())
@@ -65,6 +74,17 @@ def populate_revisit_tracks(session: Session, data: list[dict]):
             )
         """
         session.execute(text(sql), row)
+
+        sql = f"""
+            insert into {schema}.local_files (
+                filepath,
+                track_length_seconds
+            ) values (
+                :filepath,
+                :track_length_seconds
+            )
+        """
+        session.execute(text(sql), {"filepath": row["filepath"], "track_length_seconds": 200})
 
     session.commit()
 

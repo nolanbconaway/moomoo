@@ -28,8 +28,15 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-    select filepath, recording_mbid, artist_mbid, album_artist_mbid
+    select
+        filepath
+        , revisit_tracks.recording_mbid
+        , revisit_tracks.artist_mbid
+        , revisit_tracks.album_artist_mbid
+        , local_files.track_length_seconds
+
     from {schema}.revisit_tracks
+    inner join {schema}.local_files using (filepath)
     where username = :username
     order by revisit_score desc, recording_mbid
     limit 1000
@@ -43,6 +50,7 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
             recording_mbid=row["recording_mbid"],
             artist_mbid=row["artist_mbid"],
             album_artist_mbid=row["album_artist_mbid"] or row["artist_mbid"],
+            track_length_seconds=row["track_length_seconds"],
         )
         for row in rows
     ]

@@ -23,12 +23,14 @@ def test_Track__to_dict():
         recording_mbid="00000000-0000-0000-0000-000000000000",
         release_mbid="00000000-0000-0000-0000-000000000000",
         distance=1,
+        track_length_seconds=30,
     )
     assert t.to_dict() == {
         "filepath": "test/test.mp3",
         "recording_mbid": "00000000-0000-0000-0000-000000000000",
         "release_mbid": "00000000-0000-0000-0000-000000000000",
         "distance": 1,
+        "track_length_seconds": 30,
     }
 
 

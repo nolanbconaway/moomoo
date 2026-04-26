@@ -267,6 +267,7 @@ def stream_similar_tracks(
             , f.artist_mbid
             , coalesce(f.album_artist_mbid, f.artist_mbid) as album_artist_mbid
             , d.distance / coalesce(weights.weight, 1.0) as distance
+            , floor(f.track_length_seconds)::int as track_length_seconds
 
         from distances as d
         left join {predicate_weights_table} as weights using (filepath)
@@ -289,6 +290,7 @@ def stream_similar_tracks(
         artist_mbid,
         album_artist_mbid,
         distance,
+        track_length_seconds,
     ) in res:
         yield Track(
             filepath=Path(filepath),
@@ -298,6 +300,7 @@ def stream_similar_tracks(
             artist_mbid=artist_mbid,
             album_artist_mbid=album_artist_mbid,
             distance=distance,
+            track_length_seconds=track_length_seconds,
         )
 
 
