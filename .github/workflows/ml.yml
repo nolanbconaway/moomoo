@@ -45,7 +45,7 @@ jobs:
 
       - name: Download ML Artifacts
         if: steps.ml_cache.outputs.cache-hit != 'true'
-        run: moomoo-ml save-artifacts
+        run: moomoo-ml scorer save-artifacts
 
       - name: lint
         run: make lint
