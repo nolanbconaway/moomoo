@@ -11,7 +11,7 @@ from moomoo_client.http import Playlist, PlaylistRequester
 
 
 @pytest.fixture(autouse=True)
-def moomoo_host(monkeypatch) -> str:
+def moomoo_host(monkeypatch):
     """Mock the moomoo host to be localhost on a random unused port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
@@ -23,7 +23,7 @@ def moomoo_host(monkeypatch) -> str:
 
 
 @pytest.fixture
-def local_files(monkeypatch, tmp_path) -> Path:
+def local_files(monkeypatch, tmp_path):
     """Override the local files path and set it to a temporary directory."""
     monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(tmp_path))
     tmp_path = Path(tmp_path)
@@ -95,7 +95,7 @@ async def test_PlaylistRequester__request_playlist_from_path(
     requester = PlaylistRequester()
     res = await requester.request_playlist_from_path([local_files / "test.mp3"])
     assert isinstance(res, Playlist)
-    assert res.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in res.playlist] == [local_files / "a", local_files / "b"]
     assert res.description == description
 
 
@@ -121,7 +121,11 @@ async def test_PlaylistRequester__request_loved_tracks(
     requester = PlaylistRequester()
     res = await requester.request_loved_tracks("username")
     assert isinstance(res, Playlist)
-    assert res.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in res.playlist] == [
+        local_files / "a",
+        local_files / "b",
+    ]
+
     assert res.description == description
 
 
@@ -148,7 +152,10 @@ async def test_PlaylistRequester__request_user_artist_suggestions(
 
     plist = res[0]
     assert isinstance(plist, Playlist)
-    assert plist.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in plist.playlist] == [
+        local_files / "a",
+        local_files / "b",
+    ]
     assert plist.description == description
 
 
@@ -175,7 +182,10 @@ async def test_PlaylistRequester__request_revisit_releases(
 
     plist = res[0]
     assert isinstance(plist, Playlist)
-    assert plist.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in plist.playlist] == [
+        local_files / "a",
+        local_files / "b",
+    ]
     assert plist.description == description
 
 
@@ -201,7 +211,10 @@ async def test_PlaylistRequester__request_revisit_tracks(
     requester = PlaylistRequester()
     res = await requester.request_revisit_tracks("username")
     assert isinstance(res, Playlist)
-    assert res.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in res.playlist] == [
+        local_files / "a",
+        local_files / "b",
+    ]
     assert res.description == description
 
 
@@ -228,7 +241,10 @@ async def test_PlaylistRequester__request_user_smart_mixes(
 
     plist = res[0]
     assert isinstance(plist, Playlist)
-    assert plist.playlist == [local_files / "a", local_files / "b"]
+    assert [i.filepath for i in plist.playlist] == [
+        local_files / "a",
+        local_files / "b",
+    ]
     assert plist.description == description
 
 

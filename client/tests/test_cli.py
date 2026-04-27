@@ -11,7 +11,7 @@ from moomoo_client.cli.playlist import cli as playlist_cli
 
 
 @pytest.fixture(autouse=True)
-def moomoo_host(monkeypatch) -> str:
+def moomoo_host(monkeypatch):
     """Mock the moomoo host to be localhost on a random unused port."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
@@ -23,7 +23,7 @@ def moomoo_host(monkeypatch) -> str:
 
 
 @pytest.fixture(autouse=True)
-def local_files(monkeypatch, tmp_path) -> Path:
+def local_files(monkeypatch, tmp_path):
     """Override the local files path and set it to a temporary directory."""
     monkeypatch.setenv("MOOMOO_MEDIA_LIBRARY", str(tmp_path))
     tmp_path = Path(tmp_path)
@@ -62,7 +62,10 @@ def test_playlist_from_path(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]
 
 
 def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
@@ -86,7 +89,10 @@ def test_playlist_loved(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]
 
 
 def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
@@ -112,7 +118,10 @@ def test_playlist_suggested_artists(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]
 
 
 def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
@@ -138,7 +147,10 @@ def test_playlist_revisit_releases(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]
 
 
 def test_playlist_revisit_tracks(local_files: Path, httpx_mock: HTTPXMock):
@@ -162,7 +174,10 @@ def test_playlist_revisit_tracks(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]
 
 
 def test_playlist_smart_mixes(local_files: Path, httpx_mock: HTTPXMock):
@@ -188,4 +203,7 @@ def test_playlist_smart_mixes(local_files: Path, httpx_mock: HTTPXMock):
 
     # json loadable
     data = json.loads(result.output.splitlines()[-1])
-    assert data["playlist"] == [str(local_files / "a"), str(local_files / "b")]
+    assert [i["filepath"] for i in data["playlist"]] == [
+        str(local_files / "a"),
+        str(local_files / "b"),
+    ]

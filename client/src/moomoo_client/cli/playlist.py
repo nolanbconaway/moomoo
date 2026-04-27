@@ -9,7 +9,9 @@ from ..http import PlaylistRequester
 
 # shared among most commands
 OPTION_OUT = click.option(
-    "--out", default="json", type=click.Choice(["xml", "json", "strawberry"])
+    "--out",
+    default="json",
+    type=click.Choice(["xml", "json", "strawberry", "m3u8"]),
 )
 
 

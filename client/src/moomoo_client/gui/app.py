@@ -8,7 +8,8 @@ from toga.style import Pack
 
 from ..http import PlaylistRequester
 from ..logger import logger
-from ..utils_ import VERSION, Playlist
+from ..schemas import Playlist
+from ..version import VERSION
 from .gi_setup import Gtk
 
 RESOURCES = Path(__file__).resolve().parent / "resources"

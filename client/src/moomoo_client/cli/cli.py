@@ -4,7 +4,7 @@ import os
 
 import click
 
-from ..utils_ import VERSION
+from ..version import VERSION
 from .playlist import cli as cli_playlist
 
 

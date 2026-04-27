@@ -9,7 +9,7 @@ import click
 import httpx
 
 from .logger import logger
-from .utils_ import MediaLibrary, Playlist
+from .schemas import MediaLibrary, Playlist, Track
 
 HTTP_TIMEOUT = float(os.environ.get("MOOMOO_HTTP_TIMEOUT", "60.0"))
 
@@ -37,6 +37,12 @@ class PlaylistRequester:
     def request_tuples(self) -> list[tuple[str, int | bool]]:
         """Convert to tuples, appropriate for passing to requests."""
         return [(k, v) for k, v in self.args.items()]
+
+    def make_track_from_dict(self, d: dict) -> Track:
+        """Make a track from a dict."""
+        kw = {k: v for k, v in d.items() if k not in ["filepath"]}
+        filepath = self.library.make_absolute(d["filepath"])
+        return Track(filepath=filepath, **kw)
 
     async def make_request(
         self, endpoint: str, params: list[tuple[str, int | bool]] | None = None
@@ -85,9 +91,7 @@ class PlaylistRequester:
         # expect only one playlist if success
         plist = data["playlists"][0]
         return Playlist(
-            playlist=[
-                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-            ],
+            playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
             description=plist.get("description"),
             generator="from-path",
         )
@@ -100,9 +104,7 @@ class PlaylistRequester:
         # expect only one playlist if success
         plist = data["playlists"][0]
         return Playlist(
-            playlist=[
-                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-            ],
+            playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
             description=plist.get("description"),
             generator="loved",
         )
@@ -115,9 +117,7 @@ class PlaylistRequester:
         # expect more than one playlist if success
         return [
             Playlist(
-                playlist=[
-                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-                ],
+                playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
                 description=plist.get("description"),
                 generator="revisit-releases",
             )
@@ -132,9 +132,7 @@ class PlaylistRequester:
         # expect only one playlist if success
         plist = data["playlists"][0]
         return Playlist(
-            playlist=[
-                self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-            ],
+            playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
             description=plist.get("description"),
             generator="revisit-tracks",
         )
@@ -147,9 +145,7 @@ class PlaylistRequester:
         # expect more than one playlist if success
         return [
             Playlist(
-                playlist=[
-                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-                ],
+                playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
                 description=plist.get("description"),
                 generator="suggest-by-artist",
             )
@@ -164,9 +160,7 @@ class PlaylistRequester:
         # expect more than one playlist if success
         return [
             Playlist(
-                playlist=[
-                    self.library.make_absolute(f["filepath"]) for f in plist["playlist"]
-                ],
+                playlist=[self.make_track_from_dict(f) for f in plist["playlist"]],
                 description=plist.get("description"),
                 generator="smart-mix",
             )
