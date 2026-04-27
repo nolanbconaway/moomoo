@@ -13,6 +13,8 @@ ExecStart={MOOMOO_ANNOTATOR_DAEMON_LAUNCHER} --no-detach --force-stop --no-resta
 Restart=always
 RestartSec=5
 TimeoutStopSec=30
+# run max 2 days. restart is set to always, so it will restart immediately after the 2 days.
+RuntimeMaxSec=172800s
 
 # Graceful stop. use - to ignore failures.
 ExecStop=-/usr/bin/docker stop -t 5 moomoo-annotator-daemon-latest

@@ -22,8 +22,8 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.pyv }}
           cache: 'pip'
@@ -55,9 +55,9 @@ jobs:
 
   check-version-changed:
     if: github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: wait 10s
         run: sleep 10  # in case the pr is very new
       - name: Get changed files

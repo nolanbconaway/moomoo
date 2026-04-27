@@ -1,4 +1,4 @@
-DOCKER_DIRS = ingest ml http dbt playlist
+DOCKER_DIRS = ingest ml http dbt playlist client
 
 .PHONY:
 docker-build-all:
