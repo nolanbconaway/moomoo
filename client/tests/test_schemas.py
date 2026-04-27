@@ -1,10 +1,11 @@
 """Test the utils module."""
 
+import json
 from pathlib import Path
 
 import pytest
 
-from moomoo_client.utils_ import MediaLibrary, Playlist
+from moomoo_client.schemas import MediaLibrary, Playlist, Track
 
 
 @pytest.fixture
@@ -49,9 +50,13 @@ def test_MediaLibrary__make_absolute(local_files: Path):
 def test_playlist__output_formats(local_files: Path):
     """Test the output formats."""
     fpath = local_files / "test.mp3"
-    playlist = Playlist([fpath], description="aaa", generator="bbb")
+    playlist = Playlist([Track(filepath=fpath)], description="aaa", generator="bbb")
 
-    assert playlist.to_json() == f'{{"playlist": ["{fpath}"], "description": "aaa"}}'
+    expect = {
+        "playlist": [{"filepath": str(fpath), "track_length_seconds": None}],
+        "description": "aaa",
+    }
+    assert playlist.to_json() == json.dumps(expect)
     xml = playlist.to_xml()
     assert "<track>" in xml
     assert f"<location>{fpath}</location>" in xml

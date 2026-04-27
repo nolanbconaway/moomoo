@@ -34,16 +34,16 @@ setup(
         "click==8.*",
         "xspf-lib==0.3.*",
         "httpx==0.28.*",
-        "toga==0.5.*",
         "structlog==25.*",
     ],
     extras_require=dict(
+        gui=["toga==0.5.*"],
         test=[
             "ruff==0.14.10",
             "pytest==9.0.2",
             "pytest-httpx==0.36.0",
             "pytest-asyncio==1.3.0",
-        ]
+        ],
     ),
     entry_points={"console_scripts": ["moomoo-client=moomoo_client.cli.cli:cli"]},
     include_package_data=True,

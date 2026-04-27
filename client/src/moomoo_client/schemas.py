@@ -6,6 +6,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass, field
+from dataclasses import fields as dataclass_fields
 from functools import cached_property
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -14,8 +15,6 @@ import click
 import xspf_lib as xspf
 
 from .logger import logger
-
-VERSION = (Path(__file__).resolve().parent / "version").read_text().strip()
 
 
 class MediaLibrary:
@@ -52,6 +51,31 @@ class MediaLibrary:
 
 
 @dataclass
+class Track:
+    """A track in a playlist."""
+
+    filepath: Path
+    track_length_seconds: int | None = None
+
+    def __init__(self, **kwargs):
+        """Allow extra kwargs for future proofing."""
+        names = set([f.name for f in dataclass_fields(self)])
+        for k, v in kwargs.items():
+            if k in names:
+                setattr(self, k, v)
+
+    def to_dict(self) -> dict:
+        """Convert to a dict.
+
+        Ensure this is always serializable to json!
+        """
+        return {
+            "filepath": str(self.filepath),
+            "track_length_seconds": self.track_length_seconds,
+        }
+
+
+@dataclass
 class Playlist:
     """A playlist.
 
@@ -59,7 +83,7 @@ class Playlist:
     render the playlist in different formats.
     """
 
-    playlist: list[Path]
+    playlist: list[Track]
     generator: str
     description: str | None = None
 
@@ -69,7 +93,18 @@ class Playlist:
     def to_xspf(self) -> xspf.Playlist:
         """Convert to an xspf playlist."""
         return xspf.Playlist(
-            trackList=[xspf.Track(location=str(p)) for p in self.playlist],
+            trackList=[
+                xspf.Track(
+                    location=str(track.filepath),
+                    duration=(
+                        # xspf duration is in milliseconds
+                        track.track_length_seconds * 1000
+                        if track.track_length_seconds
+                        else None
+                    ),
+                )
+                for track in self.playlist
+            ],
             creator="moomoo",
             annotation=self.description,
         )
@@ -77,8 +112,22 @@ class Playlist:
     def to_json(self) -> str:
         """Convert to a json string."""
         return json.dumps(
-            dict(playlist=[str(p) for p in self.playlist], description=self.description)
+            dict(
+                playlist=[track.to_dict() for track in self.playlist],
+                description=self.description,
+            )
         )
+
+    def to_m3u8(self) -> str:
+        """Convert to an m3u8 string."""
+        lines = ["#EXTM3U"]
+        if self.description:
+            lines.append(f"#PLAYLIST:{self.description}")
+        for track in self.playlist:
+            seconds = track.track_length_seconds or 0
+            lines.append(f"#EXTINF:{seconds},")
+            lines.append(str(track.filepath))
+        return "\n".join(lines)
 
     def to_xml(self):
         """Convert to an xspf xml string."""
@@ -94,7 +143,7 @@ class Playlist:
 
     def render(self, method: str):
         """Render the playlist."""
-        if method not in ["json", "xml", "strawberry"]:
+        if method not in ["json", "xml", "strawberry", "m3u8"]:
             raise ValueError(f"Unknown method {method}")
 
         if method == "json":
@@ -103,3 +152,5 @@ class Playlist:
             click.echo(self.to_xml())
         elif method == "strawberry":
             self.to_strawberry()
+        elif method == "m3u8":
+            click.echo(self.to_m3u8())
