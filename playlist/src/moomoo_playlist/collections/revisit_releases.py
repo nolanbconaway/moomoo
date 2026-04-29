@@ -84,13 +84,13 @@ def fetch_release_tracks(session: Session, mbid: UUID) -> list[Track]:
             filepath
             , local_files.recording_mbid
             , local_files.release_mbid
-            , local_files.release_group_mbid
+            , map__file_release_group.release_group_mbid
             , local_files.artist_mbid
             , coalesce(local_files.album_artist_mbid, local_files.artist_mbid) as album_artist_mbid
             , floor(local_files.track_length_seconds)::int as track_length_seconds
         from {schema}.map__file_release_group
         inner join {schema}.local_files using (filepath)
-        where release_group_mbid=:mbid
+        where map__file_release_group.release_group_mbid=:mbid
         order by filepath
     """
     rows = execute_sql_fetchall(session=session, sql=sql, params=dict(mbid=str(mbid)))
