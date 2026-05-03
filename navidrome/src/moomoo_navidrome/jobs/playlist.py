@@ -1,4 +1,4 @@
-"""Playlist synchronization helpers for NavidromeManager."""
+"""Syncronize mooomoo playlists to navidrome."""
 
 import click
 from moomoo_playlist.ddl import PlaylistCollection
@@ -75,7 +75,11 @@ def sync_playlists_collection(
             ]
         )
         logger.info(f"Creating playlist '{title}' with {len(song_ids)} tracks.")
-        client.create_playlist(name=title, comment=comment, song_ids=song_ids)
+        try:
+            client.create_playlist(name=title, comment=comment, song_ids=song_ids)
+        except Exception:
+            logger.exception(f"Failed to create playlist '{title}'.")
+            raise
 
 
 @click.group()
@@ -84,7 +88,7 @@ def cli():
 
 
 @cli.command()
-@click.option("--force", is_flag=True, help="Force sync even if playlists appear up to date.")
+@click.option("-f", "--force", is_flag=True, help="Force sync even if playlists appear up to date.")
 def sync(force: bool):
     with get_session() as session, NavidromeHTTPClient() as client:
         collections = session.query(PlaylistCollection).order_by(PlaylistCollection.collection_name)

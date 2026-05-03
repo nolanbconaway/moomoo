@@ -6,7 +6,6 @@ https://opensubsonic.netlify.app/docs/
 
 import contextlib
 import hashlib
-import itertools
 import os
 import secrets
 import sqlite3
@@ -17,17 +16,9 @@ from typing import TypedDict
 
 import httpx
 
+from moomoo_navidrome.logger import logger
 from moomoo_navidrome.models import NavidromePlaylist, SubsonicResponse, SubsonicStatusError
-
-
-def batched(iterable, n):
-    """Batch data into tuples of length n. The last batch may be shorter."""
-    # batched('ABCDEFG', 3) --> ABC DEF G
-    if n < 1:
-        raise ValueError("n must be at least one")
-    it = iter(iterable)
-    while batch := tuple(itertools.islice(it, n)):
-        yield batch
+from moomoo_navidrome.utils_ import batched
 
 
 class SubsonicAuth(TypedDict):
@@ -96,7 +87,7 @@ class NavidromeHTTPClient(httpx.Client):
 
     def auto_raise_on_status_or_subsonic_error(self, response: httpx.Response):
         """Intercepts response to check for Subsonic application errors.
-        
+
         Automatically raises an httpx.HTTPStatusError for non-2xx HTTP responses, and a
         SubsonicStatusError for any 200 OK response where the Subsonic 'status' field is 'failed'.
         """
@@ -216,6 +207,7 @@ class NavidromeHTTPClient(httpx.Client):
                 raise RuntimeError("Comment was not added correctly.")
 
         except Exception:
+            logger.exception(f"Failed to create playlist '{name}', rolling back.")
             self.delete_playlist(pl_id)
             raise
 
@@ -227,7 +219,7 @@ class NavidromeDBClient:
         db_path: The filesystem path to the navidrome.db file.
     """
 
-    def __init__(self, db_path: Path | str | None = None) -> None:
+    def __init__(self, db_path: Path | str | None = None, readonly: bool = True) -> None:
         """Initializes the DB client.
 
         Args:
@@ -239,7 +231,13 @@ class NavidromeDBClient:
         self.db_path = Path(db_path)
 
         # mode=ro ensures we cannot accidentally modify the production DB
-        self.uri = f"file:{self.db_path.absolute()}?mode=ro"
+        uri = f"file:{self.db_path.absolute()}"
+        if readonly:
+            uri += "?mode=ro"
+        else:
+            # check that the navidrome server is not running
+            raise NotImplementedError("Read-write mode is not implemented.")
+        self.uri = uri
 
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
@@ -289,3 +287,18 @@ class NavidromeDBClient:
                         mapping[path_lookup[row_path]] = row_id
 
         return mapping
+
+    def list_loved_files(self) -> set[Path]:
+        """Lists the file paths of all loved tracks in Navidrome."""
+        sql = """
+        select distinct media_file.path
+        from annotation
+        inner join media_file
+            on annotation.item_id = media_file.id
+        where annotation.starred = 1
+        and annotation.item_type = 'media_file'
+        """
+        with self.connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(sql)
+            return {Path(row["path"]) for row in cursor.fetchall()}

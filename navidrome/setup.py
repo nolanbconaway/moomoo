@@ -27,6 +27,7 @@ setup(
         "httpx==0.28.*",
         "loguru==0.7.*",
         "pydantic==2.13.*",
+        "liblistenbrainz==0.7.0",
         f"moomoo-playlist @ git+{playlist_url}@{playlist_commit}#subdirectory=playlist",
     ],
     extras_require=dict(
