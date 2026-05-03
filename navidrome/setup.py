@@ -5,11 +5,13 @@ from pathlib import Path
 from setuptools import find_packages, setup
 
 version = (
-    (Path(__file__).resolve().parent / "src" / "moomoo_navidrome" / "version")
-    .read_text()
-    .strip()
+    (Path(__file__).resolve().parent / "src" / "moomoo_navidrome" / "version").read_text().strip()
 )
 
+# setup for installing moomoo-playlist from a git repository
+# TODO: get the url from shell? grab from a tagged release?
+playlist_commit = "ac338df2ab58c5c3a2f6ffd47e4b38756bb89dfb"
+playlist_url = "https://github.com/nolanbconaway/moomoo.git"
 
 setup(
     name="moomoo-navidrome",
@@ -22,6 +24,10 @@ setup(
         "sqlalchemy==2.0.*",
         "pgvector==0.1.*",
         "click==8.*",
+        "httpx==0.28.*",
+        "loguru==0.7.*",
+        "pydantic==2.13.*",
+        f"moomoo-playlist @ git+{playlist_url}@{playlist_commit}#subdirectory=playlist",
     ],
     extras_require=dict(
         test=[
