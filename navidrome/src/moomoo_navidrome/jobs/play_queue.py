@@ -17,7 +17,6 @@ from moomoo_navidrome.db import execute_sql_fetchall
 from moomoo_navidrome.logger import logger
 from moomoo_navidrome.models import NavidromePlaylist
 from moomoo_navidrome.navidrome import NavidromeHTTPClient
-from moomoo_navidrome.utils_ import batched
 
 
 class QueueSignature(BaseModel):
@@ -51,6 +50,21 @@ class QueueSignature(BaseModel):
         right = right.strip().split()[0]  # in case there are other comments after the signature
         return cls.model_validate_json(base64.urlsafe_b64decode(right).decode())
 
+    def sign(self, client: NavidromeHTTPClient, playlist_id: str) -> str:
+        """Generate the signature comment for the playlist."""
+        client.post(
+            "/rest/updatePlaylist",
+            params={"playlistId": playlist_id},
+            data={"comment": self.signature},
+        )
+        time.sleep(0.1)
+
+        check_plist = client.get_playlist_by_id(playlist_id)
+        if check_plist.comment != self.signature:
+            raise RuntimeError("Comment was not added correctly.")
+
+        return self.signature
+
 
 class QueuePlaylist(NavidromePlaylist):
     @property
@@ -79,7 +93,21 @@ class QueuePlaylist(NavidromePlaylist):
         return tagged[0]
 
 
-def get_releases_added_since(ts: datetime.datetime) -> list[Path]:
+def get_latest_ts() -> datetime.datetime:
+    """Get the latest file stamp among the media files."""
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+    select max(file_created_at) as latest
+    from {schema}.local_files
+    """
+    rows = execute_sql_fetchall(sql)
+    # should never happen but just in case...
+    if not rows:
+        raise RuntimeError("No rows returned from local_files query.")
+    return rows[0]["latest"]
+
+
+def get_files_added_since(ts: datetime.datetime) -> list[Path]:
     """Get all filepaths that have been added since the last sync."""
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
@@ -92,36 +120,11 @@ def get_releases_added_since(ts: datetime.datetime) -> list[Path]:
     return [Path(row["filepath"]) for row in rows]
 
 
-def get_latest_ts(filepaths: list[Path], batch_size: int = 20) -> datetime.datetime | None:
-    """Get the latest timestamp from a list of filepaths."""
-    if not filepaths:
-        return None
-
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
-    select max(file_created_at) as latest
-    from {schema}.local_files
-    where filepath = any(:batch)
-    """
-
-    latest = datetime.datetime.fromtimestamp(0)
-    for batch in batched(filepaths, batch_size):
-        rows = execute_sql_fetchall(sql, {"batch": [str(p) for p in batch]})
-        batch_latest = rows[0]["latest"]
-        latest = max(latest, batch_latest)
-
-    # should never happen but just in case...
-    if latest == datetime.datetime.fromtimestamp(0):
-        return None
-
-    return latest
-
-
 @click.group()
 def cli():
     pass
 
-
+NEED TO USE A SEPARATE PIPELINE TO KEEP TRACK OF CREATE TIMES, ELSE BEET SYNCS WILL ADD NEW SONGS BECAUSE OF UPDATES
 @cli.command()
 @click.option(
     "--ts",
@@ -130,9 +133,13 @@ def cli():
     help="The timestamp to use for the signature. Defaults to now.",
 )
 def sign(ts: datetime.datetime | None):
-    """Add the signature comment to the play queue playlist."""
-    ts = ts or datetime.datetime.now(datetime.timezone.utc)
-    comment = QueueSignature(ts=ts, synced_at=ts).signature
+    """Add the signature comment to the play queue playlist.
+
+    Fetches any playlist with the tag, does not need to have the full signature. Good for a reset
+    when something changes.
+    """
+    ts = ts or get_latest_ts()
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     with NavidromeHTTPClient() as client:
         playlists = [i for i in client.fetch_playlists() if QueueSignature.tag in (i.comment or "")]
@@ -142,16 +149,7 @@ def sign(ts: datetime.datetime | None):
             raise RuntimeError(f"Multiple playlists with tag {QueueSignature.tag} found.")
         playlist = playlists[0]
 
-        client.post(
-            "/rest/updatePlaylist",
-            params={"playlistId": playlist.playlist_id},
-            data={"comment": comment},
-        )
-        time.sleep(0.1)
-
-        check_plist = client.get_playlist_by_id(playlist.playlist_id)
-        if check_plist.comment != comment:
-            raise RuntimeError("Comment was not added correctly.")
+        QueueSignature(ts=ts, synced_at=now).sign(client=client, playlist_id=playlist.playlist_id)
 
     logger.info(f"Playlist '{playlist.name}' signed with timestamp {ts}.")
 
@@ -161,10 +159,25 @@ def sync():
     """Sync the play queue playlist with the songs added since the last sync."""
     with NavidromeHTTPClient() as client:
         playlist = QueuePlaylist.fetch(client)
-        logger.info(f"Fetched playlist '{playlist.name}' with id {playlist.playlist_id}.")
 
-        logger.info(f"Last sync stopped at {playlist.signature.ts}, fetching new songs since then.")
-        new_songs = get_releases_added_since(playlist.signature.ts)
+        last_create_at = get_latest_ts()
+        last_stop_at = playlist.signature.ts
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        logger.info(f"Fetched playlist '{playlist.name}' (ID: {playlist.playlist_id}).")
+
+        # report the three timestamps in the logs
+        message = (
+            f"Last stop time: {playlist.signature.ts}, "
+            f"Last sync time: {playlist.signature.synced_at}, "
+            f"Latest file created timestamp: {last_create_at}."
+        )
+        logger.info(message)
+
+        new_songs = get_files_added_since(last_stop_at)
         logger.info(f"Found {len(new_songs)} new songs since last sync.")
         if new_songs:
-            client.add_songs_to_playlist(playlist.id, new_songs)
+            client.add_songs_to_playlist(playlist.playlist_id, new_songs)
+
+        signature = QueueSignature(ts=last_create_at, synced_at=now)
+        signature.sign(client=client, playlist_id=playlist.playlist_id)
