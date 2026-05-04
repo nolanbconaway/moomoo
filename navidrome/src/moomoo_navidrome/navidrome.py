@@ -197,6 +197,7 @@ class NavidromeHTTPClient(httpx.Client):
 
             # add the songs in chunks to preserve order
             self.add_songs_to_playlist(pl_id, song_ids)
+            time.sleep(0.1)
 
             # check that the comment was added correctly, if not then raise an error.
             #
