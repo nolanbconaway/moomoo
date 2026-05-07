@@ -31,10 +31,15 @@ with metadata as (
   from {{ ref('local_files_embedding') }}
 )
 
+, birth_ts as (
+  select filepath, birth_at
+  from {{ source('pyingest', 'local_music_files_birth_timestamps') }}
+)
+
 select
   metadata.filepath
   , metadata.recording_md5
-  , metadata.file_created_at
+  , least(birth_ts.birth_at, metadata.file_created_at) as file_created_at
   , metadata.track_name
   , metadata.album_name
   , metadata.artist_name
@@ -56,3 +61,4 @@ select
 
 from metadata
 left join embeds using (filepath)
+left join birth_ts using (filepath)

@@ -35,6 +35,20 @@ sources:
             tests:
               - not_null
               - unique 
+      
+      - name: local_music_files_birth_timestamps
+        description: Birth timestamps for local music files.
+        columns:
+          - name: filepath
+            tests:
+              - not_null
+              - unique 
+          - name: birth_at
+            tests:
+              - not_null
+          - name: insert_ts_utc
+            tests:
+              - not_null
 
       - name: messybrainz_name_map
         description: Mapped local file data to musicbrainz data.
