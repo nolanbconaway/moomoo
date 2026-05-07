@@ -14,7 +14,7 @@ import mutagen
 from tqdm.auto import tqdm
 
 from . import utils_
-from .db import LocalFile, LocalFileExcludeRegex, get_session
+from .db import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex, get_session
 
 EXTENSIONS: set[str] = set([".mp3", ".flac"])
 
@@ -158,7 +158,19 @@ def main(
             )
             for path, data in zip(files, parsed)
         ]
-        LocalFile.bulk_insert(rows, session=session)
+        for batch in utils_.batch(rows, n=1000):
+            LocalFile.bulk_insert(list(batch), session=session)
+
+        # filter to only files not in the database, else the birth upsert takes forever
+        old_files = {file.filepath for file in session.query(LocalFileBirthTimestamp).all()}
+        rows = [
+            dict(filepath=str(path.relative_to(src_dir)), birth_at=data["file_created_at"])
+            for path, data in zip(files, parsed)
+            if str(path.relative_to(src_dir)) not in old_files
+        ]
+        click.echo(f"Upserting {len(rows)} birth timestamps.")
+        for batch in utils_.batch(rows, n=1000):
+            LocalFileBirthTimestamp.bulk_upsert_on_conflict_do_nothing(list(batch), session=session)
 
     click.echo("Done.")
 

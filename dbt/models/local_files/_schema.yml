@@ -18,8 +18,8 @@ models:
                 at_least: 0.85  # test nothing pathologically wrong with ingest.
       - name: file_created_at
         description: |
-          Least of file ctime, mtime. This is done due to platform differences in what
-          those stamps mean.
+          Least of file ctime, mtime, and moomoo-managed birth timestamp. This is done due to platform differences in
+          what those stamps mean.
         tests:
           - not_null
       - name: track_name

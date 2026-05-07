@@ -7,14 +7,16 @@ import pytest
 from click.testing import CliRunner
 
 from moomoo_ingest import collect_local_files
-from moomoo_ingest.db import LocalFile, LocalFileExcludeRegex
+from moomoo_ingest.db import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex
 
 from .conftest import RESOURCES
 
 
 @pytest.fixture(autouse=True)
-def make_exclude_table():
+def make_tables():
+    LocalFile.create()
     LocalFileExcludeRegex.create()
+    LocalFileBirthTimestamp.create()
 
 
 def test_parse_audio_file():
@@ -43,17 +45,9 @@ def test_pass_all_exclude_rules():
     assert not fn(Path("src/ex2/aaa"))
 
 
-def test_cli_main__not_table_exists_error():
-    runner = CliRunner()
-    result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__no_files(monkeypatch):
     monkeypatch.setattr(collect_local_files, "list_audio_files", lambda *a: [])
     runner = CliRunner()
-    LocalFile.create()
 
     result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
     assert result.exit_code == 0
@@ -62,7 +56,6 @@ def test_cli_main__no_files(monkeypatch):
 
 def test_cli_main__regex_exclude():
     runner = CliRunner()
-    LocalFile.create()
     LocalFileExcludeRegex(pattern="^test").insert()
 
     result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
@@ -74,10 +67,12 @@ def test_cli_main__regex_exclude():
     rows = LocalFile.select_star()
     assert len(rows) == 0
 
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 0
+
 
 def test_cli_main__insert_serial():
     runner = CliRunner()
-    LocalFile.create()
 
     result = runner.invoke(collect_local_files.main, [str(RESOURCES), "--procs=1"])
     assert result.exit_code == 0
@@ -88,6 +83,11 @@ def test_cli_main__insert_serial():
     assert len(rows) == 1
     assert rows[0]["json_data"]["title"] == rows[0]["recording_name"] == "fake"
 
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 1
+    assert rows[0]["filepath"] == "test.mp3"
+    assert rows[0]["birth_at"] is not None
+
 
 def test_cli_main__insert_mp(tmpdir):
     # make a bunch of copies of the test file
@@ -97,7 +97,6 @@ def test_cli_main__insert_mp(tmpdir):
         shutil.copy(RESOURCES / "test.mp3", tmp_path / f"{i}.mp3")
 
     runner = CliRunner()
-    LocalFile.create()
 
     result = runner.invoke(collect_local_files.main, [str(tmp_path), "--procs=2"])
     assert result.exit_code == 0
@@ -107,3 +106,6 @@ def test_cli_main__insert_mp(tmpdir):
     rows = LocalFile.select_star()
     assert len(rows) == 10
     assert rows[0]["json_data"]["title"] == rows[0]["recording_name"] == "fake"
+
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 10
