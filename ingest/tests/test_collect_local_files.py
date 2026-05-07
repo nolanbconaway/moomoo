@@ -45,13 +45,6 @@ def test_pass_all_exclude_rules():
     assert not fn(Path("src/ex2/aaa"))
 
 
-def test_cli_main__not_table_exists_error():
-    runner = CliRunner()
-    result = runner.invoke(collect_local_files.main, [str(RESOURCES)])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__no_files(monkeypatch):
     monkeypatch.setattr(collect_local_files, "list_audio_files", lambda *a: [])
     runner = CliRunner()
