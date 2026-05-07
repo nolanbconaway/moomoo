@@ -258,6 +258,39 @@ class LocalFileExcludeRegex(BaseTable):
             return [re.compile(i.pattern) for i in session.query(cls).all()]
 
 
+class LocalFileBirthTimestamp(BaseTable):
+    """Model for local_music_files_birth_timestamps table."""
+
+    __tablename__ = "local_music_files_birth_timestamps"
+
+    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    birth_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+    @classmethod
+    def bulk_upsert_on_conflict_do_nothing(
+        cls, rows: list[dict], session: Session = None, commit: bool = True
+    ) -> None:
+        """Bulk upsert rows into the table, doing nothing on conflict."""
+        if not rows:
+            return
+
+        stmt = insert(cls).values(rows).on_conflict_do_nothing(index_elements=["filepath"])
+
+        def f(s: Session):
+            s.execute(stmt)
+            if commit:
+                s.commit()
+
+        if session is None:
+            with get_session() as session:
+                f(session)
+        else:
+            f(session)
+
+
 class MessyBrainzNameMap(BaseTable):
     """Model for messybrainz_name_map table."""
 
@@ -444,6 +477,7 @@ TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
     LocalFileExcludeRegex,
+    LocalFileBirthTimestamp,
     ListenBrainzSimilarUserActivity,
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,

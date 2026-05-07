@@ -19,6 +19,7 @@ from moomoo_ingest.db.ddl import (
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
     ListenBrainzListen,
+    LocalFileBirthTimestamp,
     LocalFileExcludeRegex,
     MusicBrainzDataDump,
     MusicBrainzDataDumpRecord,
@@ -408,3 +409,46 @@ def test_AnnotationQueueLog__last_update_timestamp():
     log.insert(session=session)
     assert AnnotationQueueLog.last_update_timestamp(session=session, source="fake") == ts
     assert AnnotationQueueLog.last_update_timestamp(session=session, source="other") is None
+
+
+def test_LocalFileBirthTimestamp__bulk_upsert_on_conflict_do_nothing():
+    LocalFileBirthTimestamp.create(drop=True)
+    # Insert a row
+    LocalFileBirthTimestamp.bulk_upsert_on_conflict_do_nothing(
+        [
+            dict(
+                filepath="a/b/c.mp3",
+                birth_at=datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc),
+            )
+        ],
+    )
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 1
+    assert rows[0]["filepath"] == "a/b/c.mp3"
+    assert rows[0]["birth_at"] == datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+
+    # Try to insert the same row again with a different birth_at (should do nothing)
+    LocalFileBirthTimestamp.bulk_upsert_on_conflict_do_nothing(
+        [
+            dict(
+                filepath="a/b/c.mp3",
+                birth_at=datetime.datetime(2022, 1, 1, tzinfo=datetime.timezone.utc),
+            )
+        ],
+    )
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 1
+    assert rows[0]["filepath"] == "a/b/c.mp3"
+    assert rows[0]["birth_at"] == datetime.datetime(2021, 1, 1, tzinfo=datetime.timezone.utc)
+
+    # Insert a new row
+    LocalFileBirthTimestamp.bulk_upsert_on_conflict_do_nothing(
+        [
+            dict(
+                filepath="d/e/f.mp3",
+                birth_at=datetime.datetime(2022, 1, 1, tzinfo=datetime.timezone.utc),
+            )
+        ]
+    )
+    rows = LocalFileBirthTimestamp.select_star()
+    assert len(rows) == 2
