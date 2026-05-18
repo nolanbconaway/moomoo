@@ -55,8 +55,7 @@ def sync_playlists_collection(
     logger.info(f"Creating {len(collection.items)} new playlist(s).")
     for item in collection.items:
         playlist_paths = [track.filepath for track in item.to_playlist().tracks]
-        id_map = NavidromeDBClient().resolve_paths_to_ids(playlist_paths)
-        song_ids = [id_map[path] for path in playlist_paths if path in id_map]
+        song_ids = NavidromeDBClient().get_song_ids(playlist_paths)
 
         if not song_ids:
             logger.warning(f"No tracks found for {item.collection_order_index}, skipping.")

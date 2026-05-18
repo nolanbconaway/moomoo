@@ -5,10 +5,9 @@ The user needs to remove the songs, this just adds them based on the last sync.
 
 import base64
 import datetime
-import os
 import time
 from pathlib import Path
-from typing import Final
+from typing import ClassVar
 
 import click
 from pydantic import BaseModel, ConfigDict
@@ -16,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 from moomoo_navidrome.db import execute_sql_fetchall
 from moomoo_navidrome.logger import logger
 from moomoo_navidrome.models import NavidromePlaylist
-from moomoo_navidrome.navidrome import NavidromeHTTPClient
+from moomoo_navidrome.navidrome import NavidromeDBClient, NavidromeHTTPClient
 
 
 class QueueSignature(BaseModel):
@@ -26,7 +25,7 @@ class QueueSignature(BaseModel):
 
     ts: datetime.datetime
     synced_at: datetime.datetime
-    tag: Final[str] = "#moomoo-inbox"
+    tag: ClassVar[str] = "#moomoo-inbox"
 
     @property
     def signature(self) -> str:
@@ -50,17 +49,27 @@ class QueueSignature(BaseModel):
         right = right.strip().split()[0]  # in case there are other comments after the signature
         return cls.model_validate_json(base64.urlsafe_b64decode(right).decode())
 
+    @staticmethod
+    def human_ts(ts: datetime.datetime) -> str:
+        """Format a timestamp for human-readable display."""
+        return ts.strftime("%B %d, %H:%M (%Z)")
+
     def sign(self, client: NavidromeHTTPClient, playlist_id: str) -> str:
         """Generate the signature comment for the playlist."""
+
+        sync_at = self.human_ts(self.synced_at)
+        last_at = self.human_ts(self.ts)
+        comment = f"Queue updated at {sync_at}, newest media file from {last_at}."
+        comment += "\n\n" + self.signature
         client.post(
             "/rest/updatePlaylist",
             params={"playlistId": playlist_id},
-            data={"comment": self.signature},
+            data={"comment": comment},
         )
         time.sleep(0.1)
 
         check_plist = client.get_playlist_by_id(playlist_id)
-        if check_plist.comment != self.signature:
+        if check_plist.comment != comment:
             raise RuntimeError("Comment was not added correctly.")
 
         return self.signature
@@ -95,25 +104,24 @@ class QueuePlaylist(NavidromePlaylist):
 
 def get_latest_ts() -> datetime.datetime:
     """Get the latest file stamp among the media files."""
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
-    select max(file_created_at) as latest
-    from {schema}.local_files
+    # TODO: use ddl package.
+    sql = """
+    select max(birth_at) as latest
+    from local_music_files_birth_timestamps
     """
     rows = execute_sql_fetchall(sql)
     # should never happen but just in case...
     if not rows:
-        raise RuntimeError("No rows returned from local_files query.")
+        raise RuntimeError("No rows returned from local_music_files_birth_timestamps query.")
     return rows[0]["latest"]
 
 
 def get_files_added_since(ts: datetime.datetime) -> list[Path]:
     """Get all filepaths that have been added since the last sync."""
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
+    sql = """
     select filepath
-    from {schema}.local_files
-    where file_created_at > :ts
+    from local_music_files_birth_timestamps
+    where birth_at > :ts
     order by filepath
     """
     rows = execute_sql_fetchall(sql, {"ts": ts})
@@ -124,7 +132,7 @@ def get_files_added_since(ts: datetime.datetime) -> list[Path]:
 def cli():
     pass
 
-NEED TO USE A SEPARATE PIPELINE TO KEEP TRACK OF CREATE TIMES, ELSE BEET SYNCS WILL ADD NEW SONGS BECAUSE OF UPDATES
+
 @cli.command()
 @click.option(
     "--ts",
@@ -174,10 +182,10 @@ def sync():
         )
         logger.info(message)
 
-        new_songs = get_files_added_since(last_stop_at)
+        new_songs = NavidromeDBClient().get_song_ids(get_files_added_since(last_stop_at))
         logger.info(f"Found {len(new_songs)} new songs since last sync.")
         if new_songs:
-            client.add_songs_to_playlist(playlist.playlist_id, new_songs)
+            client.add_songs_to_playlist(playlist_id=playlist.playlist_id, song_ids=new_songs)
 
         signature = QueueSignature(ts=last_create_at, synced_at=now)
         signature.sign(client=client, playlist_id=playlist.playlist_id)

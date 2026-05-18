@@ -1,7 +1,7 @@
 import base64
 import datetime
 import re
-from typing import Final, Literal
+from typing import ClassVar, Literal
 from uuid import UUID
 
 import httpx
@@ -21,7 +21,7 @@ class MoomooPlaylistSignature(BaseModel):
         default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
     )
 
-    signature_prefix: Final[str] = " --- moomoo playlist:"
+    signature_prefix: ClassVar[str] = " --- moomoo playlist:"
 
     @classmethod
     def from_playlist(cls, playlist: PlaylistCollectionItem) -> "MoomooPlaylistSignature":
@@ -63,13 +63,20 @@ class NavidromePlaylist(BaseModel):
     # https://opensubsonic.netlify.app/docs/endpoints/getplaylists/
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
+    class Entry(BaseModel):
+        song_id: str = Field(alias="id")
+        path: str
+        title: str
+        album: str
+        artist: str
+
     playlist_id: str = Field(alias="id")
     name: str
     owner: str
-    song_count: int = Field(alias="songCount")
     duration: int
     created: datetime.datetime
     changed: datetime.datetime
+    songs: list[Entry] = Field(default_factory=list, alias="entry")
     comment: str | None = None
 
     @property

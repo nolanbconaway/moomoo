@@ -54,6 +54,7 @@ def submit_navidrome_stars(http: NavidromeHTTPClient, db: NavidromeDBClient, fil
 def submit_listenbrainz_feedback(filepaths: set[Path]):
     """Submit feedback to listenbrainz for the given filepaths."""
     # https://liblistenbrainz.readthedocs.io/en/latest/api_ref.html#liblistenbrainz.client.ListenBrainz.submit_user_feedback
+    # TODO: write to the db so that subsequent runs do not re-send this feedback
     for _, recording_mbid in resolve_recording_mbids(filepaths).items():
         listenbrainz_client.submit_user_feedback(feedback=1, recording_mbid=str(recording_mbid))
 
@@ -64,7 +65,14 @@ def cli():
 
 
 @cli.command()
-def sync():
+# options for sync direction
+@click.option(
+    "--direction",
+    type=click.Choice(["navidrome-to-listenbrainz", "listenbrainz-to-navidrome", "both"]),
+    default="both",
+    help="The direction to sync loves. Defaults to both.",
+)
+def sync(direction: str):
     """Sync loved tracks from listenbrainz to navidrome."""
     logger.info("Starting loves sync...")
     navidrome_db = NavidromeDBClient()
@@ -79,19 +87,21 @@ def sync():
         logger.info("Loved tracks are already in sync.")
         return
 
-    # star anything on navidrome that is loved on listenbrainz but not starred on navidrome
-    to_star = lb_loves - nv_loves
-    if not to_star:
-        logger.info("No tracks to star on navidrome.")
-    else:
-        logger.info(f"Starring {len(to_star)} tracks on navidrome...")
+    if direction in ["listenbrainz-to-navidrome", "both"]:
+        # star anything on navidrome that is loved on listenbrainz but not starred on navidrome
+        to_star = lb_loves - nv_loves
+        if not to_star:
+            logger.info("No tracks to star on navidrome.")
+        else:
+            logger.info(f"Starring {len(to_star)} tracks on navidrome...")
         with NavidromeHTTPClient() as http:
             submit_navidrome_stars(http=http, db=navidrome_db, filepaths=to_star)
 
-    # star anything on listenbrainz that is loved on navidrome but not starred on listenbrainz
-    to_star = nv_loves - lb_loves
-    if not to_star:
-        logger.info("No tracks to star on listenbrainz.")
-    else:
-        logger.info(f"Starring {len(to_star)} tracks on listenbrainz...")
-        submit_listenbrainz_feedback(filepaths=to_star)
+    if direction in ["navidrome-to-listenbrainz", "both"]:
+        # star anything on listenbrainz that is loved on navidrome but not starred on listenbrainz
+        to_star = nv_loves - lb_loves
+        if not to_star:
+            logger.info("No tracks to star on listenbrainz.")
+        else:
+            logger.info(f"Starring {len(to_star)} tracks on listenbrainz...")
+            submit_listenbrainz_feedback(filepaths=to_star)

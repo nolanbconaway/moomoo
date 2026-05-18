@@ -35,6 +35,7 @@ setup(
             "ruff==0.15.*",
             "pytest==7.4.4",
             "pytest-postgresql==5.0.0",
+            "testcontainers==4.14.2",
         ],
     ),
     entry_points={"console_scripts": ["moomoo-navidrome=moomoo_navidrome.cli:cli"]},

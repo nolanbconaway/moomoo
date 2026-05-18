@@ -171,7 +171,7 @@ class NavidromeHTTPClient(httpx.Client):
             # Passing a list to 'params' makes httpx repeat the key: ?songIdToAdd=A&songIdToAdd=B
             self.get(
                 "/rest/updatePlaylist",
-                params={"playlistId": playlist_id, "songIdToAdd": chunk},
+                params={"playlistId": playlist_id, "songIdToAdd": list(chunk)},
             )
 
     def create_playlist(self, name: str, comment: str, song_ids: list[str]) -> str:
@@ -196,12 +196,13 @@ class NavidromeHTTPClient(httpx.Client):
             )
 
             # add the songs in chunks to preserve order
-            self.add_songs_to_playlist(pl_id, song_ids)
-            time.sleep(0.1)
+            if song_ids:
+                self.add_songs_to_playlist(pl_id, song_ids)
+                time.sleep(0.5)
 
             # check that the comment was added correctly, if not then raise an error.
             #
-            # if the commentis not added correctly, then we have no way to manage the playlist
+            # if the comment is not added correctly, then we have no way to manage the playlist
             # and will end up with duplicates on the next sync.
             check_plist = self.get_playlist_by_id(pl_id)
             if check_plist.comment != comment:
@@ -211,6 +212,8 @@ class NavidromeHTTPClient(httpx.Client):
             logger.exception(f"Failed to create playlist '{name}', rolling back.")
             self.delete_playlist(pl_id)
             raise
+
+        return pl_id
 
 
 class NavidromeDBClient:
@@ -288,6 +291,14 @@ class NavidromeDBClient:
                         mapping[path_lookup[row_path]] = row_id
 
         return mapping
+
+    def get_song_ids(self, file_paths: list[Path]) -> list[str]:
+        """Convenience method to get just the list of song IDs for given file paths.
+
+        This does so in an ordered fashion, skipping any paths that don't resolve to an ID.
+        """
+        path_to_id = self.resolve_paths_to_ids(file_paths)
+        return [path_to_id[p] for p in file_paths if p in path_to_id]
 
     def list_loved_files(self) -> set[Path]:
         """Lists the file paths of all loved tracks in Navidrome."""
