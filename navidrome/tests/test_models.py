@@ -1,7 +1,5 @@
 import base64
-import datetime
-from unittest.mock import Mock
-from uuid import UUID, uuid1
+from uuid import uuid1
 
 import pytest
 
