@@ -60,7 +60,7 @@ def setup_environment(monkeypatch, navidrome_data_dir, navidrome_container):
     wal_file = navidrome_data_dir / "navidrome.db-wal"
     if wal_file.exists() and wal_file.stat().st_size > 0:
         navidrome_container.restore_seed()
-        navidrome_container.restart()  # restart after restoring seed so Navidrome reloads
+        navidrome_container.restart()
         monkeypatch.setenv("NAVIDROME_URL", navidrome_container.url)
 
 

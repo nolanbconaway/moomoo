@@ -93,11 +93,11 @@ class QueuePlaylist(NavidromePlaylist):
         tagged = [
             ql for pl in playlists if (ql := QueuePlaylist(**pl.model_dump())).signature is not None
         ]
-
+        tag = QueueSignature.tag
         if len(tagged) > 1:
-            raise RuntimeError(f"Multiple playlists with tag {cls.tag} found.")
+            raise RuntimeError(f"Multiple playlists with tag {tag} found.")
         elif len(tagged) == 0:
-            raise RuntimeError(f"Playlist with tag {cls.tag} not found.")
+            raise RuntimeError(f"Playlist with tag {tag} not found.")
 
         return tagged[0]
 

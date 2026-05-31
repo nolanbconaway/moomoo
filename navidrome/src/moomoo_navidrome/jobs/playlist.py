@@ -13,7 +13,7 @@ TITLE_PREFIX = "mm |"
 
 def drop_all_moomoo_playlists(client: NavidromeHTTPClient) -> None:
     """Deletes all playlists that have a moomoo signature.
-    
+
     Returns the number of playlists deleted.
     """
     logger.info("Dropping all moomoo playlists.")

@@ -1,4 +1,3 @@
-
 """Create minimal FLAC audio files for test fixtures.
 
 Writes a small but realistic library structure to tests/resources/music/.

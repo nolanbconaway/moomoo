@@ -34,11 +34,11 @@ docker-run:
 		else docker run --interactive --tty --rm \
 			--env MOOMOO_POSTGRES_URI=$(MOOMOO_DOCKER_POSTGRES_URI) \
 			--env MOOMOO_DBT_SCHEMA=$(MOOMOO_DBT_SCHEMA) \
-			--env LISTENBRAINZ_USERNAME=$(LISTENBRAINZ_USERNAME) \
 			--env NAVIDROME_URL=$(NAVIDROME_URL) \
 			--env NAVIDROME_USERNAME=$(NAVIDROME_USERNAME) \
 			--env NAVIDROME_PASSWORD=$(NAVIDROME_PASSWORD) \
 			--env NAVIDROME_DB_PATH=/navidrome.db \
+			--env LISTENBRAINZ_USERNAME=$(LISTENBRAINZ_USERNAME) \
 			--env LISTENBRAINZ_USER_TOKEN=$(LISTENBRAINZ_USER_TOKEN) \
 			--add-host=host.docker.internal:host-gateway \
 			--volume $(NAVIDROME_DB_PATH):/navidrome.db:ro \
