@@ -97,3 +97,9 @@ class NavidromeContainer(DockerContainer):
         with tarfile.open(fileobj=tar_bytes) as tar:
             f = tar.extractfile(tar.getmember("navidrome.db"))
             return f.read()
+
+    def restart(self, timeout: float = 60.0) -> None:
+        """Stop and restart the container, waiting for HTTP readiness."""
+        self.stop()
+        self.start()
+        self.wait_for_http(timeout=timeout)

@@ -246,9 +246,7 @@ class NavidromeDBClient:
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
         """Context manager for a read-only SQLite connection."""
-        # check_same_thread=False is usually safe for read-only sessions
-        # if you're managing the event loop carefully.
-        conn = sqlite3.connect(self.uri, uri=True, check_same_thread=False)
+        conn = sqlite3.connect(self.uri, uri=True)
         conn.row_factory = sqlite3.Row
         try:
             yield conn

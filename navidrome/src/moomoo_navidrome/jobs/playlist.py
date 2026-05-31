@@ -12,14 +12,20 @@ TITLE_PREFIX = "mm |"
 
 
 def drop_all_moomoo_playlists(client: NavidromeHTTPClient) -> None:
-    """Deletes all playlists that have a moomoo signature."""
+    """Deletes all playlists that have a moomoo signature.
+    
+    Returns the number of playlists deleted.
+    """
     logger.info("Dropping all moomoo playlists.")
     playlists = client.fetch_playlists()
     moomoo_playlists = [pl for pl in playlists if pl.name.startswith(TITLE_PREFIX)]
     logger.info(f"Found {len(moomoo_playlists)} moomoo playlists to delete.")
+    deleted = 0
     for pl in moomoo_playlists:
         logger.info(f"Deleting playlist '{pl.name}' with ID {pl.playlist_id}.")
         client.delete_playlist(pl.playlist_id)
+        deleted += 1
+    return deleted
 
 
 def sync_playlists_collection(
@@ -38,6 +44,7 @@ def sync_playlists_collection(
     ]
 
     # check if the uuids match those in the collection, can skip if they do
+
     navi_uuids = {pl.signature.moomoo_playlist_id for pl in playlists}
     collection_uuids = {item.playlist_id for item in collection.items}
 
@@ -58,8 +65,7 @@ def sync_playlists_collection(
         song_ids = NavidromeDBClient().get_song_ids(playlist_paths)
 
         if not song_ids:
-            logger.warning(f"No tracks found for {item.collection_order_index}, skipping.")
-            continue
+            logger.warning(f"No tracks found for {item.collection_order_index}.")
 
         title = f"{TITLE_PREFIX} {item.description}"
         signature = MoomooPlaylistSignature.from_playlist(item)
