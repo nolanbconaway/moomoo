@@ -239,9 +239,28 @@ class NavidromeDBClient:
         if readonly:
             uri += "?mode=ro"
         else:
-            # check that the navidrome server is not running
-            raise NotImplementedError("Read-write mode is not implemented.")
+            # confirm that navidrome is offline before allowing a writable connection
+            self.check_navidrome_offline()
         self.uri = uri
+
+    @staticmethod
+    def check_navidrome_offline() -> None:
+        """Check that Navidrome is not running.
+
+        Raises:
+            RuntimeError: If Navidrome is still running.
+        """
+        url = os.environ["NAVIDROME_URL"]
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(url, follow_redirects=True)
+                response.raise_for_status()
+            raise RuntimeError(
+                f"Navidrome is still running at {url} (status {response.status_code}). "
+                "Shut it down before modifying the database."
+            )
+        except (httpx.HTTPStatusError, httpx.RequestError):
+            pass
 
     @contextlib.contextmanager
     def connect(self) -> Generator[sqlite3.Connection, None, None]:
