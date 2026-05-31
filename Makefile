@@ -1,4 +1,4 @@
-DOCKER_DIRS = ingest ml http dbt playlist client
+DOCKER_DIRS = ingest ml http dbt playlist client navidrome
 
 .PHONY:
 docker-build-all:
