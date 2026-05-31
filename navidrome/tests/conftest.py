@@ -1,11 +1,26 @@
+import logging
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+from loguru import logger
 
 from moomoo_navidrome.navidrome import NavidromeDBClient
 
 from .navidrome_container import SUBSONIC_PARAMS, NavidromeContainer
+
+
+@pytest.fixture(autouse=True)
+def caplog_for_loguru(caplog):
+    """Make loguru work with caplog."""
+
+    class PropagateHandler(logging.Handler):
+        def emit(self, record):
+            logging.getLogger(record.name).handle(record)
+
+    handler_id = logger.add(PropagateHandler(), format="{message}")
+    yield caplog
+    logger.remove(handler_id)
 
 
 @pytest.fixture(scope="session")
