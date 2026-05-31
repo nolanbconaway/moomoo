@@ -29,6 +29,23 @@ def list_db_loves() -> set[Path]:
     return set(Path(row["filepath"]) for row in execute_sql_fetchall(sql))
 
 
+def check_files_in_db(filepaths: set[Path], batch_size: int = 10) -> set[Path]:
+    """Check which of the given filepaths are present in the database."""
+    schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    sql = f"""
+    select filepath
+    from {schema}.local_files
+    where filepath = any(:filepaths)
+    """
+    res = set()
+    for batch in batched(filepaths, batch_size):
+        res.update(
+            Path(row["filepath"])
+            for row in execute_sql_fetchall(sql, {"filepaths": list(map(str, batch))})
+        )
+    return res
+
+
 def resolve_recording_mbids(filepaths: set[Path], batch_size: int = 10) -> dict[Path, str]:
     """Resolve recording MBIDs for filepaths."""
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
@@ -77,7 +94,7 @@ def sync(direction: str):
     logger.info("Starting loves sync...")
     navidrome_db = NavidromeDBClient()
 
-    nv_loves = navidrome_db.list_loved_files()
+    nv_loves = check_files_in_db(navidrome_db.list_loved_files())
     logger.info(f"Found {len(nv_loves)} loved tracks in navidrome.")
 
     lb_loves = list_db_loves()
@@ -94,6 +111,8 @@ def sync(direction: str):
             logger.info("No tracks to star on navidrome.")
         else:
             logger.info(f"Starring {len(to_star)} tracks on navidrome...")
+            for track in to_star:
+                logger.info(f" - {track}")
         with NavidromeHTTPClient() as http:
             submit_navidrome_stars(http=http, db=navidrome_db, filepaths=to_star)
 
@@ -104,4 +123,6 @@ def sync(direction: str):
             logger.info("No tracks to star on listenbrainz.")
         else:
             logger.info(f"Starring {len(to_star)} tracks on listenbrainz...")
+            for track in to_star:
+                logger.info(f" - {track}")
             submit_listenbrainz_feedback(filepaths=to_star)
