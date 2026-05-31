@@ -53,7 +53,11 @@ def test_QueuePlaylist__fetch():
         QueuePlaylist.fetch(http)
 
 
-def test_cli_sign(caplog):
+def test_cli_sign(caplog, monkeypatch):
+    # mock get_latest_ts to return a random time. only used in the comment.
+    now = datetime.datetime.now(datetime.timezone.utc)
+    monkeypatch.setattr("moomoo_navidrome.jobs.play_queue.get_latest_ts", lambda: now)
+
     runner = CliRunner()
 
     # no playlists with the tag should error

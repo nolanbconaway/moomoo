@@ -44,6 +44,7 @@ def setup_environment(monkeypatch, navidrome_data_dir, navidrome_container):
         "LISTENBRAINZ_USERNAME",
         "LISTENBRAINZ_USER_TOKEN",
         "MOOMOO_DBT_SCHEMA",
+        "MOOMOO_POSTGRES_URI",
     ]
     for v in envvars:
         monkeypatch.setenv(v, f"FAKE_{v}")
