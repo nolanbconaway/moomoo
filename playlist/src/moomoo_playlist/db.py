@@ -5,7 +5,6 @@ import datetime
 import os
 from contextlib import suppress
 from logging import WARNING
-from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import Engine, create_engine, text
@@ -75,7 +74,7 @@ def make_tmp_name() -> str:
 
 
 def make_temp_table(
-    types: dict[str, str], data: list[dict], session: Session, pk: Optional[str] = None
+    types: dict[str, str], data: list[dict], session: Session, pk: str | None = None
 ) -> str:
     """Make a temporary table from data, returning the table name.
 

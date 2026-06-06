@@ -1,9 +1,9 @@
 """Container classes for playlist data."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from math import floor
 from pathlib import Path
-from typing import Callable
 from uuid import UUID
 
 

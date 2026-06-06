@@ -7,7 +7,6 @@ from collections.abc import Generator
 from itertools import islice
 from math import log
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -152,8 +151,8 @@ def fetch_recently_played_tracks(
 def stream_similar_tracks(
     filepaths: list[Path],
     session: Session,
-    limit: Optional[int] = 2000,
-    weights: Optional[list[float]] = None,
+    limit: int | None = 2000,
+    weights: list[float] | None = None,
     predicate_weights: dict[Path, float] | None = None,
 ) -> Generator[Track, None, None]:
     """Stream similar tracks to filepaths.
@@ -199,7 +198,11 @@ def stream_similar_tracks(
     base_weights_table = make_temp_table(
         session=session,
         types={"filepath": "text", "weight": "float"},
-        data=[{"filepath": str(fp), "weight": w} for fp, w in zip(filepaths, weights) if w > 0],
+        data=[
+            {"filepath": str(fp), "weight": w}
+            for fp, w in zip(filepaths, weights, strict=True)
+            if w > 0
+        ],
         pk="filepath",
     )
 
@@ -308,8 +311,8 @@ def get_most_similar_tracks(
     filepaths: list[Path],
     session: Session,
     limit: int = 20,
-    limit_per_artist: Optional[int] = None,
-    weights: Optional[list[float]] = None,
+    limit_per_artist: int | None = None,
+    weights: list[float] | None = None,
     predicate_weights: dict[Path, float] | None = None,
 ) -> list[Track]:
     """Get a listing of similar songs.

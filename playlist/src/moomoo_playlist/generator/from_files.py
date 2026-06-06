@@ -3,7 +3,6 @@
 import os
 import random
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -34,7 +33,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
 
     limit_source_paths = 100
 
-    def __init__(self, *files: Path, username: Optional[str] = None):
+    def __init__(self, *files: Path, username: str | None = None):
         if not files:
             raise ValueError("At least one file must be provided.")
 
