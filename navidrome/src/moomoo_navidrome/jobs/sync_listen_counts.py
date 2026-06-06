@@ -145,7 +145,7 @@ def fetch_artist_listen_counts(navidrome_db: NavidromeDBClient) -> list[PlayCoun
             play_count=row["listen_count"],
             play_date=row["last_listened_date"],
         )
-        for row, artist_id in zip(rows, artist_ids)
+        for row, artist_id in zip(rows, artist_ids, strict=True)
         if artist_id is not None
     ]
 
@@ -177,7 +177,7 @@ def fetch_album_listen_counts(navidrome_db: NavidromeDBClient) -> list[PlayCount
             play_count=row["listen_count"],
             play_date=row["last_listened_date"],
         )
-        for row, album_id in zip(rows, album_ids)
+        for row, album_id in zip(rows, album_ids, strict=True)
         if album_id is not None
     ]
 
