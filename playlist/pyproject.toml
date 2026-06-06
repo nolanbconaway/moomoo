@@ -1,3 +1,42 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moomoo-playlist"
+dynamic = ["version"]
+dependencies = [
+    "psycopg[binary]==3.*",
+    "sqlalchemy==2.*",
+    "pgvector==0.*",
+    "click==8.*",
+    "tenacity==8.*",
+    "tqdm==4.*",
+    "scikit-learn==1.*",
+    "structlog>21.0.0,<25.0.0",
+    "numpy==2.*",
+    "pandas==2.*",
+]
+
+[project.optional-dependencies]
+test = [
+    "ruff==0.15.*",
+    "pytest==8.*",
+    "pytest-postgresql==7.*", # last version supporting postgres 13, which i run locally.
+]
+
+[project.scripts]
+moomoo-playlist = "moomoo_playlist.cli:cli"
+
+[tool.setuptools.dynamic]
+version = {file = "src/moomoo_playlist/version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moomoo_playlist = ["version"]
+
 [tool.ruff]
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 line-length = 100
