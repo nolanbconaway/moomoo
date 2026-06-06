@@ -208,7 +208,7 @@ def make_clusters(
 
     # group tracks by cluster
     clusters = defaultdict(list)
-    for track, label in zip(tracks, cluster_labels):
+    for track, label in zip(tracks, cluster_labels, strict=True):
         clusters[label].append(track)
 
     # filter out clusters with < 3 artists, clusters with > 8 artists

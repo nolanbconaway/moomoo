@@ -3,7 +3,6 @@
 import os
 import random
 from pathlib import Path
-from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -35,7 +34,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
     limit_source_paths = 100
 
-    def __init__(self, *mbids: UUID, username: Optional[str] = None):
+    def __init__(self, *mbids: UUID, username: str | None = None):
         if not mbids:
             raise ValueError("At least one mbid must be provided.")
 
