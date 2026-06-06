@@ -21,7 +21,7 @@ line_position = leading
 [sqlfluff:indentation]
 tab_space_size = 2
 indent_unit = space
-allow_implicit_indents = True
+implicit_indents = allow
 
 [sqlfluff:rules:convention.count_rows]
 prefer_count_1 = True

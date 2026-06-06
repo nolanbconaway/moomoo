@@ -1,5 +1,5 @@
 name: 'moomoo'
-version: '1.1.2'
+version: '1.2.0'
 config-version: 2
 profile: 'moomoo'
 
@@ -16,7 +16,7 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  materialized: table
+  +materialized: table
   +grants:
     select: ['ro']
   moomoo:
@@ -24,4 +24,4 @@ models:
       stg:
         +schema: stg
     analytic:
-      materialized: view
+      +materialized: view
