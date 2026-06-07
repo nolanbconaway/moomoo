@@ -1,0 +1,62 @@
+name: pg
+
+on:
+  push:
+    paths:
+      - pg/**
+      - .github/workflows/pg.yml
+
+defaults:
+  run:
+    working-directory: ./pg
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-24.04
+
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-lint-test
+      cancel-in-progress: true
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: 'pip'
+          cache-dependency-path: pg/setup.py
+
+      - name: Install pgvector
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install postgresql-16-pgvector
+
+      - name: pip install
+        run: |
+          pip install pip==26.*
+          pip install .[test,cli]
+
+      - name: lint
+        run: make lint
+
+      - name: test
+        run: make test
+
+  check-version-changed:
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: wait 10s
+        run: sleep 10  # in case the pr is very new
+      - name: Get changed files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          changed=$(gh pr diff --name-only)
+          echo Changed files:
+          echo $changed
+          if [[ $changed != *"pg/src/moomoo_pg/version"* ]]; then
+            echo "No changes to version file"
+            exit 1
+          fi
