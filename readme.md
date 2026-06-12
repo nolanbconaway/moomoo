@@ -20,7 +20,7 @@ Moomoo is very much an ongoing effort. Nobody else should even read this, let al
 
 ## Architecture
 
-Moomoo is composed of (currently) 6 components that work together through the use of a central postgres database. [`pgvector`](https://github.com/pgvector/pgvector) is needed in that database to store and manage ML embeddings.
+Moomoo is composed of several components that work together through the use of a central postgres database. [`pgvector`](https://github.com/pgvector/pgvector) is needed in that database to store and manage ML embeddings.
 
 The general setup is:
 
