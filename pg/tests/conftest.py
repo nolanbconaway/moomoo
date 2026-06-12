@@ -6,8 +6,10 @@ from collections.abc import Generator
 
 import psycopg
 import pytest
+from sqlalchemy.orm import Session
 
-from moomoo_pg.db import get_engine
+from moomoo_pg.db import get_engine, get_session
+from moomoo_pg.ddl import TABLES
 
 # Suppress harmless AdminShutdown errors during test cleanup when pytest-postgresql
 # tears down the test database while SQLAlchemy's pool is still finalizing connections
@@ -15,7 +17,7 @@ logging.getLogger("sqlalchemy.pool").setLevel(logging.CRITICAL)
 
 
 @pytest.fixture(autouse=True)
-def set_db_envvar(monkeypatch, postgresql: psycopg.Connection) -> Generator[str, None, None]:
+def setup_db(monkeypatch, postgresql: psycopg.Connection) -> Generator[str, None, None]:
     """Mock the internal db connection function to use the test db.
 
     Returns an endless supply of connections to the test db.
@@ -41,6 +43,10 @@ def set_db_envvar(monkeypatch, postgresql: psycopg.Connection) -> Generator[str,
     assert engine.url.port == postgresql.info.port
     assert engine.url.database == postgresql.info.dbname
 
+    # create each table
+    for table in TABLES:
+        table.create()
+
     yield uri
 
     engine.dispose()
@@ -50,3 +56,10 @@ def set_db_envvar(monkeypatch, postgresql: psycopg.Connection) -> Generator[str,
 def no_sleep(monkeypatch):
     """Disable all calls to time.sleep."""
     monkeypatch.setattr(time, "sleep", lambda x: None)
+
+
+@pytest.fixture
+def session(setup_db) -> Generator[Session, None, None]:
+    # setup db as a dependency here, so that we are sure we have the right db connection.
+    with get_session() as session:
+        yield session

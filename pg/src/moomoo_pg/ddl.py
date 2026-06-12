@@ -2,8 +2,8 @@
 
 import datetime
 import re
-from typing import Any, ClassVar, NewType
-from uuid import UUID
+from typing import Annotated, Any, ClassVar, NewType
+from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select, text
@@ -13,6 +13,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, rela
 from sqlalchemy.schema import CreateIndex, CreateTable
 
 from .db import execute_sql_fetchall, get_engine, get_session
+
+
+def now_utc() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
 
 # make some new python types for real and smallint
 RealFloat = NewType("RealFloat", float)
@@ -26,9 +31,13 @@ class BaseTable(DeclarativeBase):
         dict[str, Any]: postgresql.JSONB(none_as_null=True),
         str: postgresql.VARCHAR,
         datetime.datetime: postgresql.TIMESTAMP(timezone=True),
-        list[float]: Vector(1024),
         UUID: postgresql.UUID,
+        list: postgresql.JSONB,
+        list[int]: postgresql.ARRAY(postgresql.INTEGER),
         list[str]: postgresql.ARRAY(postgresql.VARCHAR),
+        list[float]: Vector(1024),
+        Annotated[list[float], 1024]: Vector(1024),
+        Annotated[list[float], 50]: Vector(50),
         RealFloat: postgresql.REAL,
         SmallInt: postgresql.SMALLINT,
     }
@@ -291,6 +300,22 @@ class LocalFileBirthTimestamp(BaseTable):
             f(session)
 
 
+class FileEmbedding(BaseTable):
+    """Model for local_music_files table."""
+
+    __tablename__ = "local_music_embeddings"
+
+    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    success: Mapped[bool] = mapped_column(nullable=False)
+    fail_reason: Mapped[str] = mapped_column(nullable=True)
+    duration_seconds: Mapped[float] = mapped_column(nullable=True)
+    embedding: Mapped[Annotated[list[float], 1024]] = mapped_column(nullable=True)
+    conditioned_embedding: Mapped[Annotated[list[float], 50]] = mapped_column(nullable=True)
+    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp(), index=True
+    )
+
+
 class MessyBrainzNameMap(BaseTable):
     """Model for messybrainz_name_map table."""
 
@@ -473,11 +498,112 @@ class AnnotationQueueLog(BaseTable):
         return session.execute(stmt).scalar()
 
 
+class PlaylistCollection(BaseTable):
+    """Model for moomoo_playlist_collections table."""
+
+    __tablename__ = "moomoo_playlist_collections"
+
+    collection_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
+    collection_name: Mapped[str] = mapped_column(nullable=False, index=True)
+    username: Mapped[str] = mapped_column(nullable=False, index=True)
+    refresh_at_hours_utc: Mapped[list[int]] = mapped_column(nullable=True)
+    create_at_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp()
+    )
+    refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(nullable=True, index=True)
+
+    items: Mapped[list["PlaylistCollectionItem"]] = relationship(back_populates="collection")
+
+    # add unique constraint for username and collection_name
+    __table_args__ = (UniqueConstraint("username", "collection_name"), {})
+
+    @classmethod
+    def get_collection_by_name(
+        cls, username: str, collection_name: str, session: Session
+    ) -> "PlaylistCollection":
+        """Get a playlist collection by name, raising an error if it does not exist."""
+        collection = (
+            session.query(cls)
+            .filter_by(username=username, collection_name=collection_name)
+            .one_or_none()
+        )
+
+        if collection is None:
+            raise ValueError(
+                f"Collection '{collection_name}' for user '{username}' does not exist."
+            )
+
+        return collection
+
+    @property
+    def last_refresh_target(self) -> datetime.datetime | None:
+        """Get the most recent refresh target time for this collection."""
+        if not self.refresh_at_hours_utc:
+            return None
+
+        # check all possible refresh times for the last two days, in case we run this at
+        # like 00:01 or something
+        now = now_utc()
+        refresh_times = [
+            datetime.datetime(
+                year=date.year,
+                month=date.month,
+                day=date.day,
+                hour=hour,
+                tzinfo=datetime.timezone.utc,
+            )
+            for hour in list(set(self.refresh_at_hours_utc))
+            for date in [now - datetime.timedelta(days=1), now]
+            if 0 <= hour < 24
+        ]
+
+        return max([i for i in refresh_times if i <= now])
+
+    @property
+    def is_stale(self) -> bool:
+        """Check if the collection is stale and needs to be refreshed.
+
+        This is always True if the refresh_at_hours_utc is None, or if the playlists
+        have never been refreshed.
+        """
+        if not self.refreshed_at_utc or not self.refresh_at_hours_utc:
+            return True
+
+        return self.refreshed_at_utc < self.last_refresh_target
+
+    @property
+    def is_fresh(self) -> bool:
+        """Check if the collection is fresh and does not need to be refreshed."""
+        return not self.is_stale
+
+
+class PlaylistCollectionItem(BaseTable):
+    """Model for moomoo_playlist_collection_items table."""
+
+    __tablename__ = "moomoo_playlist_collection_items"
+
+    playlist_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
+    collection_id: Mapped[UUID] = mapped_column(ForeignKey(PlaylistCollection.collection_id))
+    collection_order_index: Mapped[int] = mapped_column(nullable=False)
+    title: Mapped[str] = mapped_column(nullable=True)
+    description: Mapped[str] = mapped_column(nullable=True)
+    playlist: Mapped[list] = mapped_column(nullable=False)
+    create_at_utc: Mapped[datetime.datetime] = mapped_column(
+        nullable=False, server_default=func.current_timestamp()
+    )
+
+    collection: Mapped["PlaylistCollection"] = relationship(back_populates="items")
+
+    # unique constraint for collection_id and collection_order_index
+    __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
+
+
 TABLES: tuple[BaseTable] = (
     ListenBrainzListen,
     LocalFile,
     LocalFileExcludeRegex,
     LocalFileBirthTimestamp,
+    FileEmbedding,
     ListenBrainzSimilarUserActivity,
     MusicBrainzAnnotation,
     ListenBrainzArtistStats,
@@ -489,4 +615,6 @@ TABLES: tuple[BaseTable] = (
     MusicBrainzDataDump,
     MusicBrainzDataDumpRecord,
     AnnotationQueueLog,
+    PlaylistCollection,
+    PlaylistCollectionItem,
 )
