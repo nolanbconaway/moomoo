@@ -4,24 +4,19 @@ from unittest.mock import patch
 from uuid import UUID, uuid1
 
 import pytest
-from click.testing import CliRunner
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from moomoo_pg.cli import cli as db_cli
 from moomoo_pg.db import execute_sql_fetchall
 from moomoo_pg.ddl import (
-    TABLES,
     AnnotationQueueLog,
     BaseTable,
     ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
-    ListenBrainzDataDumpRecord,
     ListenBrainzListen,
     LocalFileBirthTimestamp,
     LocalFileExcludeRegex,
     MusicBrainzDataDump,
-    MusicBrainzDataDumpRecord,
     PlaylistCollection,
     PlaylistCollectionItem,
 )
