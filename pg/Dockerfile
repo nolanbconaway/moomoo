@@ -7,7 +7,7 @@ WORKDIR /src
 # setup py modules
 COPY src src
 COPY pyproject.toml .
-RUN pip install . --no-cache-dir
+RUN pip install .[cli] --no-cache-dir
 
 COPY Makefile .
 

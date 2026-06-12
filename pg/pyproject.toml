@@ -22,6 +22,9 @@ test = [
     "pytest-postgresql==8.*",
 ]
 
+[project.scripts]
+moomoo-pg = "moomoo_pg.cli:cli"
+
 [tool.setuptools.dynamic]
 version = {file = "src/moomoo_pg/version"}
 
