@@ -16,6 +16,7 @@ Moomoo is very much an ongoing effort. Nobody else should even read this, let al
 - [![playlist](https://github.com/nolanbconaway/moomoo/actions/workflows/playlist.yml/badge.svg)](https://github.com/nolanbconaway/moomoo/actions/workflows/playlist.yml)
 - [![http](https://github.com/nolanbconaway/moomoo/actions/workflows/http.yml/badge.svg)](https://github.com/nolanbconaway/moomoo/actions/workflows/http.yml)
 - [![navidrome](https://github.com/nolanbconaway/moomoo/actions/workflows/navidrome.yml/badge.svg)](https://github.com/nolanbconaway/moomoo/actions/workflows/navidrome.yml)
+- [![pg](https://github.com/nolanbconaway/moomoo/actions/workflows/pg.yml/badge.svg)](https://github.com/nolanbconaway/moomoo/actions/workflows/pg.yml)
 
 ## Architecture
 
@@ -23,6 +24,7 @@ Moomoo is composed of (currently) 6 components that work together through the us
 
 The general setup is:
 
+- [`pg`](pg/) contains database table definitions and some utilities to connect to the postgres db from python.
 - [`ml`](ml/), [`ingest`](ingest/) populate base tables in postgres (with some exception in `ingest`). These modules are run via a scheduler like airflow, etc.
 - [`dbt`](dbt/) merges tables and populates tested/consumable data. It also populates a main list of [mbids](https://musicbrainz.org/doc/MusicBrainz_Identifier) which are consumed by some `ingest` jobs.
 - [`playlist`](playlist/) contains a combination of library code for creating playlists (for re-use in [`http`](http/)) and CLI handlers for saving collections of playlists to the database.
