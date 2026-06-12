@@ -60,3 +60,17 @@ jobs:
             echo "No changes to version file"
             exit 1
           fi
+
+  tag-release:
+    if: github.ref == 'refs/heads/main'
+    needs: lint-test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Tag release
+        working-directory: .
+        run: python tag-release.py pg --yes
