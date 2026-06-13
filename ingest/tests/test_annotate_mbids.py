@@ -7,15 +7,15 @@ from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
-from moomoo_ingest import annotate_mbids
-from moomoo_ingest.annotate_mbids import Mbid
-from moomoo_ingest.db import (
+from moomoo_pg import (
     AnnotationQueueLog,
     MusicBrainzAnnotation,
     MusicBrainzDataDump,
     MusicBrainzDataDumpRecord,
 )
+
+from moomoo_ingest import annotate_mbids
+from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.utils_ import ENTITIES, MusicBrainzTimeoutError
 
 from .conftest import load_mbids_table

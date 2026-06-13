@@ -23,9 +23,8 @@ from uuid import UUID
 
 import click
 import zstandard
+from moomoo_pg import ListenBrainzDataDump, get_session
 from tqdm import tqdm
-
-from .db import ListenBrainzDataDump, get_session
 
 FTP_HOST = "ftp.musicbrainz.org"
 FTP_DIR = "/pub/musicbrainz/listenbrainz/incremental"

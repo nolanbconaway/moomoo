@@ -16,11 +16,11 @@ from itertools import product
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzSimilarUserActivity, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import utils_
-from .db import ListenBrainzSimilarUserActivity, get_session
 
 ENTITIES = ("artists", "releases", "recordings")
 TIME_RANGES = ("month", "year", "all_time")

@@ -3,9 +3,9 @@ from unittest import mock
 
 from click.testing import CliRunner
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzSimilarUserActivity
 
 from moomoo_ingest import collect_similar_user_activity
-from moomoo_ingest.db import ListenBrainzSimilarUserActivity
 
 
 def get_mock_lb_http(similar_users, activity) -> mock.Mock:

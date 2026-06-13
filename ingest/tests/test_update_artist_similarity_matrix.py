@@ -9,13 +9,13 @@ import pandas as pd
 import pytest
 from click.testing import CliRunner
 from implicit.als import AlternatingLeastSquares
-from scipy.sparse import csr_matrix
-
-from moomoo_ingest.db import (
+from moomoo_pg import (
     ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
 )
+from scipy.sparse import csr_matrix
+
 from moomoo_ingest.update_artist_similarity_matrix import (
     DataDumpResult,
     fetch_dump_aggregate,

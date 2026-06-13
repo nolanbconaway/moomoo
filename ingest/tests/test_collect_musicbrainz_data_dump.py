@@ -10,9 +10,9 @@ import pytest
 import requests
 import requests_mock as requests_mock_lib
 from click.testing import CliRunner
+from moomoo_pg import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 
 from moomoo_ingest import collect_musicbrainz_data_dump as lib
-from moomoo_ingest.db import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 
 
 @pytest.fixture(autouse=True)

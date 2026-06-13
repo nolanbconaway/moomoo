@@ -9,10 +9,10 @@ from uuid import UUID, uuid1
 import pytest
 import zstandard
 from click.testing import CliRunner
+from moomoo_pg import ListenBrainzDataDump, ListenBrainzDataDumpRecord
 from pytest_localftpserver.servers import FunctionalityWrapper as PytestFTPServer
 
 from moomoo_ingest import collect_listenbrainz_data_dump as lib
-from moomoo_ingest.db import ListenBrainzDataDump, ListenBrainzDataDumpRecord
 
 from .conftest import RESOURCES
 

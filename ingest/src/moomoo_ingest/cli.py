@@ -12,7 +12,6 @@ from .collect_local_files import main as collect_local_files_main
 from .collect_msid_map import main as collect_msid_map_main
 from .collect_musicbrainz_data_dump import main as collect_musicbrainz_data_dump_main
 from .collect_similar_user_activity import main as collect_similar_user_activity_main
-from .db.cli import cli as db_cli
 from .update_artist_similarity_matrix import main as update_artist_similarity_matrix_main
 from .utils_ import moomoo_version
 
@@ -29,7 +28,6 @@ def version_cli():
     click.echo(moomoo_version())
 
 
-cli.add_command(db_cli, "db")
 cli.add_command(annotate_mbids_main, "annotate-mbids")
 cli.add_command(annotation_daemon_main, "annotation-daemon")
 cli.add_command(artist_stats_main, "artist-stats")

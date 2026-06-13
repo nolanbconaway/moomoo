@@ -9,15 +9,15 @@ import pandas as pd
 import threadpoolctl
 from implicit.als import AlternatingLeastSquares
 from implicit.nearest_neighbours import bm25_weight
-from scipy.sparse import csr_matrix
-
-from .db import (
+from moomoo_pg import (
     ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
     ListenBrainzDataDumpRecord,
     execute_sql_fetchall,
     get_session,
 )
+from scipy.sparse import csr_matrix
+
 from .utils_ import batch
 
 # improved performance by limiting the number of threads used by BLAS libraries

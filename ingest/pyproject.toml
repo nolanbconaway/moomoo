@@ -16,10 +16,11 @@ dependencies = [
     "mutagen==1.47.0",
     "liblistenbrainz==0.7.0",
     "musicbrainzngs==0.7.1",
-    "zstandard==0.25.0", # TODO: replace with stdlib bindings!
+    "zstandard==0.25.0",                                                                     # TODO: replace with stdlib bindings!
     "implicit==0.7.3",
     "numpy==2.4.6",
     "pandas==3.0.3",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.0.3#subdirectory=pg",
 ]
 
 [project.optional-dependencies]
@@ -35,7 +36,7 @@ test = [
 moomoo-ingest = "moomoo_ingest.cli:cli"
 
 [tool.setuptools.dynamic]
-version = {file = "src/moomoo_ingest/version"}
+version = { file = "src/moomoo_ingest/version" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -55,7 +56,7 @@ select = [
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
     "I",   # isort
-    "RUF",  # ruff
+    "RUF", # ruff
 ]
 ignore = [
     "B017", # `pytest.raises(Exception)` should be considered evil.

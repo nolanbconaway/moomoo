@@ -16,6 +16,7 @@ import sys
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import LocalFile, MessyBrainzNameMap, execute_sql_fetchall, get_session
 from requests.exceptions import RetryError
 from tenacity import (
     RetryCallState,
@@ -27,7 +28,6 @@ from tenacity import (
 from tqdm import tqdm
 
 from . import utils_
-from .db import LocalFile, MessyBrainzNameMap, execute_sql_fetchall, get_session
 
 # base sql to extract artist names and hashes from the local files table
 RECORDINGS_BASE = f"""

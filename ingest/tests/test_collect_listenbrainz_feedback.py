@@ -2,9 +2,9 @@ from unittest import mock
 from uuid import uuid1
 
 from click.testing import CliRunner
+from moomoo_pg import ListenBrainzUserFeedback
 
 from moomoo_ingest import collect_listenbrainz_feedback, utils_
-from moomoo_ingest.db import ListenBrainzUserFeedback
 
 
 def get_mock_lb_http(*responses) -> mock.Mock:

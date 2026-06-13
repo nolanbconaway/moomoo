@@ -11,10 +11,10 @@ from pathlib import Path
 
 import click
 import mutagen
+from moomoo_pg import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex, get_session
 from tqdm.auto import tqdm
 
 from . import utils_
-from .db import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex, get_session
 
 EXTENSIONS: set[str] = set([".mp3", ".flac"])
 

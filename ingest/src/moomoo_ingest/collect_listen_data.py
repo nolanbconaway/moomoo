@@ -14,12 +14,12 @@ import sys
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzListen, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
 from . import utils_
-from .db import ListenBrainzListen, get_session
 
 # global ListenBrainz client, rate limiting is handled internally
 client = utils_.get_listenbrainz_client()

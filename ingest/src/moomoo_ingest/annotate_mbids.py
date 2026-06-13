@@ -19,7 +19,7 @@ from collections.abc import Callable
 from uuid import UUID
 
 import click
-from moomoo_pg.ddl import (
+from moomoo_pg import (
     AnnotationQueueLog,
     MusicBrainzAnnotation,
     MusicBrainzDataDump,

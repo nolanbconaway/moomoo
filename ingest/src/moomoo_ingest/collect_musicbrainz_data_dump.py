@@ -15,10 +15,10 @@ from typing import Optional
 
 import click
 import requests
+from moomoo_pg import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from .db import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 from .utils_ import ENTITIES, request_with_retry
 
 API_BASE = "https://metabrainz.org/api/musicbrainz"

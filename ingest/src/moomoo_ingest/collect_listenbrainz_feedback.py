@@ -14,11 +14,11 @@ from uuid import UUID
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzUserFeedback, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import utils_
-from .db import ListenBrainzUserFeedback, get_session
 
 PAGE_SIZE = 100
 
