@@ -123,7 +123,6 @@ def test_DataDump__get_listens(data_dump):
 
 
 def test_main__no_dumps(monkeypatch):
-    ListenBrainzDataDump.create()
     monkeypatch.setattr(lib.DataDump, "fetch_list", lambda **_: [])
 
     runner = CliRunner()
@@ -134,9 +133,6 @@ def test_main__no_dumps(monkeypatch):
 
 def test_main(monkeypatch, data_dump):
     """Test the pipeline with a ton of mocked data."""
-    ListenBrainzDataDump.create()
-    ListenBrainzDataDumpRecord.create()
-
     monkeypatch.setattr(lib.DataDump, "fetch_list", lambda **_: [data_dump])
 
     runner = CliRunner()

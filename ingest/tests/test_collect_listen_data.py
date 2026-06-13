@@ -44,7 +44,6 @@ def test_cli_main__not_table_exists_error():
 
 def test_cli_main__since_last_from_dt_error():
     runner = CliRunner()
-    ListenBrainzListen.create()
 
     result = runner.invoke(
         collect_listen_data.main, ["--since-last", "--from=2021-01-01", "FAKE_NAME"]
@@ -59,7 +58,6 @@ def test_cli_main__since_last_from_dt_error():
 
 def test_cli_main__since_last_no_data_error():
     runner = CliRunner()
-    ListenBrainzListen.create()
 
     result = runner.invoke(collect_listen_data.main, ["--since-last", "FAKE_NAME"])
     assert result.exit_code != 0
@@ -69,7 +67,6 @@ def test_cli_main__since_last_no_data_error():
 
 def test_cli_main__since_last__date_buffer():
     runner = CliRunner()
-    ListenBrainzListen.create()
     # make fake data for since last
     last_at = utcnow() - datetime.timedelta(days=30)
     ListenBrainzListen(
@@ -85,7 +82,6 @@ def test_cli_main__since_last__date_buffer():
 
 def test_cli_main__from_dt__pass_args():
     runner = CliRunner()
-    ListenBrainzListen.create()
 
     with patch("moomoo_ingest.collect_listen_data.run_ingest") as mocked:
         result = runner.invoke(
@@ -109,7 +105,6 @@ def test_cli_main__no_data(monkeypatch):
     )
 
     runner = CliRunner()
-    ListenBrainzListen.create()
 
     result = runner.invoke(collect_listen_data.main, ["FAKE_NAME", "--from=2021-01-01"])
 
@@ -128,7 +123,6 @@ def test_run_ingest__invalid_dates():
 
 
 def test_run_ingest__insert_upsert():
-    ListenBrainzListen.create()
     sql = f"select count(1) as n from {ListenBrainzListen.table_name()}"
 
     collect_listen_data.run_ingest(

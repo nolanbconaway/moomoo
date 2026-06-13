@@ -52,7 +52,6 @@ def test_cli_date_args(monkeypatch, args, exit_0):
     monkeypatch.setattr(artist_stats, "get_new_mbids", lambda *args, **kwargs: [])
     monkeypatch.setattr(artist_stats, "get_old_mbids", lambda *args, **kwargs: [])
 
-    ListenBrainzArtistStats.create()
     runner = CliRunner()
 
     # no args, good to go.
@@ -82,7 +81,6 @@ def test_cli_main__not_table_exists_error(mbids: list[dict]):
 
 def test_cli_main__no_args():
     """Test nothing is done if nothing is requested."""
-    ListenBrainzArtistStats.create()
     result = cli_run(new_=[], old_=[], args=[])
     assert "Found 0 mbid(s) to ingest." in result.output
     assert result.exit_code == 0
@@ -95,7 +93,6 @@ def test_cli_main__no_args():
 
 def test_cli_main__new(mbids: list[dict]):
     """Test working with new mbids."""
-    ListenBrainzArtistStats.create()
     result = cli_run(new_=mbids, old_=[], args=["--new"])
     assert "Found 10 mbid(s) to ingest." in result.output
     assert result.exit_code == 0
@@ -106,7 +103,6 @@ def test_cli_main__new(mbids: list[dict]):
 
 def test_cli_main__old(mbids: list[dict]):
     """Test working with old mbids."""
-    ListenBrainzArtistStats.create()
     result = cli_run(new_=[], old_=mbids, args=["--before=2021-01-01"])
     assert "Found 10 mbid(s) to ingest." in result.output
     assert result.exit_code == 0
@@ -117,8 +113,6 @@ def test_cli_main__old(mbids: list[dict]):
 
 def test_cli_main__limit(mbids: list[dict]):
     """Test limit handler"""
-    ListenBrainzArtistStats.create()
-
     limit = len(mbids) // 2
     result = cli_run(new_=mbids, old_=[], args=["--new", f"--limit={limit}"])
     assert "Found 10 mbid(s) to ingest." in result.output

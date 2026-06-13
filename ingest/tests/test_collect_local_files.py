@@ -3,20 +3,12 @@ import shutil
 from functools import partial
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 from moomoo_pg import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex
 
 from moomoo_ingest import collect_local_files
 
 from .conftest import RESOURCES
-
-
-@pytest.fixture(autouse=True)
-def make_tables():
-    LocalFile.create()
-    LocalFileExcludeRegex.create()
-    LocalFileBirthTimestamp.create()
 
 
 def test_parse_audio_file():

@@ -21,13 +21,6 @@ def latest_api_packet_number(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lib, "get_latest_packet_number_from_api", lambda: 1000)
 
 
-@pytest.fixture(autouse=True)
-def create_tables():
-    """Create the necessary tables before each test."""
-    MusicBrainzDataDump.create()
-    MusicBrainzDataDumpRecord.create()
-
-
 @pytest.fixture
 def tarball_bytes() -> Generator[bytes, None, None]:
     # make a fake tarball in memory

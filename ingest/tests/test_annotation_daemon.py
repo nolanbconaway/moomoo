@@ -6,18 +6,8 @@ is well-tested.
 
 import uuid
 
-import pytest
-from moomoo_pg import AnnotationQueueLog, MusicBrainzAnnotation
-
 from moomoo_ingest import annotate_mbids, annotation_daemon
 from moomoo_ingest.annotate_mbids import Mbid
-
-
-@pytest.fixture(autouse=True)
-def create_tables():
-    """Create and drop the necessary tables for testing."""
-    MusicBrainzAnnotation.create()
-    AnnotationQueueLog.create()
 
 
 def test_run(monkeypatch):

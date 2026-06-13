@@ -28,15 +28,6 @@ def mbids() -> list[dict]:
 
 
 @pytest.fixture(autouse=True)
-def create_tables():
-    """Create and drop the necessary tables for testing."""
-    MusicBrainzAnnotation.create()
-    MusicBrainzDataDump.create()
-    MusicBrainzDataDumpRecord.create()
-    AnnotationQueueLog.create()
-
-
-@pytest.fixture(autouse=True)
 def mock_annotate_mbid(monkeypatch):
     """Mock the annotate mbid function to return success."""
     monkeypatch.setattr(

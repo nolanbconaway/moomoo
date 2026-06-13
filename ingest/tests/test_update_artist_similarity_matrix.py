@@ -45,8 +45,6 @@ def db_data_dump() -> typing.Iterator[ListenBrainzDataDump]:
     Yields:
         ListenBrainzDataDump: The created data dump object (with slug 'test-slug').
     """
-    ListenBrainzDataDump.create()
-    ListenBrainzDataDumpRecord.create()
     data_dump = ListenBrainzDataDump(
         slug="test-slug",
         ftp_path="/path/to/test-dump",
@@ -227,7 +225,6 @@ def test_main_cli(db_data_dump):
     and asserts that the ListenBrainzCollaborativeFilteringScore table is populated
     with the expected artist pairs and scores.
     """
-    ListenBrainzCollaborativeFilteringScore.create()
     data = fetch_dump_aggregate()
     all_mbids = list(data.artist_id_map.index)
     load_mbids_table([{"mbid": mbid, "entity": "artist"} for mbid in all_mbids])
