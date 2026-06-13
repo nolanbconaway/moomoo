@@ -1,7 +1,7 @@
 FROM python:3.14-slim-bookworm
 RUN apt update
 RUN apt install -y make
-RUN apt-get install libgomp1
+RUN apt-get install -y libgomp1 git
 
 WORKDIR /src
 
