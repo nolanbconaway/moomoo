@@ -27,9 +27,7 @@ def monkeypatch_lb_get(monkeypatch):
 
 def test_get_listens_in_period():
     res = collect_listen_data.get_listens_in_period(
-        username="FAKE",
-        from_dt=datetime.datetime.utcnow(),
-        to_dt=datetime.datetime.utcnow(),
+        username="FAKE", from_dt=utcnow(), to_dt=utcnow()
     )
 
     assert len(res) == 1

@@ -112,7 +112,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
     "--to",
     "to_dt",
     type=utils_.utcfromisodate,
-    default=datetime.datetime.utcnow().isoformat(),
+    default=utils_.utcnow().isoformat(),
     help="End date in iso-format. Defaults to now.",
 )
 @click.option(
