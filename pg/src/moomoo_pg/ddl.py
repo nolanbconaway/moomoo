@@ -598,23 +598,9 @@ class PlaylistCollectionItem(BaseTable):
     __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
 
 
-TABLES: tuple[BaseTable] = (
-    ListenBrainzListen,
-    LocalFile,
-    LocalFileExcludeRegex,
-    LocalFileBirthTimestamp,
-    FileEmbedding,
-    ListenBrainzSimilarUserActivity,
-    MusicBrainzAnnotation,
-    ListenBrainzArtistStats,
-    MessyBrainzNameMap,
-    ListenBrainzUserFeedback,
-    ListenBrainzDataDump,
-    ListenBrainzDataDumpRecord,
-    ListenBrainzCollaborativeFilteringScore,
-    MusicBrainzDataDump,
-    MusicBrainzDataDumpRecord,
-    AnnotationQueueLog,
-    PlaylistCollection,
-    PlaylistCollectionItem,
-)
+# list all subclasses of BaseTable and put them in a list for easy access
+TABLES: list[type[BaseTable]] = []
+for subclass in BaseTable.__subclasses__():
+    TABLES.append(subclass)
+
+__all__ = ["BaseTable", "TABLES", *(i.__name__ for i in TABLES)]

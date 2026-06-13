@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy.exc import IntegrityError, ProgrammingError
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from moomoo_pg.db import execute_sql_fetchall
-from moomoo_pg.ddl import (
+from moomoo_pg import (
+    TABLES,
     AnnotationQueueLog,
     BaseTable,
     ListenBrainzCollaborativeFilteringScore,
@@ -19,6 +19,7 @@ from moomoo_pg.ddl import (
     MusicBrainzDataDump,
     PlaylistCollection,
     PlaylistCollectionItem,
+    execute_sql_fetchall,
 )
 
 
@@ -28,6 +29,11 @@ class FakeTable(BaseTable):
     __tablename__ = "fake_table"
     a: Mapped[int] = mapped_column(primary_key=True, nullable=False)
     b: Mapped[str] = mapped_column(nullable=False)
+
+
+def test_tables_list():
+    assert len(TABLES) > 5
+    assert all(issubclass(table, BaseTable) for table in TABLES)
 
 
 def test_create_drop_exists():
