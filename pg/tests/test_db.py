@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
 
-from moomoo_pg.db import execute_sql_fetchall, get_session, make_temp_table
+from moomoo_pg import execute_sql_fetchall, get_session, make_temp_table
 
 
 def test_execute_sql_fetchall():

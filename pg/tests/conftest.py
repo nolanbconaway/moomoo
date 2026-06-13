@@ -1,15 +1,13 @@
 """Common fixtures for all tests."""
 
 import logging
-import time
 from collections.abc import Generator
 
 import psycopg
 import pytest
 from sqlalchemy.orm import Session
 
-from moomoo_pg.db import get_engine, get_session
-from moomoo_pg.ddl import TABLES
+from moomoo_pg import TABLES, get_engine, get_session
 
 # Suppress harmless AdminShutdown errors during test cleanup when pytest-postgresql
 # tears down the test database while SQLAlchemy's pool is still finalizing connections
@@ -50,12 +48,6 @@ def setup_db(monkeypatch, postgresql: psycopg.Connection) -> Generator[str, None
     yield uri
 
     engine.dispose()
-
-
-@pytest.fixture(autouse=True)
-def no_sleep(monkeypatch):
-    """Disable all calls to time.sleep."""
-    monkeypatch.setattr(time, "sleep", lambda x: None)
 
 
 @pytest.fixture
