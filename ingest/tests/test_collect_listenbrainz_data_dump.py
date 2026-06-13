@@ -2,8 +2,8 @@ import datetime
 import io
 import json
 import tarfile
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 from uuid import UUID, uuid1
 
 import pytest

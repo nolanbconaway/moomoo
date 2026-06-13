@@ -18,7 +18,6 @@ import os
 import random
 import sys
 import uuid
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
@@ -114,7 +113,7 @@ def get_old_mbids(before: datetime.datetime) -> list[uuid.UUID]:
     help="Limit the number of mbids to annotate.",
     default=None,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
+def main(new_: bool, before: datetime.datetime | None, limit: int | None):
     """Run the main CLI."""
     # get list of mbids to annotate
     to_ingest: list[str] = []
@@ -140,7 +139,7 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     click.echo("ingesting...")
     with get_session() as session:
         for mbid, res in tqdm(
-            zip(to_ingest, map(get_artist_stats, to_ingest)),
+            zip(to_ingest, map(get_artist_stats, to_ingest), strict=True),
             disable=None,
             total=len(to_ingest),
         ):

@@ -13,7 +13,6 @@ API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/metadata.html#
 import datetime
 import random
 import sys
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
@@ -130,7 +129,7 @@ def lookup_msid(recording_name: str, release_name: str, artist_name: str) -> dic
     help="Limit the number of recordings to map.",
     default=None,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
+def main(new_: bool, before: datetime.datetime | None, limit: int | None):
     """Run the main CLI."""
     # get list of mbids to annotate
     to_ingest: list[str] = []

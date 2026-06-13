@@ -5,10 +5,10 @@ import datetime
 import hashlib
 import os
 import random
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from itertools import groupby
 from pathlib import Path
-from typing import Callable, Iterable, Iterator
 
 import musicbrainzngs
 import requests

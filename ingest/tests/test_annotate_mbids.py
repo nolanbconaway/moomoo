@@ -52,7 +52,7 @@ def test_Mbid_dataclass():
     data = [dict(mbid=uuid.uuid4(), entity="recording") for _ in range(5)]
     mbids = Mbid.from_sql_rows(data)
     assert len(mbids) == 5
-    assert all(str(i.mbid) == str(j["mbid"]) for i, j in zip(mbids, data))
+    assert all(str(i.mbid) == str(j["mbid"]) for i, j in zip(mbids, data, strict=True))
     assert Mbid.from_sql_rows([]) == []  # no data
 
     # test to dict
@@ -301,13 +301,13 @@ def test_fetch_queue(monkeypatch):
     runfn = annotate_mbids.fetch_queue
 
     # nothing to do
-    assert runfn(new_=False, updated=False, reannotate_ts=None, limit=10) == deque([])
+    assert runfn(new_=False, updated=False, reannotate_ts=None, limit=10) == deque()
 
     # request made but no mbids
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
-    assert runfn(new_=True, updated=True, reannotate_ts=now, limit=10) == deque([])
+    assert runfn(new_=True, updated=True, reannotate_ts=now, limit=10) == deque()
 
     # add some mbids to each category
     monkeypatch.setattr(
@@ -459,7 +459,7 @@ def test_filter_dependent_mbids():
 def test_annotate_and_upsert():
     """Test the ingest batch function."""
     # nothing to do
-    assert annotate_mbids.annotate_and_upsert(queue=deque([])) == (0, 0)
+    assert annotate_mbids.annotate_and_upsert(queue=deque()) == (0, 0)
 
     n_items = 500
     queue = deque([Mbid(mbid=uuid.uuid4(), entity="recording") for _ in range(n_items)])

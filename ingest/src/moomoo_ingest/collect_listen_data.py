@@ -11,7 +11,6 @@ import datetime
 import hashlib
 import json
 import sys
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
@@ -128,7 +127,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
 def main(
     username: str,
     since_last: bool,
-    from_dt: Optional[datetime.datetime],
+    from_dt: datetime.datetime | None,
     to_dt: datetime.datetime,
     buffer_days: int,
 ):

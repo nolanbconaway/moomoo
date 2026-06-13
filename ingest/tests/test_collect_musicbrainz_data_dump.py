@@ -3,7 +3,7 @@ import io
 import json
 import re
 import tarfile
-from typing import Generator
+from collections.abc import Generator
 from uuid import uuid1
 
 import pytest
