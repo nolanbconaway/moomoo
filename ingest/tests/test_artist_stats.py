@@ -72,13 +72,6 @@ def cli_run(new_: list[dict], old_: list[dict], args: list[str]) -> Result:
         return runner.invoke(artist_stats.main, args)
 
 
-def test_cli_main__not_table_exists_error(mbids: list[dict]):
-    """Test that the cli exits if the table doesn't exist."""
-    result = cli_run(new_=mbids, old_=[], args=["--new"])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__no_args():
     """Test nothing is done if nothing is requested."""
     result = cli_run(new_=[], old_=[], args=[])

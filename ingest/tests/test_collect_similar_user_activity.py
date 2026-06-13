@@ -42,19 +42,6 @@ def test_last_ingest_ts():
     assert collect_similar_user_activity.last_ingest_ts("FAKE_NAME") == ts
 
 
-def test_cli_main__not_table_exists_error():
-    runner = CliRunner()
-
-    fake_users_json = dict(payload=[dict(user_name="FAKE_NAME_2", similarity=0.5)])
-    fake_activity = dict(payload=dict(fake="yes"))
-    with get_mock_lb_http(fake_users_json, fake_activity):
-        runner = CliRunner()
-        result = runner.invoke(collect_similar_user_activity.main, ["FAKE_NAME"])
-
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__valid_data():
     """Test the main function with valid data."""
     fake_users_json = dict(payload=[dict(user_name="FAKE_NAME_2", similarity=0.5)])

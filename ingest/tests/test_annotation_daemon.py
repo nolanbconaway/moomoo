@@ -12,6 +12,12 @@ from moomoo_ingest.annotate_mbids import Mbid
 
 def test_run(monkeypatch):
     """Test the ingest batch function."""
+    monkeypatch.setattr(
+        annotation_daemon,
+        "annotate_and_upsert",
+        lambda queue, **_: (len(queue), 0),
+    )
+
     # add some mbids to each category to fetch
     monkeypatch.setattr(
         annotate_mbids,

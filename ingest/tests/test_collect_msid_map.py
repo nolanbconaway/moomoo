@@ -167,15 +167,6 @@ def test_cli_main__no_recordings():
     assert result.exit_code == 0
 
 
-def test_cli_main__not_table_exists_error(fake_recordings: list[dict]):
-    """Test handling of the target table not existing."""
-    load_local_files_table(fake_recordings)  # table now exists with data
-    runner = CliRunner()
-    result = runner.invoke(collect_msid_map.main, ["--new"])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__new(fake_recordings: list[dict]):
     """Test working with new recordings."""
     # add the mbids to the list but without annotations

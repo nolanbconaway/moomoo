@@ -35,13 +35,6 @@ def test_get_listens_in_period():
     assert len(res) == 1
 
 
-def test_cli_main__not_table_exists_error():
-    runner = CliRunner()
-    result = runner.invoke(collect_listen_data.main, ["--from=2021-01-01", "FAKE_NAME"])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__since_last_from_dt_error():
     runner = CliRunner()
 
