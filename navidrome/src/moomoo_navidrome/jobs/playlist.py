@@ -1,12 +1,11 @@
 """Syncronize mooomoo playlists to navidrome."""
 
 import click
-from moomoo_playlist.ddl import PlaylistCollection
+from moomoo_pg import PlaylistCollection, get_session
 
-from moomoo_navidrome.db import get_session
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.models import MoomooPlaylistSignature
-from moomoo_navidrome.navidrome import NavidromeDBClient, NavidromeHTTPClient
+from ..logger import logger
+from ..models import MoomooPlaylistSignature
+from ..navidrome import NavidromeDBClient, NavidromeHTTPClient
 
 TITLE_PREFIX = "mm |"
 
@@ -61,7 +60,7 @@ def sync_playlists_collection(
     #  recreate playlists
     logger.info(f"Creating {len(collection.items)} new playlist(s).")
     for item in collection.items:
-        playlist_paths = [track.filepath for track in item.to_playlist().tracks]
+        playlist_paths = [track["filepath"] for track in item.playlist]
         song_ids = NavidromeDBClient().get_song_ids(playlist_paths)
 
         if not song_ids:

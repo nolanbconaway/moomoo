@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 from uuid import UUID
 
 import httpx
-from moomoo_playlist.ddl import PlaylistCollectionItem
+from moomoo_pg import PlaylistCollectionItem
 from pydantic import BaseModel, ConfigDict, Field
 
 

@@ -10,12 +10,12 @@ from pathlib import Path
 from typing import ClassVar
 
 import click
+from moomoo_pg import execute_sql_fetchall
 from pydantic import BaseModel, ConfigDict
 
-from moomoo_navidrome.db import execute_sql_fetchall
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.models import NavidromePlaylist
-from moomoo_navidrome.navidrome import NavidromeDBClient, NavidromeHTTPClient
+from ..logger import logger
+from ..models import NavidromePlaylist
+from ..navidrome import NavidromeDBClient, NavidromeHTTPClient
 
 
 class QueueSignature(BaseModel):

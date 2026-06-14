@@ -7,15 +7,15 @@ software." You must shut down Navidrome before running this to avoid database co
 import datetime
 import os
 import sqlite3
+from itertools import batched
 from pathlib import Path
 
 import click
+from moomoo_pg import execute_sql_fetchall
 from pydantic import BaseModel
 
-from moomoo_navidrome.db import execute_sql_fetchall
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.navidrome import NavidromeDBClient
-from moomoo_navidrome.utils_ import batched
+from ..logger import logger
+from ..navidrome import NavidromeDBClient
 
 
 class PlayCount(BaseModel):

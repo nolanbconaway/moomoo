@@ -1,15 +1,15 @@
 """Sync listenbrainz loved tracks with navidrome favorites."""
 
 import os
+from itertools import batched
 from pathlib import Path
 
 import click
+from moomoo_pg import execute_sql_fetchall
 
-from moomoo_navidrome.db import execute_sql_fetchall
-from moomoo_navidrome.listenbrainz import get_listenbrainz_client
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.navidrome import NavidromeDBClient, NavidromeHTTPClient
-from moomoo_navidrome.utils_ import batched
+from ..listenbrainz import get_listenbrainz_client
+from ..logger import logger
+from ..navidrome import NavidromeDBClient, NavidromeHTTPClient
 
 # global ListenBrainz client, rate limiting is handled internally
 listenbrainz_client = get_listenbrainz_client()

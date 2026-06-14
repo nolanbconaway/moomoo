@@ -1,7 +1,7 @@
 import datetime
 from uuid import uuid4
 
-from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+from moomoo_pg import PlaylistCollection, PlaylistCollectionItem
 
 from moomoo_navidrome.jobs.playlist import (
     TITLE_PREFIX,
