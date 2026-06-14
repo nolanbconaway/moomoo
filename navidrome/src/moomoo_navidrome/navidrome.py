@@ -290,24 +290,22 @@ class NavidromeDBClient:
         if not file_paths:
             return {}
 
-        # Pre-map strings to Path objects for fast lookup after query
-        path_lookup: dict[str, Path] = {p.as_posix(): p for p in file_paths}
-        path_strs: list[str] = list(path_lookup.keys())
-        mapping: dict[Path, str] = {}
-
+        result: dict[Path, str] = {}
+        
         with self.connect() as conn:
             cursor = conn.cursor()
-            for chunk in batched(path_strs, chunk_size):
+            for chunk in batched(file_paths, chunk_size):
                 placeholders = ",".join(["?"] * len(chunk))
 
-                query = f"SELECT path, id FROM media_file WHERE path IN ({placeholders})"
-                cursor.execute(query, chunk)
+                query = f"select path, id from media_file where path in ({placeholders})"
+                cursor.execute(query, list(map(str, chunk)))
 
                 for row_path, row_id in cursor.fetchall():
-                    if row_path in path_lookup:
-                        mapping[path_lookup[row_path]] = row_id
+                    path_obj = Path(row_path)
+                    if path_obj in file_paths:
+                        result[path_obj] = row_id
 
-        return mapping
+        return result
 
     def get_song_ids(self, file_paths: list[Path]) -> list[str]:
         """Convenience method to get just the list of song IDs for given file paths.
