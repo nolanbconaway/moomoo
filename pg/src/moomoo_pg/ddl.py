@@ -2,15 +2,18 @@
 
 import datetime
 import re
-from typing import Annotated, Any, ClassVar, NewType
+from pathlib import Path
+from typing import Annotated, Any, ClassVar, NewType, Union
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
+from pydantic import BaseModel
 from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.types import String, TypeDecorator
 
 from .db import execute_sql_fetchall, get_engine, get_session
 
@@ -22,6 +25,23 @@ def now_utc() -> datetime.datetime:
 # make some new python types for real and smallint
 RealFloat = NewType("RealFloat", float)
 SmallInt = NewType("SmallInt", int)
+
+
+class PathType(TypeDecorator):
+    """Stores pathlib.Path objects as strings in the database."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return Path(value)
 
 
 class BaseTable(DeclarativeBase):
@@ -40,6 +60,7 @@ class BaseTable(DeclarativeBase):
         Annotated[list[float], 50]: Vector(50),
         RealFloat: postgresql.REAL,
         SmallInt: postgresql.SMALLINT,
+        Path: PathType,
     }
 
     @classmethod
@@ -236,7 +257,7 @@ class LocalFile(BaseTable):
 
     __tablename__ = "local_music_files"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     recording_md5: Mapped[str] = mapped_column(nullable=True, index=True)
     recording_name: Mapped[str] = mapped_column(nullable=True)
     release_name: Mapped[str] = mapped_column(nullable=True)
@@ -272,7 +293,7 @@ class LocalFileBirthTimestamp(BaseTable):
 
     __tablename__ = "local_music_files_birth_timestamps"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     birth_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
@@ -305,7 +326,7 @@ class FileEmbedding(BaseTable):
 
     __tablename__ = "local_music_embeddings"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     success: Mapped[bool] = mapped_column(nullable=False)
     fail_reason: Mapped[str] = mapped_column(nullable=True)
     duration_seconds: Mapped[float] = mapped_column(nullable=True)
@@ -512,7 +533,7 @@ class PlaylistCollection(BaseTable):
     )
     refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(nullable=True, index=True)
 
-    items: Mapped[list["PlaylistCollectionItem"]] = relationship(back_populates="collection")
+    items: Mapped[list["Playlist"]] = relationship(back_populates="collection")
 
     # add unique constraint for username and collection_name
     __table_args__ = (UniqueConstraint("username", "collection_name"), {})
@@ -576,26 +597,193 @@ class PlaylistCollection(BaseTable):
         """Check if the collection is fresh and does not need to be refreshed."""
         return not self.is_stale
 
+    @property
+    def ordered_items(self) -> list["Playlist"]:
+        """Return the playlists in the collection, ordered by collection_order_index."""
+        return sorted(self.items, key=lambda x: x.collection_order_index)
 
-class PlaylistCollectionItem(BaseTable):
+    def mark_refreshed(self) -> None:
+        """Mark the collection as refreshed by updating the refreshed_at_utc timestamp."""
+        self.refreshed_at_utc = func.current_timestamp()
+
+    def replace_playlists(
+        self,
+        playlists: list[Union["Playlist", "Playlist.PlaylistData"]],
+        session: Session,
+        force: bool = False,
+    ) -> bool:
+        """Replace all playlists in the collection with the given list.
+
+        Set force=True to replace the playlists even if the collection is not stale.
+
+        Returns a boolean indicating if the playlists were replaced (True = replaced,
+        False = skipped).
+        """
+
+        if self.is_fresh and not force:
+            return False
+
+        # covert it all to data, then convert it back to Playlist objects.
+        data = [p.data if isinstance(p, Playlist) else p for p in playlists]
+        playlists = [
+            Playlist.from_data(p, collection_id=self.collection_id, collection_order_index=i)
+            for i, p in enumerate(data)
+        ]
+
+        # drop all existing playlists for this user and collection
+        session.query(Playlist).filter_by(collection_id=self.collection_id).delete()
+        session.add_all(playlists)
+
+        # update the collection's refreshed at time
+        self.mark_refreshed()
+
+        return True
+
+
+class Playlist(BaseTable):
     """Model for moomoo_playlist_collection_items table."""
 
     __tablename__ = "moomoo_playlist_collection_items"
+
+    class PlaylistData(BaseModel):
+        """Playlist fields independent of collection context."""
+
+        title: str | None
+        description: str | None
+        tracks: list["PlaylistTrack.TrackData"]
 
     playlist_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
     collection_id: Mapped[UUID] = mapped_column(ForeignKey(PlaylistCollection.collection_id))
     collection_order_index: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(nullable=True)
-    playlist: Mapped[list] = mapped_column(nullable=False)
+    playlist: Mapped[list] = mapped_column(nullable=False)  # TODO: remove once clients migrate.
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
 
     collection: Mapped["PlaylistCollection"] = relationship(back_populates="items")
+    tracks: Mapped[list["PlaylistTrack"]] = relationship(back_populates="playlist")
 
     # unique constraint for collection_id and collection_order_index
     __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
+
+    @property
+    def ordered_tracks(self) -> list["PlaylistTrack"]:
+        """Return the tracks in the playlist, ordered by track_order_index."""
+        return sorted(self.tracks, key=lambda x: x.track_order_index)
+
+    @property
+    def data(self) -> PlaylistData:
+        """The playlist data without any collection context, appropriate for client consumption."""
+        return self.PlaylistData(
+            title=self.title,
+            description=self.description,
+            tracks=[track.data for track in self.ordered_tracks],
+        )
+
+    @property
+    def seeds(self) -> list["PlaylistTrack"]:
+        """Return the seed tracks in the playlist."""
+        return [t for t in self.ordered_tracks if t.is_seed]
+
+    @classmethod
+    def from_tracks(
+        cls,
+        collection_id: UUID,
+        collection_order_index: int,
+        title: str,
+        description: str | None,
+        tracks: list[Union["PlaylistTrack", "PlaylistTrack.TrackData"]],
+    ) -> "Playlist":
+        """Construct a Playlist from a list of tracks."""
+        # convert everything to data, then back into PlaylistTrack objects
+        data = [t.data if isinstance(t, PlaylistTrack) else t for t in tracks]
+        tracks = [PlaylistTrack.from_data(t, track_order_index=i) for i, t in enumerate(data)]
+        playlist = cls(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            title=title,
+            description=description,
+            playlist=[track.to_dict() for track in tracks],
+        )
+        playlist.tracks = tracks
+        return playlist
+
+    @classmethod
+    def from_data(
+        cls, data: PlaylistData, collection_id: UUID, collection_order_index: int
+    ) -> "Playlist":
+        """Construct a Playlist from a PlaylistData object and collection context."""
+        return cls.from_tracks(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            **data.model_dump(),
+        )
+
+
+class PlaylistTrack(BaseTable):
+    """Model for moomoo_playlist_tracks table."""
+
+    __tablename__ = "moomoo_playlist_tracks"
+
+    class TrackData(BaseModel):
+        """Track fields independent of playlist/ordering context."""
+
+        filepath: Path
+        recording_mbid: UUID | None = None
+        release_mbid: UUID | None = None
+        release_group_mbid: UUID | None = None
+        artist_mbid: UUID | None = None
+        album_artist_mbid: UUID | None = None
+        track_length_seconds: int | None = None
+        match_distance: float | None = None
+        is_seed: bool | None = None
+
+    track_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
+    playlist_id: Mapped[UUID] = mapped_column(ForeignKey(Playlist.playlist_id))
+    track_order_index: Mapped[int] = mapped_column(nullable=False)
+
+    filepath: Mapped[Path] = mapped_column(nullable=True)
+
+    # optional metadata about the track
+    recording_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    release_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    release_group_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    artist_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    album_artist_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    track_length_seconds: Mapped[int] = mapped_column(nullable=True)
+    match_distance: Mapped[float] = mapped_column(nullable=True)
+    is_seed: Mapped[bool] = mapped_column(nullable=True)
+
+    # backref to playlist
+    playlist: Mapped["Playlist"] = relationship(back_populates="tracks")
+
+    # unique constraint for playlist_id and track_order_index
+    __table_args__ = (UniqueConstraint("playlist_id", "track_order_index"), {})
+
+    @property
+    def data(self) -> TrackData:
+        """Return the track data as a PlaylistTrack.TrackData object."""
+        return self.TrackData(
+            filepath=self.filepath,
+            recording_mbid=self.recording_mbid,
+            release_mbid=self.release_mbid,
+            release_group_mbid=self.release_group_mbid,
+            artist_mbid=self.artist_mbid,
+            album_artist_mbid=self.album_artist_mbid,
+            track_length_seconds=self.track_length_seconds,
+            match_distance=self.match_distance,
+            is_seed=self.is_seed,
+        )
+
+    @classmethod
+    def from_data(cls, data: TrackData, track_order_index: int) -> "PlaylistTrack":
+        return cls(track_order_index=track_order_index, **data.model_dump())
+
+    def to_dict(self) -> dict:
+        """Convert to a dictionary, appropriate for json serialization."""
+        return self.data.model_dump(exclude_none=True, mode="json")
 
 
 # list all subclasses of BaseTable and put them in a list for easy access
