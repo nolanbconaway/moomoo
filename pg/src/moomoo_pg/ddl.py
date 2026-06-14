@@ -99,12 +99,23 @@ class BaseTable(DeclarativeBase):
         """Return True if the table exists."""
         return inspect(get_engine()).has_table(cls.table_name())
 
-    def insert(self, session: Session = None) -> None:
-        """Insert a row into the table."""
+    def insert(
+        self,
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
+        """Insert a row into the table.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
+        if commit is None:
+            commit = session is None
 
         def f(s: Session):
             s.add(self)
-            s.commit()
+            if commit:
+                s.commit()
 
         if session is None:
             with get_session() as session:
@@ -113,11 +124,19 @@ class BaseTable(DeclarativeBase):
             f(session)
 
     @classmethod
-    def bulk_insert(cls, rows: list[dict], session: Session = None, commit: bool = True) -> None:
+    def bulk_insert(
+        cls,
+        rows: list[dict],
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
         """Bulk insert rows into the table.
 
-        Is MUCH faster than inserting one row at a time.
+        Is MUCH faster than inserting one row at a time. Commits the transaction by default if no
+        session is provided, otherwise leaves it to the caller.
         """
+        if commit is None:
+            commit = session is None
 
         def f(s: Session):
             s.execute(insert(cls), rows)
@@ -130,12 +149,23 @@ class BaseTable(DeclarativeBase):
         else:
             f(session)
 
-    def upsert(self, update_cols: list[str] | None = None, session: Session = None) -> None:
+    def upsert(
+        self,
+        update_cols: list[str] | None = None,
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
         """Upsert a row into the table.
 
         Set update_cols to a list of columns to update on conflict. Defaults to all
         columns except the primary key.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
         """
+        if commit is None:
+            commit = session is None
+
         pk = self.primary_key()
         if not pk:
             raise ValueError("Cannot upsert a row without a primary key.")
@@ -153,7 +183,8 @@ class BaseTable(DeclarativeBase):
 
         def f(s: Session):
             s.execute(stmt)
-            s.commit()
+            if commit:
+                s.commit()
 
         if session is None:
             with get_session() as session:
@@ -301,11 +332,18 @@ class LocalFileBirthTimestamp(BaseTable):
 
     @classmethod
     def bulk_upsert_on_conflict_do_nothing(
-        cls, rows: list[dict], session: Session = None, commit: bool = True
+        cls, rows: list[dict], session: Session = None, commit: bool | None = None
     ) -> None:
-        """Bulk upsert rows into the table, doing nothing on conflict."""
+        """Bulk upsert rows into the table, doing nothing on conflict.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
         if not rows:
             return
+
+        if commit is None:
+            commit = session is None
 
         stmt = insert(cls).values(rows).on_conflict_do_nothing(index_elements=["filepath"])
 
@@ -395,10 +433,9 @@ class ListenBrainzDataDump(BaseTable):
         ).delete()
 
         if records:
-            ListenBrainzDataDumpRecord.bulk_insert(records, session=session)
+            ListenBrainzDataDumpRecord.bulk_insert(records, session=session, commit=False)
 
         self.refreshed_at = func.current_timestamp()
-        session.commit()
 
 
 class ListenBrainzDataDumpRecord(BaseTable):
@@ -429,8 +466,19 @@ class ListenBrainzCollaborativeFilteringScore(BaseTable):
     )
 
     @classmethod
-    def reset_pk(cls, session: Session | None = None, commit: bool = True) -> None:
-        """Reset the primary key to allow for re-insertions."""
+    def reset_pk(
+        cls,
+        session: Session | None = None,
+        commit: bool | None = None,
+    ) -> None:
+        """Reset the primary key to allow for re-insertions.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
+        if commit is None:
+            commit = session is None
+
         name = cls.table_name()
         sql = f"SELECT setval(pg_get_serial_sequence('{name}', 'mbid_pair_id'), 1, false);"
 
@@ -476,7 +524,6 @@ class MusicBrainzDataDump(BaseTable):
             MusicBrainzDataDumpRecord.bulk_insert(records, session=session)
 
         self.refreshed_at = func.current_timestamp()
-        session.commit()
 
 
 class MusicBrainzDataDumpRecord(BaseTable):
@@ -602,10 +649,6 @@ class PlaylistCollection(BaseTable):
         """Return the playlists in the collection, ordered by collection_order_index."""
         return sorted(self.items, key=lambda x: x.collection_order_index)
 
-    def mark_refreshed(self) -> None:
-        """Mark the collection as refreshed by updating the refreshed_at_utc timestamp."""
-        self.refreshed_at_utc = func.current_timestamp()
-
     def replace_playlists(
         self,
         playlists: list[Union["Playlist", "Playlist.PlaylistData"]],
@@ -635,7 +678,7 @@ class PlaylistCollection(BaseTable):
         session.add_all(playlists)
 
         # update the collection's refreshed at time
-        self.mark_refreshed()
+        self.refreshed_at_utc = func.current_timestamp()
 
         return True
 
