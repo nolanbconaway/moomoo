@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: "3.14"
           cache: 'pip'
-          cache-dependency-path: ingest/setup.py
+          cache-dependency-path: ingest/pyproject.toml
 
       - name: Install pgvector
         run: |
