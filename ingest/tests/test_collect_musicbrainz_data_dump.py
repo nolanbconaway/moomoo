@@ -3,29 +3,22 @@ import io
 import json
 import re
 import tarfile
-from typing import Generator
+from collections.abc import Generator
 from uuid import uuid1
 
 import pytest
 import requests
 import requests_mock as requests_mock_lib
 from click.testing import CliRunner
+from moomoo_pg import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 
 from moomoo_ingest import collect_musicbrainz_data_dump as lib
-from moomoo_ingest.db import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 
 
 @pytest.fixture(autouse=True)
 def latest_api_packet_number(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock get_latest_packet_number_from_api to return a fixed number."""
     monkeypatch.setattr(lib, "get_latest_packet_number_from_api", lambda: 1000)
-
-
-@pytest.fixture(autouse=True)
-def create_tables():
-    """Create the necessary tables before each test."""
-    MusicBrainzDataDump.create()
-    MusicBrainzDataDumpRecord.create()
 
 
 @pytest.fixture

@@ -13,15 +13,14 @@ import hashlib
 import json
 import sys
 from itertools import product
-from typing import Union
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzSimilarUserActivity, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from . import utils_
-from .db import ListenBrainzSimilarUserActivity, get_session
 
 ENTITIES = ("artists", "releases", "recordings")
 TIME_RANGES = ("month", "year", "all_time")
@@ -39,7 +38,7 @@ client = utils_.get_listenbrainz_client()
 
 
 @LB_RETRY
-def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
+def get_similar_users(username: str) -> list[dict[str, str | float]]:
     """Get similar users for a user.
 
     Returns a list of dicts with the following keys:
@@ -53,7 +52,7 @@ def get_similar_users(username: str) -> list[dict[str, Union[str, float]]]:
 @LB_RETRY
 def get_user_top_activity(
     username: str, entity: str, time_range: str = "all_time", count: int = 100
-) -> list[dict[str, Union[str, float]]]:
+) -> list[dict[str, str | float]]:
     """Get the top activity for a user/entity."""
     if entity not in ENTITIES:
         raise ValueError(f"Invalid entity: {entity}.")

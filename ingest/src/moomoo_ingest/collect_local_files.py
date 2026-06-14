@@ -11,10 +11,10 @@ from pathlib import Path
 
 import click
 import mutagen
+from moomoo_pg import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex, get_session
 from tqdm.auto import tqdm
 
 from . import utils_
-from .db import LocalFile, LocalFileBirthTimestamp, LocalFileExcludeRegex, get_session
 
 EXTENSIONS: set[str] = set([".mp3", ".flac"])
 
@@ -156,7 +156,7 @@ def main(
                 insert_ts_utc=utils_.utcnow(),
                 **data,
             )
-            for path, data in zip(files, parsed)
+            for path, data in zip(files, parsed, strict=True)
         ]
         for batch in utils_.batch(rows, n=1000):
             LocalFile.bulk_insert(list(batch), session=session)
@@ -165,7 +165,7 @@ def main(
         old_files = {file.filepath for file in session.query(LocalFileBirthTimestamp).all()}
         rows = [
             dict(filepath=str(path.relative_to(src_dir)), birth_at=data["file_created_at"])
-            for path, data in zip(files, parsed)
+            for path, data in zip(files, parsed, strict=True)
             if str(path.relative_to(src_dir)) not in old_files
         ]
         click.echo(f"Upserting {len(rows)} birth timestamps.")

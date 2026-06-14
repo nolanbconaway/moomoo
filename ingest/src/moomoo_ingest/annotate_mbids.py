@@ -15,15 +15,11 @@ import dataclasses
 import datetime
 import os
 from collections import deque
-from typing import Callable
+from collections.abc import Callable
 from uuid import UUID
 
 import click
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
-from . import utils_
-from .db import (
+from moomoo_pg import (
     AnnotationQueueLog,
     MusicBrainzAnnotation,
     MusicBrainzDataDump,
@@ -31,6 +27,10 @@ from .db import (
     execute_sql_fetchall,
     get_session,
 )
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from . import utils_
 
 QUEUE_LOG_TIMEOUT_SECONDS = 5 * 60  # 5 minutes
 

@@ -6,22 +6,18 @@ is well-tested.
 
 import uuid
 
-import pytest
-
 from moomoo_ingest import annotate_mbids, annotation_daemon
 from moomoo_ingest.annotate_mbids import Mbid
-from moomoo_ingest.db import AnnotationQueueLog, MusicBrainzAnnotation
-
-
-@pytest.fixture(autouse=True)
-def create_tables():
-    """Create and drop the necessary tables for testing."""
-    MusicBrainzAnnotation.create()
-    AnnotationQueueLog.create()
 
 
 def test_run(monkeypatch):
     """Test the ingest batch function."""
+    monkeypatch.setattr(
+        annotation_daemon,
+        "annotate_and_upsert",
+        lambda queue, **_: (len(queue), 0),
+    )
+
     # add some mbids to each category to fetch
     monkeypatch.setattr(
         annotate_mbids,

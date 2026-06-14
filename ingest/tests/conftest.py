@@ -7,9 +7,8 @@ from pathlib import Path
 import musicbrainzngs
 import psycopg
 import pytest
+from moomoo_pg import TABLES, get_session
 from sqlalchemy import text
-
-from moomoo_ingest.db import get_session
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -67,6 +66,10 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     cur.execute(f"ALTER USER {postgresql.info.user} SET timezone='UTC'")
 
     postgresql.commit()
+
+    # create each table
+    for table in TABLES:
+        table.create()
 
     return uri
 

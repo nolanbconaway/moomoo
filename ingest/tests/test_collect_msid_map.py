@@ -5,10 +5,10 @@ import uuid
 
 import pytest
 from click.testing import CliRunner
+from moomoo_pg import LocalFile, MessyBrainzNameMap, get_session
 from sqlalchemy import text
 
 from moomoo_ingest import collect_msid_map
-from moomoo_ingest.db import LocalFile, MessyBrainzNameMap, get_session
 
 
 def load_local_files_table(data: list[dict]):
@@ -20,7 +20,6 @@ def load_local_files_table(data: list[dict]):
         - recording_name: str
         - artist_name: str
     """
-    LocalFile.create()
     with get_session() as session:
         sql = f"""
         insert into {LocalFile.table_name()} 
@@ -93,7 +92,6 @@ def fake_recordings() -> list[dict]:
 )
 def test_cli_date_args(args, exit_0):
     """Test the datetime flags are required together."""
-    MessyBrainzNameMap.create()
     load_local_files_table([])  # empty data, should do nothing
     runner = CliRunner()
 
@@ -107,7 +105,6 @@ def test_cli_date_args(args, exit_0):
 
 def test_get_new_recordings__no_data():
     """Test the new getter when the table is empty."""
-    MessyBrainzNameMap().create()
     load_local_files_table([])
     res = collect_msid_map.get_new_recordings()
     assert res == []
@@ -115,7 +112,6 @@ def test_get_new_recordings__no_data():
 
 def test_get_new_recordings__any_data(fake_recordings: list[dict]):
     """Test the new getter when the table is not empty."""
-    MessyBrainzNameMap.create()
     load_local_files_table(fake_recordings)
     res = collect_msid_map.get_new_recordings()
     assert len(res) == len(fake_recordings)
@@ -123,7 +119,6 @@ def test_get_new_recordings__any_data(fake_recordings: list[dict]):
 
 def test_get_old_recordings__no_data():
     """Test the old getter when the table is empty."""
-    MessyBrainzNameMap.create()
     load_local_files_table([])
     res = collect_msid_map.get_old_recordings(before=datetime.datetime.now())
     assert res == []
@@ -131,7 +126,6 @@ def test_get_old_recordings__no_data():
 
 def test_get_old_recordings__any_data(fake_recordings: list[dict]):
     """Test the old getter when the table is not empty."""
-    MessyBrainzNameMap.create()
     load_local_files_table(fake_recordings)
 
     ts = datetime.datetime(2022, 1, 1)
@@ -151,7 +145,6 @@ def test_get_old_recordings__any_data(fake_recordings: list[dict]):
 
 def test_cli_main__no_recordings():
     """Test nothing is done if nothing is requested."""
-    MessyBrainzNameMap.create()
     load_local_files_table([])  # empty data, should do nothing
     runner = CliRunner()
 
@@ -174,19 +167,9 @@ def test_cli_main__no_recordings():
     assert result.exit_code == 0
 
 
-def test_cli_main__not_table_exists_error(fake_recordings: list[dict]):
-    """Test handling of the target table not existing."""
-    load_local_files_table(fake_recordings)  # table now exists with data
-    runner = CliRunner()
-    result = runner.invoke(collect_msid_map.main, ["--new"])
-    assert result.exit_code != 0
-    assert "psycopg.errors.UndefinedTable" in str(result.exception)
-
-
 def test_cli_main__new(fake_recordings: list[dict]):
     """Test working with new recordings."""
     # add the mbids to the list but without annotations
-    MessyBrainzNameMap.create()
     load_local_files_table(fake_recordings)
 
     runner = CliRunner()
@@ -200,7 +183,6 @@ def test_cli_main__new(fake_recordings: list[dict]):
 
 def test_cli_main__old(fake_recordings: list[dict]):
     """Test working with old recordings."""
-    MessyBrainzNameMap.create()
     load_local_files_table(fake_recordings)
 
     # add annotations for before 2021-01-01
@@ -218,7 +200,6 @@ def test_cli_main__old(fake_recordings: list[dict]):
 
 def test_cli_main__limit(fake_recordings: list[dict]):
     """Test limit handler"""
-    MessyBrainzNameMap.create()
     load_local_files_table(fake_recordings)
 
     n = len(fake_recordings)

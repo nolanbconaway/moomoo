@@ -33,9 +33,9 @@ def main() -> None:
 
     assert template_path.exists(), f"Template file not found: {template_path}"
     assert envvfile_path.exists(), f".env file not found: {envvfile_path}"
-    assert (
-        annotator_daemon_launcher_path.exists()
-    ), f"Annotator daemon launcher not found: {annotator_daemon_launcher_path}"
+    assert annotator_daemon_launcher_path.exists(), (
+        f"Annotator daemon launcher not found: {annotator_daemon_launcher_path}"
+    )
 
     service_txt = template_path.read_text().format(
         MOOMOO_INGEST_ENVVFILE=str(envvfile_path),

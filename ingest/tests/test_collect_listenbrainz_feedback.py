@@ -2,9 +2,9 @@ from unittest import mock
 from uuid import uuid1
 
 from click.testing import CliRunner
+from moomoo_pg import ListenBrainzUserFeedback
 
 from moomoo_ingest import collect_listenbrainz_feedback, utils_
-from moomoo_ingest.db import ListenBrainzUserFeedback
 
 
 def get_mock_lb_http(*responses) -> mock.Mock:
@@ -18,8 +18,6 @@ def get_mock_lb_http(*responses) -> mock.Mock:
 
 def test_cli_main__no_data(monkeypatch):
     """Test the main function with empty data in the db and api."""
-    ListenBrainzUserFeedback.create()
-
     # no db loves, no api loves. do nothing
     monkeypatch.setattr(collect_listenbrainz_feedback, "get_total_feedback_count", lambda _: 0)
     with get_mock_lb_http(dict(feedback=[])):
@@ -33,7 +31,6 @@ def test_cli_main__no_data(monkeypatch):
 
 def test_cli_main__some_data(monkeypatch):
     """Test the main function with empty data in the db but some in the api."""
-    ListenBrainzUserFeedback.create()
 
     fake_responses = [
         dict(feedback=[dict(user_id="FAKE", score=1, recording_mbid=uuid1().hex, created=0)]),

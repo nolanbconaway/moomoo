@@ -15,10 +15,10 @@ from typing import Optional
 
 import click
 import requests
+from moomoo_pg import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from .db import MusicBrainzDataDump, MusicBrainzDataDumpRecord, get_session
 from .utils_ import ENTITIES, request_with_retry
 
 API_BASE = "https://metabrainz.org/api/musicbrainz"
@@ -64,9 +64,9 @@ def get_latest_packet_number_from_api() -> int:
     return packet_number
 
 
-def get_latest_packet_number_from_db(session: Session, entity: str) -> Optional[int]:
+def get_latest_packet_number_from_db(session: Session, entity: str) -> int | None:
     """Get the latest packet number stored in the db, or None if no dumps are stored."""
-    latest_dump: Optional[MusicBrainzDataDump] = (
+    latest_dump: MusicBrainzDataDump | None = (
         session.query(MusicBrainzDataDump)
         .filter(MusicBrainzDataDump.entity == entity)
         .order_by(MusicBrainzDataDump.packet_number.desc())
@@ -236,7 +236,7 @@ class DataDump:
     default=ENTITIES,
     help="Entities for which to download dumps.",
 )
-def main(drop_age_days: Optional[int], packet: Optional[int], entities: list[str]) -> None:
+def main(drop_age_days: int | None, packet: int | None, entities: list[str]) -> None:
     click.echo("Starting MusicBrainz data dump collection...")
     api_latest = get_latest_packet_number_from_api()
     click.echo(f"Latest packet number from API: {api_latest}")

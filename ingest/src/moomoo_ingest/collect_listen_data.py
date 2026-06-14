@@ -11,16 +11,15 @@ import datetime
 import hashlib
 import json
 import sys
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzListen, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
 from . import utils_
-from .db import ListenBrainzListen, get_session
 
 # global ListenBrainz client, rate limiting is handled internally
 client = utils_.get_listenbrainz_client()
@@ -113,7 +112,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
     "--to",
     "to_dt",
     type=utils_.utcfromisodate,
-    default=datetime.datetime.utcnow().isoformat(),
+    default=utils_.utcnow().isoformat(),
     help="End date in iso-format. Defaults to now.",
 )
 @click.option(
@@ -128,7 +127,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
 def main(
     username: str,
     since_last: bool,
-    from_dt: Optional[datetime.datetime],
+    from_dt: datetime.datetime | None,
     to_dt: datetime.datetime,
     buffer_days: int,
 ):

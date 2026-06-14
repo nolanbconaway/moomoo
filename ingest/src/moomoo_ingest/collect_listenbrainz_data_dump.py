@@ -15,17 +15,16 @@ import multiprocessing
 import sys
 import tarfile
 from collections import Counter
+from collections.abc import Generator
 from contextlib import contextmanager
 from io import BytesIO
 from pathlib import Path
-from typing import Generator, Optional
 from uuid import UUID
 
 import click
 import zstandard
+from moomoo_pg import ListenBrainzDataDump, get_session
 from tqdm import tqdm
-
-from .db import ListenBrainzDataDump, get_session
 
 FTP_HOST = "ftp.musicbrainz.org"
 FTP_DIR = "/pub/musicbrainz/listenbrainz/incremental"
@@ -54,7 +53,7 @@ def ftp_session() -> Generator[ftplib.FTP, None, None]:
             ftp.close()
 
 
-def try_uuid(s: str) -> Optional[UUID]:
+def try_uuid(s: str) -> UUID | None:
     """Try to parse a string as a UUID."""
     try:
         return UUID(s)

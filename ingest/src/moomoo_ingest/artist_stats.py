@@ -18,16 +18,15 @@ import os
 import random
 import sys
 import uuid
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import ListenBrainzArtistStats, execute_sql_fetchall, get_session
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 from tqdm import tqdm
 
 from . import utils_
-from .db import ListenBrainzArtistStats, execute_sql_fetchall, get_session
 
 # global ListenBrainz client, rate limiting is handled internally
 client = utils_.get_listenbrainz_client()
@@ -114,7 +113,7 @@ def get_old_mbids(before: datetime.datetime) -> list[uuid.UUID]:
     help="Limit the number of mbids to annotate.",
     default=None,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
+def main(new_: bool, before: datetime.datetime | None, limit: int | None):
     """Run the main CLI."""
     # get list of mbids to annotate
     to_ingest: list[str] = []
@@ -140,7 +139,7 @@ def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
     click.echo("ingesting...")
     with get_session() as session:
         for mbid, res in tqdm(
-            zip(to_ingest, map(get_artist_stats, to_ingest)),
+            zip(to_ingest, map(get_artist_stats, to_ingest), strict=True),
             disable=None,
             total=len(to_ingest),
         ):

@@ -13,10 +13,10 @@ API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/metadata.html#
 import datetime
 import random
 import sys
-from typing import Optional
 
 import click
 from liblistenbrainz.errors import ListenBrainzAPIException
+from moomoo_pg import LocalFile, MessyBrainzNameMap, execute_sql_fetchall, get_session
 from requests.exceptions import RetryError
 from tenacity import (
     RetryCallState,
@@ -28,7 +28,6 @@ from tenacity import (
 from tqdm import tqdm
 
 from . import utils_
-from .db import LocalFile, MessyBrainzNameMap, execute_sql_fetchall, get_session
 
 # base sql to extract artist names and hashes from the local files table
 RECORDINGS_BASE = f"""
@@ -130,7 +129,7 @@ def lookup_msid(recording_name: str, release_name: str, artist_name: str) -> dic
     help="Limit the number of recordings to map.",
     default=None,
 )
-def main(new_: bool, before: Optional[datetime.datetime], limit: Optional[int]):
+def main(new_: bool, before: datetime.datetime | None, limit: int | None):
     """Run the main CLI."""
     # get list of mbids to annotate
     to_ingest: list[str] = []
