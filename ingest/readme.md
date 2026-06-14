@@ -26,7 +26,6 @@ LISTENBRAINZ_USER_TOKEN=... # seems like listenbrainz msid lookup breaks unless 
 Some example use of each CLI here:
 
 ```sh
-$ moomoo-ingest db create
 $ moomoo-ingest annotate-mbids --new --updated
 $ moomoo-ingest artist-stats --new
 $ moomoo-ingest listens --since-last <username>
