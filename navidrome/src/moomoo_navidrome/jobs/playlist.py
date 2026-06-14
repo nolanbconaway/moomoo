@@ -1,12 +1,11 @@
 """Syncronize mooomoo playlists to navidrome."""
 
 import click
-from moomoo_playlist.ddl import PlaylistCollection
+from moomoo_pg import PlaylistCollection, get_session
 
-from moomoo_navidrome.db import get_session
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.models import MoomooPlaylistSignature
-from moomoo_navidrome.navidrome import NavidromeDBClient, NavidromeHTTPClient
+from ..logger import logger
+from ..models import MoomooPlaylistSignature
+from ..navidrome import NavidromeDBClient, NavidromeHTTPClient
 
 TITLE_PREFIX = "mm |"
 

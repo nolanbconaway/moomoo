@@ -11,14 +11,14 @@ import secrets
 import sqlite3
 import time
 from collections.abc import Generator
+from itertools import batched
 from pathlib import Path
 from typing import TypedDict
 
 import httpx
 
-from moomoo_navidrome.logger import logger
-from moomoo_navidrome.models import NavidromePlaylist, SubsonicResponse, SubsonicStatusError
-from moomoo_navidrome.utils_ import batched
+from .logger import logger
+from .models import NavidromePlaylist, SubsonicResponse, SubsonicStatusError
 
 
 class SubsonicAuth(TypedDict):

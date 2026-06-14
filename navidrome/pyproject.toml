@@ -1,3 +1,41 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moomoo-navidrome"
+dynamic = ["version"]
+dependencies = [
+    "psycopg[binary]==3.3.*",
+    "sqlalchemy==2.*",
+    "pgvector==0.4.*",
+    "click==8.*",
+    "httpx==0.28.*",
+    "loguru==0.7.*",
+    "pydantic==2.13.*",
+    "liblistenbrainz==0.7.0",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.0.3#subdirectory=pg",
+]
+
+[project.optional-dependencies]
+test = [
+    "ruff==0.15.*",
+    "pytest==9.1.0",
+    "testcontainers==4.14.2",
+]
+
+[project.scripts]
+moomoo-navidrome = "moomoo_navidrome.cli:cli"
+
+[tool.setuptools.dynamic]
+version = {file = "src/moomoo_navidrome/version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moomoo_navidrome = ["version"]
+
 [tool.ruff]
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 line-length = 100
@@ -13,3 +51,7 @@ select = [
     "RUF", # ruff
 ]
 ignore = []
+
+[tool.pytest]
+addopts = ["-v"]
+testpaths = ["tests"]

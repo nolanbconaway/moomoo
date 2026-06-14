@@ -1,8 +1,8 @@
 import click
 
-from moomoo_navidrome.jobs.loves import cli as loves_cli
-from moomoo_navidrome.jobs.play_queue import cli as play_queue_cli
-from moomoo_navidrome.jobs.playlist import cli as playlist_cli
+from .jobs.loves import cli as loves_cli
+from .jobs.play_queue import cli as play_queue_cli
+from .jobs.playlist import cli as playlist_cli
 
 
 @click.group()
