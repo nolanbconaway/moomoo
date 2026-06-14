@@ -291,7 +291,7 @@ class NavidromeDBClient:
             return {}
 
         result: dict[Path, str] = {}
-        
+
         with self.connect() as conn:
             cursor = conn.cursor()
             for chunk in batched(file_paths, chunk_size):
