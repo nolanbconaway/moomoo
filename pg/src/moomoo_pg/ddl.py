@@ -651,7 +651,7 @@ class PlaylistCollection(BaseTable):
 
     def replace_playlists(
         self,
-        playlists: list[Union["Playlist", "Playlist.PlaylistData"]],
+        playlists: list[Union["Playlist", "Playlist.Data"]],
         session: Session,
         force: bool = False,
     ) -> bool:
@@ -688,12 +688,12 @@ class Playlist(BaseTable):
 
     __tablename__ = "moomoo_playlist_collection_items"
 
-    class PlaylistData(BaseModel):
+    class Data(BaseModel):
         """Playlist fields independent of collection context."""
 
         title: str | None
         description: str | None
-        tracks: list["PlaylistTrack.TrackData"]
+        tracks: list["PlaylistTrack.Data"]
 
     playlist_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
     collection_id: Mapped[UUID] = mapped_column(ForeignKey(PlaylistCollection.collection_id))
@@ -717,9 +717,9 @@ class Playlist(BaseTable):
         return sorted(self.tracks, key=lambda x: x.track_order_index)
 
     @property
-    def data(self) -> PlaylistData:
+    def data(self) -> Data:
         """The playlist data without any collection context, appropriate for client consumption."""
-        return self.PlaylistData(
+        return self.Data(
             title=self.title,
             description=self.description,
             tracks=[track.data for track in self.ordered_tracks],
@@ -737,7 +737,7 @@ class Playlist(BaseTable):
         collection_order_index: int,
         title: str,
         description: str | None,
-        tracks: list[Union["PlaylistTrack", "PlaylistTrack.TrackData"]],
+        tracks: list[Union["PlaylistTrack", "PlaylistTrack.Data"]],
     ) -> "Playlist":
         """Construct a Playlist from a list of tracks."""
         # convert everything to data, then back into PlaylistTrack objects
@@ -755,7 +755,7 @@ class Playlist(BaseTable):
 
     @classmethod
     def from_data(
-        cls, data: PlaylistData, collection_id: UUID, collection_order_index: int
+        cls, data: Data, collection_id: UUID, collection_order_index: int
     ) -> "Playlist":
         """Construct a Playlist from a PlaylistData object and collection context."""
         return cls.from_tracks(
@@ -770,7 +770,7 @@ class PlaylistTrack(BaseTable):
 
     __tablename__ = "moomoo_playlist_tracks"
 
-    class TrackData(BaseModel):
+    class Data(BaseModel):
         """Track fields independent of playlist/ordering context."""
 
         filepath: Path
@@ -806,9 +806,9 @@ class PlaylistTrack(BaseTable):
     __table_args__ = (UniqueConstraint("playlist_id", "track_order_index"), {})
 
     @property
-    def data(self) -> TrackData:
-        """Return the track data as a PlaylistTrack.TrackData object."""
-        return self.TrackData(
+    def data(self) -> Data:
+        """Return the track data as a PlaylistTrack.Data object."""
+        return self.Data(
             filepath=self.filepath,
             recording_mbid=self.recording_mbid,
             release_mbid=self.release_mbid,
@@ -821,7 +821,7 @@ class PlaylistTrack(BaseTable):
         )
 
     @classmethod
-    def from_data(cls, data: TrackData, track_order_index: int) -> "PlaylistTrack":
+    def from_data(cls, data: Data, track_order_index: int) -> "PlaylistTrack":
         return cls(track_order_index=track_order_index, **data.model_dump())
 
     def to_dict(self) -> dict:
