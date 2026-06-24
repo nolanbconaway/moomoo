@@ -3,7 +3,7 @@
 import datetime
 import re
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, NewType, Union
+from typing import Annotated, Any, ClassVar, NewType
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
@@ -78,7 +78,7 @@ class BaseTable(DeclarativeBase):
         """Return the column names."""
         return [c.name for c in cls.__table__.columns]
 
-    def dict(self) -> dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Return a dict of the table's columns."""
         return {i: getattr(self, i) for i in self.columns()}
 
@@ -173,7 +173,7 @@ class BaseTable(DeclarativeBase):
         if not update_cols:
             update_cols = [i for i in self.columns() if i not in pk]
 
-        data = self.dict()
+        data = self.as_dict()
         updates = {i: data[i] for i in update_cols}
         stmt = (
             insert(self.__class__)
@@ -649,9 +649,24 @@ class PlaylistCollection(BaseTable):
         """Return the playlists in the collection, ordered by collection_order_index."""
         return sorted(self.items, key=lambda x: x.collection_order_index)
 
+    def make_playlist(
+        self,
+        tracks: list["PlaylistTrack.Data"],
+        title: str | None = None,
+        description: str | None = None,
+    ) -> "Playlist":
+        """Make a new playlist in the collection from the given data."""
+        return Playlist.from_tracks(
+            collection_id=self.collection_id,
+            collection_order_index=len(self.items),
+            title=title,
+            description=description,
+            tracks=tracks,
+        )
+
     def replace_playlists(
         self,
-        playlists: list[Union["Playlist", "Playlist.Data"]],
+        playlists: list["Playlist.Data"],
         session: Session,
         force: bool = False,
     ) -> bool:
@@ -666,11 +681,9 @@ class PlaylistCollection(BaseTable):
         if self.is_fresh and not force:
             return False
 
-        # covert it all to data, then convert it back to Playlist objects.
-        data = [p.data if isinstance(p, Playlist) else p for p in playlists]
         playlists = [
             Playlist.from_data(p, collection_id=self.collection_id, collection_order_index=i)
-            for i, p in enumerate(data)
+            for i, p in enumerate(playlists)
         ]
 
         # drop all existing playlists for this user and collection
@@ -700,7 +713,7 @@ class Playlist(BaseTable):
     collection_order_index: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(nullable=True)
-    playlist: Mapped[list] = mapped_column(nullable=False)  # TODO: remove once clients migrate.
+    playlist: Mapped[list] = mapped_column(nullable=True)  # TODO: remove once clients migrate.
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
@@ -730,19 +743,22 @@ class Playlist(BaseTable):
         """Return the seed tracks in the playlist."""
         return [t for t in self.ordered_tracks if t.is_seed]
 
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Expose the model dump from the data here, so that this can be ducktyped when needed."""
+        return self.data.model_dump(**kwargs)
+
     @classmethod
     def from_tracks(
         cls,
         collection_id: UUID,
         collection_order_index: int,
-        title: str,
+        title: str | None,
         description: str | None,
-        tracks: list[Union["PlaylistTrack", "PlaylistTrack.Data"]],
+        tracks: list["PlaylistTrack.Data"],
     ) -> "Playlist":
         """Construct a Playlist from a list of tracks."""
         # convert everything to data, then back into PlaylistTrack objects
-        data = [t.data if isinstance(t, PlaylistTrack) else t for t in tracks]
-        tracks = [PlaylistTrack.from_data(t, track_order_index=i) for i, t in enumerate(data)]
+        tracks = [PlaylistTrack.from_data(t, track_order_index=i) for i, t in enumerate(tracks)]
         playlist = cls(
             collection_id=collection_id,
             collection_order_index=collection_order_index,
@@ -755,14 +771,26 @@ class Playlist(BaseTable):
 
     @classmethod
     def from_data(
-        cls, data: Data, collection_id: UUID, collection_order_index: int
+        cls, data: Data | dict, collection_id: UUID, collection_order_index: int
     ) -> "Playlist":
         """Construct a Playlist from a PlaylistData object and collection context."""
+        if isinstance(data, dict):
+            # in case of nested pydantic model dumps.
+            data = cls.Data(**data)
+
         return cls.from_tracks(
             collection_id=collection_id,
             collection_order_index=collection_order_index,
             **data.model_dump(),
         )
+
+    def append_tracks(self, tracks: list["PlaylistTrack.Data"], session: Session) -> None:
+        """Add tracks to the end of the playlist."""
+        idx = len(self.tracks)
+        for i, track in enumerate(tracks):
+            track = PlaylistTrack.from_data(track, track_order_index=idx + i)
+            track.playlist_id = self.playlist_id
+            session.add(track)
 
 
 class PlaylistTrack(BaseTable):
@@ -787,7 +815,7 @@ class PlaylistTrack(BaseTable):
     playlist_id: Mapped[UUID] = mapped_column(ForeignKey(Playlist.playlist_id))
     track_order_index: Mapped[int] = mapped_column(nullable=False)
 
-    filepath: Mapped[Path] = mapped_column(nullable=True)
+    filepath: Mapped[Path] = mapped_column(nullable=False)
 
     # optional metadata about the track
     recording_mbid: Mapped[UUID] = mapped_column(nullable=True)
@@ -821,8 +849,15 @@ class PlaylistTrack(BaseTable):
         )
 
     @classmethod
-    def from_data(cls, data: Data, track_order_index: int) -> "PlaylistTrack":
+    def from_data(cls, data: Data | dict, track_order_index: int) -> "PlaylistTrack":
+        if isinstance(data, dict):
+            # in case of nested pydantic model dumps.
+            data = cls.Data(**data)
         return cls(track_order_index=track_order_index, **data.model_dump())
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Expose the model dump from the data here, so that this can be ducktyped when needed."""
+        return self.data.model_dump(**kwargs)
 
     def to_dict(self) -> dict:
         """Convert to a dictionary, appropriate for json serialization."""
