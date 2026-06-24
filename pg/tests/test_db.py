@@ -1,8 +1,11 @@
+from unittest.mock import patch
+
 import pytest
-from sqlalchemy.exc import StatementError
+from psycopg.errors import UndefinedTable
+from sqlalchemy.exc import ProgrammingError, StatementError
 from sqlalchemy.orm import Session
 
-from moomoo_pg import execute_sql_fetchall, get_session, make_temp_table
+from moomoo_pg import db_retry, execute_sql_fetchall, get_session, make_temp_table
 
 
 def test_execute_sql_fetchall():
@@ -43,3 +46,38 @@ def test_make_temp_table(session: Session):
     assert execute_sql_fetchall(f"select * from {tmp_name}", session=session) == [
         {"a": "a", "b": 1}
     ]
+
+
+def test_db_retry():
+    """Test that db_retry works as expected."""
+
+    class Namespace:
+        """Namespace for patching."""
+
+        @staticmethod
+        def f():
+            return 1
+
+    # not retried bc invalid exc type
+    with patch.object(Namespace, "f") as mock_f, pytest.raises(RuntimeError):
+        mock_f.side_effect = [RuntimeError]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 1
+
+    # ProgrammingError but not UndefinedTable
+    with patch.object(Namespace, "f") as mock_f:
+        mock_f.side_effect = [
+            ProgrammingError("test", {}, orig=RuntimeError),
+            1,
+        ]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 2
+
+    # retried once and then succeeded
+    with patch.object(Namespace, "f") as mock_f:
+        mock_f.side_effect = [
+            ProgrammingError("test", {}, orig=UndefinedTable("test")),
+            1,
+        ]
+        db_retry(Namespace.f)()
+        assert mock_f.call_count == 2
