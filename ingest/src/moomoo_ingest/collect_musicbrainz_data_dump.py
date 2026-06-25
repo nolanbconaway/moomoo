@@ -182,6 +182,7 @@ class DataDump:
                 for record in self.records
             ],
         )
+        session.commit()
 
         return db_dump
 

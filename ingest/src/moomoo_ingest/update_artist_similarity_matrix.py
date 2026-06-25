@@ -190,6 +190,7 @@ def main(update_batch_size: int) -> None:
     with get_session() as session:
         session.query(ListenBrainzCollaborativeFilteringScore).delete()
         ListenBrainzCollaborativeFilteringScore.reset_pk(session=session, commit=False)
+        session.commit()
 
         for batch_num, batch_mbids in enumerate(batches, 1):
             scores_df = predict_scores(
@@ -221,6 +222,7 @@ def main(update_batch_size: int) -> None:
             ListenBrainzCollaborativeFilteringScore.bulk_insert(
                 scores_df.to_dict(orient="records"), session=session, commit=False
             )
+            session.commit()
 
             prop = batch_num / len(batches)
             n_rows = len(scores_df)
@@ -228,7 +230,6 @@ def main(update_batch_size: int) -> None:
                 f"Batch {batch_num}/{len(batches)}: {n_rows} processed ({prop:.2%} complete)"
             )
 
-        session.commit()
 
 
 if __name__ == "__main__":

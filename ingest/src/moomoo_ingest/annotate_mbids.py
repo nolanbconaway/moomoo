@@ -189,6 +189,8 @@ def update_annotation_queue_log(src_mbid_map: dict[str, list[Mbid]]) -> bool:
                     queue_size=sum(1 for mbid in mbids if mbid.entity == entity),
                     as_of_ts_utc=now,
                 ).insert(session=session)
+
+            session.commit()
     return any_updated
 
 
@@ -342,6 +344,7 @@ def ingest_mbid(mbid: UUID, entity: str, session=Session) -> dict:
         payload_json=payload,
         ts_utc=utils_.utcnow(),
     ).upsert(session=session)
+    session.commit()
     return payload
 
 

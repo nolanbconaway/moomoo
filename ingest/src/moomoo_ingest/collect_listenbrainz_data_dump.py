@@ -306,6 +306,7 @@ def main(procs: int) -> None:
                     for listen, count in Counter(listens).items()
                 ],
             )
+            session.commit()
 
             click.echo(f"Processed {dump.ftp_path}")
 

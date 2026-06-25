@@ -168,6 +168,7 @@ def main(new_: bool, before: datetime.datetime | None, limit: int | None):
                 payload_json=res,
                 ts_utc=utils_.utcnow(),
             ).upsert(session=session)
+        session.commit()
 
     click.echo("Done.")
 
