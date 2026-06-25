@@ -5,6 +5,7 @@ from collections.abc import Generator
 
 import psycopg
 import pytest
+import tenacity
 from sqlalchemy.orm import Session
 
 from moomoo_pg import TABLES, get_engine, get_session
@@ -12,6 +13,12 @@ from moomoo_pg import TABLES, get_engine, get_session
 # Suppress harmless AdminShutdown errors during test cleanup when pytest-postgresql
 # tears down the test database while SQLAlchemy's pool is still finalizing connections
 logging.getLogger("sqlalchemy.pool").setLevel(logging.CRITICAL)
+
+
+@pytest.fixture(autouse=True)
+def nosleep(monkeypatch):
+    """Disable sleep in tenacity."""
+    monkeypatch.setattr(tenacity.nap.time, "sleep", lambda *_: None)
 
 
 @pytest.fixture(autouse=True)

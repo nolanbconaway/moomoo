@@ -2,15 +2,18 @@
 
 import datetime
 import re
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, NewType
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
+from pydantic import BaseModel
 from sqlalchemy import Compiled, ForeignKey, UniqueConstraint, func, inspect, select, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
 from sqlalchemy.schema import CreateIndex, CreateTable
+from sqlalchemy.types import String, TypeDecorator
 
 from .db import execute_sql_fetchall, get_engine, get_session
 
@@ -22,6 +25,23 @@ def now_utc() -> datetime.datetime:
 # make some new python types for real and smallint
 RealFloat = NewType("RealFloat", float)
 SmallInt = NewType("SmallInt", int)
+
+
+class PathType(TypeDecorator):
+    """Stores pathlib.Path objects as strings in the database."""
+
+    impl = String
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return Path(value)
 
 
 class BaseTable(DeclarativeBase):
@@ -40,6 +60,7 @@ class BaseTable(DeclarativeBase):
         Annotated[list[float], 50]: Vector(50),
         RealFloat: postgresql.REAL,
         SmallInt: postgresql.SMALLINT,
+        Path: PathType,
     }
 
     @classmethod
@@ -57,7 +78,7 @@ class BaseTable(DeclarativeBase):
         """Return the column names."""
         return [c.name for c in cls.__table__.columns]
 
-    def dict(self) -> dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Return a dict of the table's columns."""
         return {i: getattr(self, i) for i in self.columns()}
 
@@ -78,12 +99,23 @@ class BaseTable(DeclarativeBase):
         """Return True if the table exists."""
         return inspect(get_engine()).has_table(cls.table_name())
 
-    def insert(self, session: Session = None) -> None:
-        """Insert a row into the table."""
+    def insert(
+        self,
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
+        """Insert a row into the table.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
+        if commit is None:
+            commit = session is None
 
         def f(s: Session):
             s.add(self)
-            s.commit()
+            if commit:
+                s.commit()
 
         if session is None:
             with get_session() as session:
@@ -92,11 +124,19 @@ class BaseTable(DeclarativeBase):
             f(session)
 
     @classmethod
-    def bulk_insert(cls, rows: list[dict], session: Session = None, commit: bool = True) -> None:
+    def bulk_insert(
+        cls,
+        rows: list[dict],
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
         """Bulk insert rows into the table.
 
-        Is MUCH faster than inserting one row at a time.
+        Is MUCH faster than inserting one row at a time. Commits the transaction by default if no
+        session is provided, otherwise leaves it to the caller.
         """
+        if commit is None:
+            commit = session is None
 
         def f(s: Session):
             s.execute(insert(cls), rows)
@@ -109,12 +149,23 @@ class BaseTable(DeclarativeBase):
         else:
             f(session)
 
-    def upsert(self, update_cols: list[str] | None = None, session: Session = None) -> None:
+    def upsert(
+        self,
+        update_cols: list[str] | None = None,
+        session: Session = None,
+        commit: bool | None = None,
+    ) -> None:
         """Upsert a row into the table.
 
         Set update_cols to a list of columns to update on conflict. Defaults to all
         columns except the primary key.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
         """
+        if commit is None:
+            commit = session is None
+
         pk = self.primary_key()
         if not pk:
             raise ValueError("Cannot upsert a row without a primary key.")
@@ -122,7 +173,7 @@ class BaseTable(DeclarativeBase):
         if not update_cols:
             update_cols = [i for i in self.columns() if i not in pk]
 
-        data = self.dict()
+        data = self.as_dict()
         updates = {i: data[i] for i in update_cols}
         stmt = (
             insert(self.__class__)
@@ -132,7 +183,8 @@ class BaseTable(DeclarativeBase):
 
         def f(s: Session):
             s.execute(stmt)
-            s.commit()
+            if commit:
+                s.commit()
 
         if session is None:
             with get_session() as session:
@@ -236,7 +288,7 @@ class LocalFile(BaseTable):
 
     __tablename__ = "local_music_files"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     recording_md5: Mapped[str] = mapped_column(nullable=True, index=True)
     recording_name: Mapped[str] = mapped_column(nullable=True)
     release_name: Mapped[str] = mapped_column(nullable=True)
@@ -272,7 +324,7 @@ class LocalFileBirthTimestamp(BaseTable):
 
     __tablename__ = "local_music_files_birth_timestamps"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     birth_at: Mapped[datetime.datetime] = mapped_column(nullable=False)
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
@@ -280,11 +332,18 @@ class LocalFileBirthTimestamp(BaseTable):
 
     @classmethod
     def bulk_upsert_on_conflict_do_nothing(
-        cls, rows: list[dict], session: Session = None, commit: bool = True
+        cls, rows: list[dict], session: Session = None, commit: bool | None = None
     ) -> None:
-        """Bulk upsert rows into the table, doing nothing on conflict."""
+        """Bulk upsert rows into the table, doing nothing on conflict.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
         if not rows:
             return
+
+        if commit is None:
+            commit = session is None
 
         stmt = insert(cls).values(rows).on_conflict_do_nothing(index_elements=["filepath"])
 
@@ -305,7 +364,7 @@ class FileEmbedding(BaseTable):
 
     __tablename__ = "local_music_embeddings"
 
-    filepath: Mapped[str] = mapped_column(primary_key=True, nullable=False)
+    filepath: Mapped[Path] = mapped_column(primary_key=True, nullable=False)
     success: Mapped[bool] = mapped_column(nullable=False)
     fail_reason: Mapped[str] = mapped_column(nullable=True)
     duration_seconds: Mapped[float] = mapped_column(nullable=True)
@@ -374,10 +433,9 @@ class ListenBrainzDataDump(BaseTable):
         ).delete()
 
         if records:
-            ListenBrainzDataDumpRecord.bulk_insert(records, session=session)
+            ListenBrainzDataDumpRecord.bulk_insert(records, session=session, commit=False)
 
         self.refreshed_at = func.current_timestamp()
-        session.commit()
 
 
 class ListenBrainzDataDumpRecord(BaseTable):
@@ -408,8 +466,19 @@ class ListenBrainzCollaborativeFilteringScore(BaseTable):
     )
 
     @classmethod
-    def reset_pk(cls, session: Session | None = None, commit: bool = True) -> None:
-        """Reset the primary key to allow for re-insertions."""
+    def reset_pk(
+        cls,
+        session: Session | None = None,
+        commit: bool | None = None,
+    ) -> None:
+        """Reset the primary key to allow for re-insertions.
+
+        Commits the transaction by default if no session is provided, otherwise leaves it to the
+        caller.
+        """
+        if commit is None:
+            commit = session is None
+
         name = cls.table_name()
         sql = f"SELECT setval(pg_get_serial_sequence('{name}', 'mbid_pair_id'), 1, false);"
 
@@ -455,7 +524,6 @@ class MusicBrainzDataDump(BaseTable):
             MusicBrainzDataDumpRecord.bulk_insert(records, session=session)
 
         self.refreshed_at = func.current_timestamp()
-        session.commit()
 
 
 class MusicBrainzDataDumpRecord(BaseTable):
@@ -512,7 +580,7 @@ class PlaylistCollection(BaseTable):
     )
     refreshed_at_utc: Mapped[datetime.datetime] = mapped_column(nullable=True, index=True)
 
-    items: Mapped[list["PlaylistCollectionItem"]] = relationship(back_populates="collection")
+    items: Mapped[list["Playlist"]] = relationship(back_populates="collection")
 
     # add unique constraint for username and collection_name
     __table_args__ = (UniqueConstraint("username", "collection_name"), {})
@@ -576,26 +644,224 @@ class PlaylistCollection(BaseTable):
         """Check if the collection is fresh and does not need to be refreshed."""
         return not self.is_stale
 
+    @property
+    def ordered_items(self) -> list["Playlist"]:
+        """Return the playlists in the collection, ordered by collection_order_index."""
+        return sorted(self.items, key=lambda x: x.collection_order_index)
 
-class PlaylistCollectionItem(BaseTable):
+    def make_playlist(
+        self,
+        tracks: list["PlaylistTrack.Data"],
+        title: str | None = None,
+        description: str | None = None,
+    ) -> "Playlist":
+        """Make a new playlist in the collection from the given data."""
+        return Playlist.from_tracks(
+            collection_id=self.collection_id,
+            collection_order_index=len(self.items),
+            title=title,
+            description=description,
+            tracks=tracks,
+        )
+
+    def replace_playlists(
+        self,
+        playlists: list["Playlist.Data"],
+        session: Session,
+        force: bool = False,
+    ) -> bool:
+        """Replace all playlists in the collection with the given list.
+
+        Set force=True to replace the playlists even if the collection is not stale.
+
+        Returns a boolean indicating if the playlists were replaced (True = replaced,
+        False = skipped).
+        """
+
+        if self.is_fresh and not force:
+            return False
+
+        playlists = [
+            Playlist.from_data(p, collection_id=self.collection_id, collection_order_index=i)
+            for i, p in enumerate(playlists)
+        ]
+
+        # drop all existing playlists for this user and collection
+        session.query(Playlist).filter_by(collection_id=self.collection_id).delete()
+        session.add_all(playlists)
+
+        # update the collection's refreshed at time
+        self.refreshed_at_utc = func.current_timestamp()
+
+        return True
+
+
+class Playlist(BaseTable):
     """Model for moomoo_playlist_collection_items table."""
 
     __tablename__ = "moomoo_playlist_collection_items"
+
+    class Data(BaseModel):
+        """Playlist fields independent of collection context."""
+
+        title: str | None
+        description: str | None
+        tracks: list["PlaylistTrack.Data"]
 
     playlist_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
     collection_id: Mapped[UUID] = mapped_column(ForeignKey(PlaylistCollection.collection_id))
     collection_order_index: Mapped[int] = mapped_column(nullable=False)
     title: Mapped[str] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(nullable=True)
-    playlist: Mapped[list] = mapped_column(nullable=False)
+    playlist: Mapped[list] = mapped_column(nullable=True)  # TODO: remove once clients migrate.
     create_at_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp()
     )
 
     collection: Mapped["PlaylistCollection"] = relationship(back_populates="items")
+    tracks: Mapped[list["PlaylistTrack"]] = relationship(back_populates="playlist")
 
     # unique constraint for collection_id and collection_order_index
     __table_args__ = (UniqueConstraint("collection_id", "collection_order_index"), {})
+
+    @property
+    def ordered_tracks(self) -> list["PlaylistTrack"]:
+        """Return the tracks in the playlist, ordered by track_order_index."""
+        return sorted(self.tracks, key=lambda x: x.track_order_index)
+
+    @property
+    def data(self) -> Data:
+        """The playlist data without any collection context, appropriate for client consumption."""
+        return self.Data(
+            title=self.title,
+            description=self.description,
+            tracks=[track.data for track in self.ordered_tracks],
+        )
+
+    @property
+    def seeds(self) -> list["PlaylistTrack"]:
+        """Return the seed tracks in the playlist."""
+        return [t for t in self.ordered_tracks if t.is_seed]
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Expose the model dump from the data here, so that this can be ducktyped when needed."""
+        return self.data.model_dump(**kwargs)
+
+    @classmethod
+    def from_tracks(
+        cls,
+        collection_id: UUID,
+        collection_order_index: int,
+        title: str | None,
+        description: str | None,
+        tracks: list["PlaylistTrack.Data"],
+    ) -> "Playlist":
+        """Construct a Playlist from a list of tracks."""
+        # convert everything to data, then back into PlaylistTrack objects
+        tracks = [PlaylistTrack.from_data(t, track_order_index=i) for i, t in enumerate(tracks)]
+        playlist = cls(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            title=title,
+            description=description,
+            playlist=[track.to_dict() for track in tracks],
+        )
+        playlist.tracks = tracks
+        return playlist
+
+    @classmethod
+    def from_data(
+        cls, data: Data | dict, collection_id: UUID, collection_order_index: int
+    ) -> "Playlist":
+        """Construct a Playlist from a PlaylistData object and collection context."""
+        if isinstance(data, dict):
+            # in case of nested pydantic model dumps.
+            data = cls.Data(**data)
+
+        return cls.from_tracks(
+            collection_id=collection_id,
+            collection_order_index=collection_order_index,
+            **data.model_dump(),
+        )
+
+    def append_tracks(self, tracks: list["PlaylistTrack.Data"], session: Session) -> None:
+        """Add tracks to the end of the playlist."""
+        idx = len(self.tracks)
+        for i, track in enumerate(tracks):
+            track = PlaylistTrack.from_data(track, track_order_index=idx + i)
+            track.playlist_id = self.playlist_id
+            session.add(track)
+
+
+class PlaylistTrack(BaseTable):
+    """Model for moomoo_playlist_tracks table."""
+
+    __tablename__ = "moomoo_playlist_tracks"
+
+    class Data(BaseModel):
+        """Track fields independent of playlist/ordering context."""
+
+        filepath: Path
+        recording_mbid: UUID | None = None
+        release_mbid: UUID | None = None
+        release_group_mbid: UUID | None = None
+        artist_mbid: UUID | None = None
+        album_artist_mbid: UUID | None = None
+        track_length_seconds: int | None = None
+        match_distance: float | None = None
+        is_seed: bool | None = None
+
+    track_id: Mapped[UUID] = mapped_column(nullable=False, primary_key=True, default=uuid4)
+    playlist_id: Mapped[UUID] = mapped_column(ForeignKey(Playlist.playlist_id))
+    track_order_index: Mapped[int] = mapped_column(nullable=False)
+
+    filepath: Mapped[Path] = mapped_column(nullable=False)
+
+    # optional metadata about the track
+    recording_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    release_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    release_group_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    artist_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    album_artist_mbid: Mapped[UUID] = mapped_column(nullable=True)
+    track_length_seconds: Mapped[int] = mapped_column(nullable=True)
+    match_distance: Mapped[float] = mapped_column(nullable=True)
+    is_seed: Mapped[bool] = mapped_column(nullable=True)
+
+    # backref to playlist
+    playlist: Mapped["Playlist"] = relationship(back_populates="tracks")
+
+    # unique constraint for playlist_id and track_order_index
+    __table_args__ = (UniqueConstraint("playlist_id", "track_order_index"), {})
+
+    @property
+    def data(self) -> Data:
+        """Return the track data as a PlaylistTrack.Data object."""
+        return self.Data(
+            filepath=self.filepath,
+            recording_mbid=self.recording_mbid,
+            release_mbid=self.release_mbid,
+            release_group_mbid=self.release_group_mbid,
+            artist_mbid=self.artist_mbid,
+            album_artist_mbid=self.album_artist_mbid,
+            track_length_seconds=self.track_length_seconds,
+            match_distance=self.match_distance,
+            is_seed=self.is_seed,
+        )
+
+    @classmethod
+    def from_data(cls, data: Data | dict, track_order_index: int) -> "PlaylistTrack":
+        if isinstance(data, dict):
+            # in case of nested pydantic model dumps.
+            data = cls.Data(**data)
+        return cls(track_order_index=track_order_index, **data.model_dump())
+
+    def model_dump(self, **kwargs) -> dict[str, Any]:
+        """Expose the model dump from the data here, so that this can be ducktyped when needed."""
+        return self.data.model_dump(**kwargs)
+
+    def to_dict(self) -> dict:
+        """Convert to a dictionary, appropriate for json serialization."""
+        return self.data.model_dump(exclude_none=True, mode="json")
 
 
 # list all subclasses of BaseTable and put them in a list for easy access

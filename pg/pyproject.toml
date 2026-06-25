@@ -10,6 +10,8 @@ dependencies = [
     "psycopg[binary]==3.*",
     "sqlalchemy==2.*",
     "pgvector==0.*",
+    "pydantic==2.*",
+    "tenacity==9.*",
 ]
 
 [project.optional-dependencies]

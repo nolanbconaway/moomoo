@@ -6,7 +6,15 @@ import os
 from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
+from tenacity import (
+    retry,
+    retry_if_exception_message,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_fixed,
+)
 
 
 class JSONSerializer(json.JSONEncoder):
@@ -97,7 +105,21 @@ def make_temp_table(
     return tmp_name
 
 
+# A retry that waits 15s if a required table is missing. this is useful to manage
+# runs that happen at the same time as dbt is refreshing the database. This usually
+# completes in a few seconds, so just one retry should be enough.
+db_retry = retry(
+    wait=wait_fixed(5),
+    stop=stop_after_attempt(3),
+    retry=(
+        retry_if_exception_type(ProgrammingError)
+        | retry_if_exception_message(match="psycopg.errors.UndefinedTable")
+    ),
+    reraise=True,
+)
+
 __all__ = [
+    "db_retry",
     "execute_sql_fetchall",
     "get_engine",
     "get_session",
