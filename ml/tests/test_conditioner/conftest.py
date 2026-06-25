@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+
 from moomoo_ml.conditioner.conditioner import Model
 
 # add some mocks to avoid writing to the actual filesystem

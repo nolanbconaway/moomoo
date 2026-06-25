@@ -154,6 +154,7 @@ def main(username: str):
             ListenBrainzUserFeedback(**row.to_dict(), insert_ts_utc=utils_.utcnow()).upsert(
                 session=session
             )
+        session.commit()
 
         click.echo("Insert complete.")
     click.echo("Done.")

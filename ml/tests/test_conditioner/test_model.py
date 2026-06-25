@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from moomoo_ml.conditioner.conditioner import Model
 
 

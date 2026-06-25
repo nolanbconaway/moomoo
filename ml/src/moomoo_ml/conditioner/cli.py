@@ -5,10 +5,11 @@ from pathlib import Path
 
 import click
 import numpy as np
+from moomoo_pg import FileEmbedding, get_session
 from sqlalchemy import update
 from tqdm import tqdm
 
-from ..db import FileEmbedding, get_session
+from ..db import fetch_numpy_embeddings
 from .conditioner import Model as ConditionerModel
 
 DEFAULT_ARTIFACTS_PATH = Path("artifacts")
@@ -34,7 +35,7 @@ def transform_and_save_to_db(model: ConditionerModel, paths: list[Path], embeds:
         for idx, path in tqdm(enumerate(paths), total=len(paths), disable=None):
             stmt = (
                 update(FileEmbedding)
-                .where(FileEmbedding.filepath == str(path))
+                .where(FileEmbedding.filepath == path)
                 .values(conditioned_embedding=conditioned[idx, :].tolist())
             )
             session.execute(stmt)
@@ -80,7 +81,7 @@ def build_conditioner(artifacts: Path, update_info: bool, replace_embeds: bool):
         )
 
     click.echo("Building conditioner model.")
-    paths, embeds = FileEmbedding.fetch_numpy_embeddings()
+    paths, embeds = fetch_numpy_embeddings()
     model = ConditionerModel()
     model.fit(embeds)
 
@@ -127,7 +128,7 @@ def condition_new_files(artifacts: Path, replace: bool):
 
     click.echo("Loading conditioner model.")
     model = ConditionerModel.load_from_artifacts(artifacts)
-    paths, raw_embeds = FileEmbedding.fetch_numpy_embeddings(only_unconditioned=not replace)
+    paths, raw_embeds = fetch_numpy_embeddings(only_unconditioned=not replace)
 
     if not paths:
         click.echo("No new files to condition.")

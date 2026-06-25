@@ -20,7 +20,7 @@ dependencies = [
     "implicit==0.7.3",
     "numpy==2.4.6",
     "pandas==3.0.3",
-    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.0.3#subdirectory=pg",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.0#subdirectory=pg",
 ]
 
 [project.optional-dependencies]

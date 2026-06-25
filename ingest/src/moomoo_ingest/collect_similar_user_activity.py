@@ -156,6 +156,7 @@ def main(username: str, skip_timeout_seconds: int):
             ListenBrainzSimilarUserActivity(**row, insert_ts_utc=utils_.utcnow()).upsert(
                 session=session
             )
+        session.commit()
 
         click.echo("Insert complete.")
     click.echo("Done.")

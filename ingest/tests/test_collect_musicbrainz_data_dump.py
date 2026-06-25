@@ -77,8 +77,8 @@ def test_drop_dumps():
         )
         records = [dict(mbid=uuid1(), json_data=dict()) for _ in range(5)]
         session.add(dump)
-        session.commit()
         dump.replace_records(session=session, records=records)
+        session.commit()
 
     with get_session() as session:
         lib.drop_dumps(session=session, max_age_days=180)

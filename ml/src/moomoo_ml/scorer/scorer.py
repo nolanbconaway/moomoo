@@ -5,12 +5,11 @@ import math
 import os
 import warnings
 from pathlib import Path
-from typing import Optional
 
 import librosa
 import numpy as np
 import torch
-from transformers import AutoModel, BatchFeature, Wav2Vec2FeatureExtractor
+from transformers import AutoConfig, AutoModel, BatchFeature, Wav2Vec2FeatureExtractor
 from transformers.modeling_outputs import BaseModelOutput
 
 
@@ -19,11 +18,11 @@ class EmbeddingResult:
     """Storage for the result of embedding a song."""
 
     success: bool
-    fail_reason: Optional[str] = None
-    embedding: Optional[np.ndarray] = None
-    duration_seconds: Optional[float] = None
+    fail_reason: str | None = None
+    embedding: np.ndarray | None = None
+    duration_seconds: float | None = None
 
-    def to_dict(self) -> dict[str, Optional[str]]:
+    def to_dict(self) -> dict[str, str | None]:
         """Convert the result to a dict."""
         return {
             "success": self.success,
@@ -58,12 +57,22 @@ class Model:
         processor = Wav2Vec2FeatureExtractor.from_pretrained(
             artifacts,
             trust_remote_code=True,
-            revision="na",  # prevents warning
+            revision="na",
         )
-        model = AutoModel.from_pretrained(
+
+        config = AutoConfig.from_pretrained(
             artifacts,
             trust_remote_code=True,
-            revision="na",  # prevents warning
+            revision="na",
+        )
+        if not hasattr(config, "conv_pos_batch_norm"):
+            config.conv_pos_batch_norm = False
+
+        model = AutoModel.from_pretrained(
+            artifacts,
+            config=config,
+            trust_remote_code=True,
+            revision="na",
         )
         return cls(model=model, processor=processor, **kw)
 
@@ -89,8 +98,8 @@ class Model:
         # grab at most 120s from the middle of the song
         sample_size = min(self.max_duration_s * self.sampling_rate, audio.shape[0])
         middle_point = audio.shape[0] / 2
-        lb = int(math.ceil(middle_point - (sample_size / 2)))
-        ub = int(math.floor(middle_point + (sample_size / 2)))
+        lb = int(math.ceil(middle_point - (sample_size / 2)))  # noqa: RUF046
+        ub = int(math.floor(middle_point + (sample_size / 2)))  # noqa: RUF046
 
         return self.processor(
             torch.from_numpy(audio[lb:ub]),

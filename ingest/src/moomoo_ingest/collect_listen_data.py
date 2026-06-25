@@ -93,6 +93,7 @@ def run_ingest(username: str, from_dt: datetime.datetime, to_dt: datetime.dateti
                 session=session,
                 update_cols=["json_data", "listen_at_ts_utc", "insert_ts_utc"],
             )
+        session.commit()
 
 
 @click.command(help=__doc__)
