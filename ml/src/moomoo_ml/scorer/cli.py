@@ -10,7 +10,7 @@ import click
 from moomoo_pg import FileEmbedding, LocalFileExcludeRegex, get_session
 from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
-from transformers import AutoModel, Wav2Vec2FeatureExtractor
+from transformers import AutoConfig, AutoModel, Wav2Vec2FeatureExtractor
 
 from .scorer import Model
 
@@ -55,8 +55,12 @@ def save_artifacts(output: Path, model_name: str, revision: str):
     ).save_pretrained(output)
 
     click.echo(f"Saving AutoModel artifact to {output}.")
+    config = AutoConfig.from_pretrained(model_name, trust_remote_code=True, revision=revision)
+    if not hasattr(config, "conv_pos_batch_norm"):
+        config.conv_pos_batch_norm = False
+
     AutoModel.from_pretrained(
-        model_name, trust_remote_code=True, revision=revision
+        model_name, config=config, trust_remote_code=True, revision=revision
     ).save_pretrained(output)
 
 
