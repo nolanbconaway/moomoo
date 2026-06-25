@@ -231,6 +231,5 @@ def main(update_batch_size: int) -> None:
             )
 
 
-
 if __name__ == "__main__":
     main()
