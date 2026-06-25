@@ -12,7 +12,7 @@ WORKDIR /usr/src/moomoo
 
 # setup py modules
 COPY src src
-COPY setup.py .
+COPY pyproject.toml .
 RUN pip install -e .[all] --no-cache-dir
 
 COPY Makefile .
