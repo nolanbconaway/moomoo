@@ -1,12 +1,17 @@
-FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+FROM nvidia/cuda:13.3.0-runtime-ubuntu26.04
 
-RUN apt update
-RUN apt install -y make
-RUN apt-get install -y python3.14 python3-pip
+RUN apt-get update && apt-get install -y \
+    curl \
+    make \
+    git \
+    python3.14 \
+    python3.14-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
 
-# make python3.14 into python
-RUN ln -s $(which python3.14) /usr/bin/python
-RUN pip install pip==23.* --no-cache-dir
+RUN ln -sf $(which python3.14) /usr/bin/python && \
+    ln -sf $(which python3.14) /usr/bin/python3
+RUN pip config set global.break-system-packages true
 
 WORKDIR /usr/src/moomoo
 
