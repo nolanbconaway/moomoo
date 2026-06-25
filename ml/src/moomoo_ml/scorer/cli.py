@@ -7,11 +7,11 @@ import sys
 from pathlib import Path
 
 import click
+from moomoo_pg import FileEmbedding, LocalFileExcludeRegex, get_session
 from sqlalchemy.dialects.postgresql import insert
 from tqdm import tqdm
 from transformers import AutoModel, Wav2Vec2FeatureExtractor
 
-from ..db import FileEmbedding, LocalFileExcludeRegex, get_session
 from .scorer import Model
 
 MODEL_INFO = json.loads((Path(__file__).parent / "model-info.json").read_text())
@@ -124,6 +124,30 @@ def score_local_files(src_dir: Path, artifacts: Path):
             session.commit()
 
     click.echo("Done.")
+
+
+@cli.command("print-one-score")
+@click.argument("path", type=click.Path(exists=True, file_okay=True, path_type=Path))
+@click.option(
+    "--artifacts",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    default=Path("artifacts"),
+    show_default=True,
+)
+def print_one_score(path: Path, artifacts: Path):
+    """Score a single file and print the embedding.
+
+    This is a developer utility to test the model and artifacts. It does not insert into the
+    database.
+    """
+    model = Model.from_artifacts(artifacts)
+    embedding = model.score(path)
+    if not embedding.success:
+        click.echo(f"Failed to score {path}: {embedding.fail_reason}.")
+        sys.exit(1)
+
+    rounded = [round(float(x), 6) for x in embedding.embedding.flatten()]
+    click.echo(json.dumps(rounded))
 
 
 if __name__ == "__main__":

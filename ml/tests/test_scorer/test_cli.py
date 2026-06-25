@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from click.testing import CliRunner
-from moomoo_ml.db import FileEmbedding, LocalFileExcludeRegex, get_session
+from moomoo_pg import FileEmbedding, LocalFileExcludeRegex, get_session
+
 from moomoo_ml.scorer.cli import score_local_files
 
 from ..conftest import RESOURCES
@@ -31,7 +34,7 @@ def test_score_local_files__skip_already_scored():
 
     # add the test.mp3
     item = FileEmbedding(
-        filepath="test.mp3",
+        filepath=Path("test.mp3"),
         success=False,
         fail_reason="uhoh",
         duration_seconds=None,
@@ -53,7 +56,7 @@ def test_score_local_files__skip_already_scored():
     with get_session() as session:
         res = list(session.query(FileEmbedding))
         assert len(res) == 1
-        assert res[0].filepath == "test.mp3"
+        assert res[0].filepath == Path("test.mp3")
         assert res[0].success is False
         assert res[0].fail_reason == "uhoh"
 

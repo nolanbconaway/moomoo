@@ -1,3 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moomoo-ml"
+dynamic = ["version"]
+dependencies = [
+    "psycopg[binary]==3.3.*",
+    "sqlalchemy==2.0.*",
+    "tqdm==4.68.3",
+    "click==8.4.*",
+    "pgvector==0.4.*",
+    "librosa==0.11.*",
+    "transformers==4.*",
+    "torch==2.*",
+    "torchaudio==2.*",
+    "nnAudio==0.3.*",
+    "scikit-learn==1.9.*",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.0#subdirectory=pg",
+]
+
+[project.optional-dependencies]
+test = [
+    "ruff==0.15.*",
+    "pytest==9.0.*",
+    "pytest-postgresql==8.1.*",
+]
+
+[project.scripts]
+moomoo-ml = "moomoo_ml.cli:cli"
+
+[tool.setuptools.dynamic]
+version = {file = "src/moomoo_ml/version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moomoo_ml = ["scorer/model-info.json", "conditioner/model-info.json", "version"]
+
 [tool.ruff]
 include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
 line-length = 100

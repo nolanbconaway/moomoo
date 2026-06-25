@@ -1,4 +1,5 @@
 from click.testing import CliRunner
+
 from moomoo_ml.cli import version
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
-from moomoo_ml.db import BaseTable, get_session
+from moomoo_pg import FileEmbedding, LocalFileExcludeRegex, get_session
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -41,12 +41,15 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
 
     postgresql.commit()
 
-    return uri
-
-
-@pytest.fixture(autouse=True)
-def create_db(mock_db):
-    """Create the db tables."""
+    # check correctly mocked
     with get_session() as session:
         engine = session.get_bind()
-        BaseTable.metadata.create_all(engine)
+        assert engine.url.username == postgresql.info.user
+        assert engine.url.host == postgresql.info.host
+        assert engine.url.port == postgresql.info.port
+        assert engine.url.database == postgresql.info.dbname
+
+    FileEmbedding.create()
+    LocalFileExcludeRegex.create()
+
+    return uri
