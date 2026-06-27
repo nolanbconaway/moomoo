@@ -681,14 +681,20 @@ class PlaylistCollection(BaseTable):
         if self.is_fresh and not force:
             return False
 
-        playlists = [
+        new_playlists = [
             Playlist.from_data(p, collection_id=self.collection_id, collection_order_index=i)
             for i, p in enumerate(playlists)
         ]
 
-        # drop all existing playlists for this user and collection
+        # drop all existing tracks from this collection's playlists
+        for plist in self.items:
+            session.query(PlaylistTrack).filter_by(playlist_id=plist.playlist_id).delete()
+
+        # drop the existing playlists
         session.query(Playlist).filter_by(collection_id=self.collection_id).delete()
-        session.add_all(playlists)
+
+        # add the new playlists and their tracks
+        session.add_all(new_playlists)
 
         # update the collection's refreshed at time
         self.refreshed_at_utc = func.current_timestamp()
