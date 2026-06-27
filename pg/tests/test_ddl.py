@@ -535,18 +535,20 @@ def test_PlaylistCollection__make_playlist(session: Session):
 
 
 def test_PlaylistCollection__replace_playlists(session: Session):
+    tracks = [PlaylistTrack.Data(filepath="a.mp3"), PlaylistTrack.Data(filepath="b.mp3")]
+
     collection = PlaylistCollection(username="test", collection_name="test")
     session.add(collection)
     session.commit()
 
-    playlist = collection.make_playlist(tracks=[], title="playlist1").data
+    playlist = collection.make_playlist(tracks=tracks, title="playlist1").data
     collection.replace_playlists([playlist], session=session)
     session.commit()
     assert len(collection.items) == 1
     assert collection.items[0].title == "playlist1"
 
     # replace with a new playlist
-    playlist = collection.make_playlist(tracks=[], title="playlist2").data
+    playlist = collection.make_playlist(tracks=tracks, title="playlist2").data
     collection.replace_playlists([playlist], session=session)
     session.commit()
     assert len(collection.items) == 1
@@ -561,7 +563,7 @@ def test_PlaylistCollection__replace_playlists(session: Session):
 
     # no updates yet
     assert collection.is_stale
-    playlist = collection.make_playlist(tracks=[], title="playlist1").data
+    playlist = collection.make_playlist(tracks=tracks, title="playlist1").data
     collection.replace_playlists([playlist], session=session)
     session.commit()
     assert collection.is_fresh
