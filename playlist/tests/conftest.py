@@ -8,11 +8,9 @@ from uuid import uuid4
 import psycopg
 import pytest
 import tenacity
+from moomoo_pg import BaseTable, get_session
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-from moomoo_playlist.db import get_session
-from moomoo_playlist.ddl import BaseTable
 
 
 @pytest.fixture(autouse=True)
@@ -44,10 +42,26 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection) -> str:
     cur.execute("create extension if not exists vector schema public")
     cur.execute("create extension if not exists vector schema dbt")
 
+    # create the listenbrainz_collaborative_filtering_scores table
+    sql = """
+        create table if not exists dbt.listenbrainz_collaborative_filtering_scores (
+            artist_mbid_a uuid not null
+            , artist_mbid_b uuid not null
+            , score_value float not null
+        )
+    """
+    cur.execute(sql)
+
     # set utc timezone
     cur.execute(f"ALTER USER {postgresql.info.user} SET timezone='UTC'")
 
     postgresql.commit()
+
+    # create all the tables.
+    with get_session() as session:
+        # check that the session is mocked
+        assert str(session.bind.url) == uri
+        BaseTable.metadata.create_all(session.bind)
 
     return uri
 
@@ -55,27 +69,10 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection) -> str:
 @pytest.fixture
 def session(mock_db: str) -> Generator[Session, None, None]:
     """Return a fresh session to the test db."""
-    # require mock_db to ensure it's set up
+    # NOTE: mock db is a required input to ensure the test db is created before the session is used
     assert mock_db
     with get_session() as session:
         yield session
-
-
-@pytest.fixture(autouse=True)
-def create_tables(session: Session):
-    """Create the tables in the test db."""
-    BaseTable.metadata.create_all(session.bind)
-
-    # create the listenbrainz_collaborative_filtering_scores table
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
-        create table if not exists {schema}.listenbrainz_collaborative_filtering_scores (
-            artist_mbid_a uuid not null
-            , artist_mbid_b uuid not null
-            , score_value float not null
-        )
-        """
-    session.execute(text(sql))
 
 
 def load_local_files_table(data: list[dict]):

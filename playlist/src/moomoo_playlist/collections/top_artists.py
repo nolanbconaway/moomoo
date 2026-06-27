@@ -1,16 +1,21 @@
 """Create playlists based on the top artists in the user's listening history."""
 
-import dataclasses
 import os
 import random
 from uuid import UUID
 
 import click
+from moomoo_pg import (
+    Playlist,
+    PlaylistCollection,
+    db_retry,
+    execute_sql_fetchall,
+    get_session,
+)
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from ..db import db_retry, execute_sql_fetchall, get_session
-from ..ddl import PlaylistCollection
 from ..generator import FromMbidsPlaylistGenerator, NoFilesRequestedError
 from ..generator.base import SPECIAL_PURPOSE_ARTISTS
 from ..logger import get_logger
@@ -29,19 +34,11 @@ HISTORY_CONFIG = {
 }
 
 
-@dataclasses.dataclass
-class Artist:
+class Artist(BaseModel):
     """Container for artists."""
 
     mbid: UUID
     name: str
-
-    def __post__init__(self):
-        """Post init."""
-
-        # convert mbid to UUID if it's a string
-        if isinstance(self.mbid, str):
-            self.mbid = UUID(self.mbid)
 
 
 @db_retry
@@ -61,7 +58,9 @@ def list_top_artists(
     history_column = HISTORY_CONFIG[history_length]["col"]
     min_listen_count = HISTORY_CONFIG[history_length]["min_n"]
     sql = f"""
-        select artist_mbid, artist_name
+        select
+            artist_mbid as mbid
+            , artist_name as name
         from {schema}.artist_listen_counts
         where username = :username
           and {history_column} >= :min_listen_count
@@ -80,8 +79,8 @@ def list_top_artists(
     if len(rows) > count:
         rows = random.sample(rows, count)
 
-    logger.info(f"Found {len(rows)} artists.", artists=[r["artist_name"] for r in rows])
-    return [Artist(mbid=row["artist_mbid"], name=row["artist_name"]) for row in rows]
+    logger.info(f"Found {len(rows)} artists.", artists=[r["name"] for r in rows])
+    return [Artist(**row) for row in rows]
 
 
 @click.command("top-artists")
@@ -108,41 +107,46 @@ def list_top_artists(
 )
 def main(username: str, history_length: str, count: int, force: bool):
     """Create playlists based on the top artists in the user's listening history."""
-    session = get_session()
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
+    with get_session() as session:
+        collection = PlaylistCollection.get_collection_by_name(
+            username=username, collection_name=collection_name, session=session
+        )
 
-    if collection.is_fresh and not force:
-        logger.info("Collection is not stale; skipping.")
-        return
+        if collection.is_fresh and not force:
+            logger.info("Collection is not stale; skipping.")
+            return
 
-    artists = list_top_artists(
-        username=username, history_length=history_length, count=count, session=session
-    )
+        artists = list_top_artists(
+            username=username, history_length=history_length, count=count, session=session
+        )
 
-    logger.info(f"Generating playlists for {len(artists)} artists.")
-    playlists = []
-    for artist in tqdm(artists, disable=None, total=len(artists)):
-        generator = FromMbidsPlaylistGenerator(artist.mbid, username=username)
-        try:
-            playlist = generator.get_playlist(
-                session=session, seed_count=1, recency_fac=RECENCY_FAC
+        logger.info(f"Generating playlists for {len(artists)} artists.")
+        playlists = []
+        for artist in tqdm(artists, disable=None, total=len(artists)):
+            generator = FromMbidsPlaylistGenerator(artist.mbid, username=username)
+            try:
+                tracks = generator.get_tracks(
+                    session=session, seed_count=1, recency_fac=RECENCY_FAC
+                )
+            except NoFilesRequestedError:
+                logger.exception(f"No files found for {artist.name}/{artist.mbid}.")
+                continue
+
+            # set title based on list index, in case there was an exception
+            playlist = Playlist.Data(
+                title=f"Top Artists {len(playlists) + 1}",
+                description=f"Songs like {artist.name}",
+                tracks=tracks,
             )
-        except NoFilesRequestedError:
-            logger.exception(f"No files found for {artist.name}/{artist.mbid}.")
-            continue
+            playlists.append(playlist)
 
-        # set title based on list index, in case there was an exception
-        playlist.title = f"Top Artists {len(playlists) + 1}"
-        playlist.description = f"Songs like {artist.name}"
-        playlists.append(playlist)
+        if len(playlists) == 0:
+            logger.warning("No playlists generated.")
+            return
 
-    if len(playlists) == 0:
-        logger.warning("No playlists generated.")
-        return
-
-    collection.replace_playlists(playlists=playlists, session=session, force=force)
+        collection.replace_playlists(playlists=playlists, session=session, force=force)
+        session.commit()
+        logger.info(f"Saved {len(playlists)} playlist(s) to database.")
 
 
 if __name__ == "__main__":

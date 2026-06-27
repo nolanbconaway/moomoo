@@ -6,11 +6,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from click.testing import CliRunner
+from moomoo_pg import PlaylistTrack, execute_sql_fetchall
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from moomoo_playlist.collections.smart_mix import (
-    Track,
+    ClusterTrack,
     compute_track_distance_matrix,
     fetch_cf_similarity_matrix,
     fetch_tracks,
@@ -18,15 +19,13 @@ from moomoo_playlist.collections.smart_mix import (
 )
 from moomoo_playlist.collections.smart_mix import main as smart_mix_main
 from moomoo_playlist.config import CF_BASELINE
-from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.generator import FromFilesPlaylistGenerator, NoFilesRequestedError
-from moomoo_playlist.playlist import Playlist
 
 from ..conftest import load_listenbrainz_collaborative_filtering_scores, load_local_files_table
 
 
-def make_track(fpath: str, **kw) -> Track:
-    return Track(
+def make_track(fpath: str, **kw) -> ClusterTrack:
+    return ClusterTrack(
         filepath=fpath,
         track_name=kw.get("track_name", fpath),
         artist_name=kw.get("artist_name", fpath),
@@ -46,7 +45,7 @@ def make_distance_matrix(n: int) -> np.ndarray:
     return mat
 
 
-def make_cf_matrix(tracks: list[Track]) -> pd.DataFrame:
+def make_cf_matrix(tracks: list[PlaylistTrack.Data]) -> pd.DataFrame:
     artist_mbids = list(dict.fromkeys([track.artist_mbid for track in tracks]))
     n = len(artist_mbids)
     mat = 1 - make_distance_matrix(n)
@@ -332,17 +331,16 @@ def test_main__no_results(patch_cluster, patch_fetch):
 def test_main__playlist_error(patch_cluster, patch_fetch):
     """Test CLI with a playlist error."""
     runner = CliRunner()
-    playlist = Playlist(tracks=[])
     with patch.object(
         FromFilesPlaylistGenerator,
-        "get_playlist",
-        side_effect=[playlist, NoFilesRequestedError, playlist, playlist, playlist],
+        "get_tracks",
+        side_effect=[[], NoFilesRequestedError, [], [], []],
     ):
         res = runner.invoke(smart_mix_main, ["test", "--count=5"])
     assert res.exit_code == 0
     assert "No files found for cluster" in res.output
     assert "NoFilesRequestedError" in res.output
-    assert "Saved 4 playlist(s) to database." in res.output
+    assert "Saved 4 playlists" in res.output
     assert patch_fetch.call_count == 1
     assert patch_cluster.call_count == 1
 
@@ -351,7 +349,7 @@ def test_main__playlist_error(patch_cluster, patch_fetch):
     "moomoo_playlist.collections.smart_mix.make_clusters",
     return_value=[[make_track("a")]] * 3,
 )
-@patch.object(FromFilesPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[]))
+@patch.object(FromFilesPlaylistGenerator, "get_tracks", return_value=[])
 def test_main__downsample(patch_get_playlist, patch_cluster):
     """Test the downsample logic in main."""
     runner = CliRunner()
@@ -401,17 +399,17 @@ def test_main__stale_handler(patch_cluster, patch_fetch):
     runner = CliRunner()
 
     with patch.object(
-        FromFilesPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromFilesPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(smart_mix_main, ["test", "--count=5"])
 
     assert patch_get_playlist.call_count == 5
     assert res.exit_code == 0
-    assert "Saved 5 playlist(s) to database." in res.output
+    assert "Saved 5 playlists" in res.output
 
     # test stale handler
     with patch.object(
-        FromFilesPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromFilesPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(smart_mix_main, ["test", "--count=5"])
 
@@ -421,13 +419,13 @@ def test_main__stale_handler(patch_cluster, patch_fetch):
 
     # test force flag
     with patch.object(
-        FromFilesPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromFilesPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(smart_mix_main, ["test", "--count=5", "--force"])
 
     assert patch_get_playlist.call_count == 5
     assert res.exit_code == 0
-    assert "Saved 5 playlist(s) to database." in res.output
+    assert "Saved 5 playlists" in res.output
 
 
 @patch(
@@ -441,15 +439,11 @@ def test_main__stale_handler(patch_cluster, patch_fetch):
 def test_main__storage(patch_cluster, patch_fetch, session: Session):
     """Test CLI storage is replaced / correct."""
     runner = CliRunner()
-    with patch.object(
-        FromFilesPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for i in range(3)],
-    ):
+    with patch.object(FromFilesPlaylistGenerator, "get_tracks", side_effect=[[]] * 3):
         res = runner.invoke(smart_mix_main, ["test", "--count=3"])
 
     assert res.exit_code == 0
-    assert "Saved 3 playlist(s) to database." in res.output
+    assert "Saved 3 playlists" in res.output
 
     # get titles of playlists
     res = execute_sql_fetchall(
@@ -463,11 +457,7 @@ def test_main__storage(patch_cluster, patch_fetch, session: Session):
     assert [i["title"] for i in res] == ["Smart Mix 1", "Smart Mix 2", "Smart Mix 3"]
 
     # should replace with new playlists when run again
-    with patch.object(
-        FromFilesPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for _ in range(3)],
-    ):
+    with patch.object(FromFilesPlaylistGenerator, "get_tracks", side_effect=[[]] * 3):
         res = runner.invoke(smart_mix_main, ["test", "--count=3"])
 
     assert res.exit_code == 0

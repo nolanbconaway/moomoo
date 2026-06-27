@@ -6,13 +6,18 @@ from uuid import UUID
 
 import click
 import numpy as np
+from moomoo_pg import (
+    Playlist,
+    PlaylistCollection,
+    PlaylistTrack,
+    db_retry,
+    execute_sql_fetchall,
+    get_session,
+)
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from ..db import db_retry, execute_sql_fetchall, get_session
-from ..ddl import PlaylistCollection
 from ..logger import get_logger
-from ..playlist import Playlist, Track
 
 collection_name = "revisit-releases"
 logger = get_logger().bind(module=__name__)
@@ -76,7 +81,7 @@ def list_revisit_releases(username: str, count: int, session: Session) -> list[R
     return sorted(res, key=lambda x: (x.artist_name, x.title))
 
 
-def fetch_release_tracks(session: Session, mbid: UUID) -> list[Track]:
+def fetch_release_tracks(session: Session, mbid: UUID) -> list[PlaylistTrack.Data]:
     """Fetch tracks for a release."""
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
@@ -98,7 +103,7 @@ def fetch_release_tracks(session: Session, mbid: UUID) -> list[Track]:
     if not rows:
         logger.exception(f"No files found for release mbid={mbid}.")
 
-    return [Track(**row) for row in rows]
+    return [PlaylistTrack.Data(**row) for row in rows]
 
 
 @click.command("revisit-releases")
@@ -118,37 +123,40 @@ def fetch_release_tracks(session: Session, mbid: UUID) -> list[Track]:
 )
 def main(username: str, count: int, force: bool):
     """Create playlists based on the top artists in the user's listening history."""
-    session = get_session()
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
-
-    if collection.is_fresh and not force:
-        logger.info("Collection is not stale; skipping.")
-        return
-
-    releases = list_revisit_releases(username=username, count=count, session=session)
-
-    logger.info(f"Generating playlists for {len(releases)} releases.")
-    playlists = []
-    for release in tqdm(releases, disable=None, total=len(releases)):
-        tracks = fetch_release_tracks(session=session, mbid=release.mbid)
-        if not tracks:
-            logger.exception(f"No files found for release mbid={release.mbid}.")
-            continue
-
-        playlist = Playlist(
-            tracks=tracks,
-            title=f"Revisit Release {len(playlists) + 1}",
-            description=f"Revisit: {release.title} - {release.artist_name}",
+    with get_session() as session:
+        collection = PlaylistCollection.get_collection_by_name(
+            username=username, collection_name=collection_name, session=session
         )
-        playlists.append(playlist)
 
-    if len(playlists) == 0:
-        logger.warning("No playlists generated.")
-        return
+        if collection.is_fresh and not force:
+            logger.info("Collection is not stale; skipping.")
+            return
 
-    collection.replace_playlists(playlists=playlists, session=session, force=force)
+        releases = list_revisit_releases(username=username, count=count, session=session)
+
+        logger.info(f"Generating playlists for {len(releases)} releases.")
+        playlists = []
+        for release in tqdm(releases, disable=None, total=len(releases)):
+            tracks = fetch_release_tracks(session=session, mbid=release.mbid)
+            if not tracks:
+                logger.exception(f"No files found for release mbid={release.mbid}.")
+                continue
+
+            playlist = Playlist.Data(
+                tracks=tracks,
+                title=f"Revisit Release {len(playlists) + 1}",
+                description=f"Revisit: {release.title} - {release.artist_name}",
+            )
+            playlists.append(playlist)
+
+        if len(playlists) == 0:
+            logger.warning("No playlists generated.")
+            return
+
+        collection.replace_playlists(playlists=playlists, session=session, force=force)
+        session.commit()
+
+    logger.info(f"Saved {len(playlists)} playlists to collection {collection_name}.")
 
 
 if __name__ == "__main__":

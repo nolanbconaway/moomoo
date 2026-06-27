@@ -4,12 +4,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from moomoo_pg import PlaylistTrack, execute_sql_fetchall
 from sqlalchemy.orm import Session
 
 # use an alias to limit so many multi-line statements
 from moomoo_playlist import FromMbidsPlaylistGenerator as Gen
-from moomoo_playlist import NoFilesRequestedError, Track
-from moomoo_playlist.db import execute_sql_fetchall
+from moomoo_playlist import NoFilesRequestedError
 
 from ..conftest import load_local_files_table
 
@@ -230,46 +230,46 @@ def test_list_source_tracks(
 
 
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_tracks")
-def test_get_playlist__no_files_error(mock_list_source_tracks, session: Session):
-    """Test that get_playlist errors when no files are requested."""
+def test_get_tracks__no_files_error(mock_list_source_tracks, session: Session):
+    """Test that get_tracks errors when no files are requested."""
     mock_list_source_tracks.return_value = []
     with pytest.raises(NoFilesRequestedError):
-        Gen(uuid4()).get_playlist(session)
+        Gen(uuid4()).get_tracks(session)
 
 
 @pytest.mark.parametrize("username", [None, "test"])
 @patch("moomoo_playlist.generator.FromMbidsPlaylistGenerator.list_source_tracks")
 @patch("moomoo_playlist.generator.base.stream_similar_tracks")
 @patch("moomoo_playlist.generator.from_mbids.fetch_user_listen_counts")
-def test_get_playlist(
+def test_get_tracks(
     mock_fetch_user_listen_counts,
     mock_stream_similar_tracks,
     mock_list_source_tracks,
     session: Session,
     username,
 ):
-    """Test that get_playlist works."""
+    """Test that get_tracks works."""
     # mock listed sources and stream
     mock_fetch_user_listen_counts.return_value = {Path("test/0"): 1}
-    mock_list_source_tracks.return_value = [Track(filepath=Path("test/0"))]
+    mock_list_source_tracks.return_value = [PlaylistTrack.Data(filepath=Path("test/0"))]
 
     mock_stream_similar_tracks.return_value = [
-        Track(
+        PlaylistTrack.Data(
             filepath=Path(f"test/{i}"),
             artist_mbid=uuid4(),
             album_artist_mbid=uuid4(),
-            distance=i,
+            match_distance=i,
         )
         for i in range(1, 100)
     ]
 
     pg = Gen(Path("test/0"), username=username)
-    playlist = pg.get_playlist(limit=2, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.tracks] == [Path("test/1"), Path("test/2")]
+    tracks = pg.get_tracks(limit=2, shuffle=False, session=session)
+    assert [i.filepath for i in tracks] == [Path("test/1"), Path("test/2")]
 
     # up the limit
-    playlist = pg.get_playlist(limit=4, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.tracks] == [
+    tracks = pg.get_tracks(limit=4, shuffle=False, session=session)
+    assert [i.filepath for i in tracks] == [
         Path("test/1"),
         Path("test/2"),
         Path("test/3"),
@@ -277,5 +277,5 @@ def test_get_playlist(
     ]
 
     # add a seed
-    playlist = pg.get_playlist(limit=2, shuffle=False, seed_count=1, session=session)
-    assert [i.filepath for i in playlist.tracks] == [Path("test/0"), Path("test/1")]
+    tracks = pg.get_tracks(limit=2, shuffle=False, seed_count=1, session=session)
+    assert [i.filepath for i in tracks] == [Path("test/0"), Path("test/1")]

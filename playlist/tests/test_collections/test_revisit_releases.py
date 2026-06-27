@@ -3,13 +3,12 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from click.testing import CliRunner
+from moomoo_pg import PlaylistTrack, execute_sql_fetchall
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from moomoo_playlist.collections.revisit_releases import list_revisit_releases
 from moomoo_playlist.collections.revisit_releases import main as revisit_releases_main
-from moomoo_playlist.db import execute_sql_fetchall
-from moomoo_playlist.playlist import Track
 
 
 def populate_revisit_releases(session: Session, data: list[dict]):
@@ -99,7 +98,7 @@ def test_main__playlist_error(session: Session):
         [dict(release_group_title="test", artist_name="test", username="test") for _ in range(10)],
     )
     runner = CliRunner()
-    tracks = [Track(filepath="a")]
+    tracks = [PlaylistTrack.Data(filepath="a")]
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
         side_effect=[tracks, [], tracks, tracks, tracks],
@@ -107,7 +106,7 @@ def test_main__playlist_error(session: Session):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
     assert res.exit_code == 0
     assert "No files found for release mbid" in res.output
-    assert "Saved 4 playlist(s) to database." in res.output
+    assert "Saved 4 playlists" in res.output
 
 
 def test_main__stale_handler(session: Session):
@@ -121,18 +120,18 @@ def test_main__stale_handler(session: Session):
 
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
-        return_value=[Track(filepath="a")],
+        return_value=[PlaylistTrack.Data(filepath="a")],
     ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
     assert patch_fetch_release_tracks.call_count == 5
     assert res.exit_code == 0
-    assert "Saved 5 playlist(s) to database." in res.output
+    assert "Saved 5 playlists" in res.output
 
     # test stale handler
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
-        return_value=[Track(filepath="a")],
+        return_value=[PlaylistTrack.Data(filepath="a")],
     ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
@@ -143,13 +142,13 @@ def test_main__stale_handler(session: Session):
     # test force flag
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
-        return_value=[Track(filepath="a")],
+        return_value=[PlaylistTrack.Data(filepath="a")],
     ) as patch_fetch_release_tracks:
         res = runner.invoke(revisit_releases_main, ["test", "--count=5", "--force"])
 
     assert patch_fetch_release_tracks.call_count == 5
     assert res.exit_code == 0
-    assert "Saved 5 playlist(s) to database." in res.output
+    assert "Saved 5 playlists" in res.output
 
 
 def test_main__storage(session: Session):
@@ -162,12 +161,12 @@ def test_main__storage(session: Session):
 
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
-        return_value=[Track(filepath="a")],
+        return_value=[PlaylistTrack.Data(filepath="a")],
     ):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 
     assert res.exit_code == 0
-    assert "Saved 5 playlist(s) to database." in res.output
+    assert "Saved 5 playlists" in res.output
 
     # get titles of playlists
     res = execute_sql_fetchall(
@@ -189,7 +188,7 @@ def test_main__storage(session: Session):
     # should replace with new playlists when run again
     with patch(
         "moomoo_playlist.collections.revisit_releases.fetch_release_tracks",
-        return_value=[Track(filepath="a")],
+        return_value=[PlaylistTrack.Data(filepath="a")],
     ):
         res = runner.invoke(revisit_releases_main, ["test", "--count=5"])
 

@@ -3,16 +3,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from click.testing import CliRunner
+from moomoo_pg import PlaylistTrack, execute_sql_fetchall
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from moomoo_playlist.collections.revisit_tracks import (
-    create_playlist,
-    list_revisit_tracks,
-)
+from moomoo_playlist.collections.revisit_tracks import cull_tracks, list_revisit_tracks
 from moomoo_playlist.collections.revisit_tracks import main as revisit_tracks_main
-from moomoo_playlist.db import execute_sql_fetchall
-from moomoo_playlist.playlist import Track
 
 
 def populate_revisit_tracks(session: Session, data: list[dict]):
@@ -106,11 +102,11 @@ def test_list_revisit_tracks__sorting(session: Session):
     ]
 
 
-def test_create_playlist__dedupe():
+def test_cull_tracks__dedupe():
     """Test the deduping of revisit tracks."""
 
-    def make_track(filepath, artist_mbid) -> Track:
-        return Track(
+    def make_track(filepath, artist_mbid) -> PlaylistTrack.Data:
+        return PlaylistTrack.Data(
             filepath=Path(filepath),
             recording_mbid=uuid4(),
             artist_mbid=artist_mbid,
@@ -126,8 +122,8 @@ def test_create_playlist__dedupe():
         make_track("path/4", uuid4()),
     ]
 
-    res = create_playlist(tracks, total_tracks=5)
-    assert set([str(i.filepath) for i in res.tracks]) == set(["path/1", "path/2", "path/4"])
+    res = cull_tracks(tracks, total_tracks=5)
+    assert set([str(i.filepath) for i in res]) == set(["path/1", "path/2", "path/4"])
 
 
 def test_main__no_results(session: Session):

@@ -1,10 +1,9 @@
 """Define top-level registered collections and create them if they do not exist."""
 
 import click
+from moomoo_pg import PlaylistCollection, get_session
 from sqlalchemy.orm import Session
 
-from ..db import get_session
-from ..ddl import PlaylistCollection
 from .loved_tracks import collection_name as loved_tracks_collection_name
 from .revisit_releases import collection_name as revisit_releases_collection_name
 from .revisit_tracks import collection_name as revisit_tracks_collection_name

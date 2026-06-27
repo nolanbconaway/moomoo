@@ -4,15 +4,12 @@ import os
 import random
 from pathlib import Path
 
+from moomoo_pg import PlaylistTrack, db_retry, execute_sql_fetchall, make_temp_table
 from sqlalchemy.orm import Session
 
-from ..db import execute_sql_fetchall, make_temp_table
 from .base import (
     BasePlaylistGenerator,
     NoFilesRequestedError,
-    Playlist,
-    Track,
-    db_retry,
     fetch_recently_played_tracks,
     fetch_user_listen_counts,
     get_most_similar_tracks,
@@ -44,7 +41,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
             self.files = random.sample(self.files, self.limit_source_paths)
 
     @db_retry
-    def list_source_tracks(self, session: Session) -> list[Track]:
+    def list_source_tracks(self, session: Session) -> list[PlaylistTrack.Data]:
         """List the paths requested by the user that are in the database."""
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
         if len(self.files) == 1:
@@ -88,18 +85,20 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
                   , release_group_mbid
                   , artist_mbid
                   , coalesce(album_artist_mbid, artist_mbid) as album_artist_mbid
-                  , floor(track_length_seconds)::int as track_length_seconds
                 from {schema}.local_files
                 inner join {tmp_name} using (filepath)
             """
             params = None
 
         return sorted(
-            [Track(**row) for row in execute_sql_fetchall(session=session, sql=sql, params=params)],
+            [
+                PlaylistTrack.Data(is_seed=True, **row)
+                for row in execute_sql_fetchall(session=session, sql=sql, params=params)
+            ],
             key=lambda t: t.filepath,
         )
 
-    def get_playlist(
+    def get_tracks(
         self,
         session: Session,
         limit: int = 20,
@@ -107,8 +106,8 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         shuffle: bool = True,
         seed_count: int = 0,
         recency_fac: float = 0.0,
-    ) -> Playlist:
-        """Get a playlist of similar songs.
+    ) -> list[PlaylistTrack.Data]:
+        """Get a list of tracks of similar songs.
 
         Args:
             session: sqlalchemy session to use.
@@ -125,7 +124,7 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
                 recency factor.
 
         Returns:
-            A Playlist object.
+            A list of PlaylistTrack.Data objects.
         """
         source_tracks = self.list_source_tracks(session)
         source_paths = [t.filepath for t in source_tracks]
@@ -169,6 +168,5 @@ class FromFilesPlaylistGenerator(BasePlaylistGenerator):
         if shuffle:
             random.shuffle(tracks)
 
-        res = Playlist(seed_tracks + tracks)
-
+        res = seed_tracks + tracks
         return res
