@@ -1,23 +1,27 @@
 """Create a playlist of the user's loved tracks."""
 
 import os
-from pathlib import Path
 
 import click
+from moomoo_pg import (
+    Playlist,
+    PlaylistCollection,
+    PlaylistTrack,
+    db_retry,
+    execute_sql_fetchall,
+    get_session,
+)
 from sqlalchemy.orm import Session
 
-from ..db import db_retry, execute_sql_fetchall, get_session
-from ..ddl import PlaylistCollection
 from ..logger import get_logger
-from ..playlist import Playlist, Track
 
 collection_name = "loved-tracks"
 logger = get_logger().bind(module=__name__)
 
 
 @db_retry
-def list_loved_tracks(username: str, session: Session) -> list[Track]:
-    """List the user's loved tracks, returning a list of Tracks.
+def list_loved_tracks(username: str, session: Session) -> list[PlaylistTrack.Data]:
+    """List the user's loved tracks, returning a list of PlaylistTrack.Data.
 
     Order is loved at time, in descending order.
     """
@@ -32,36 +36,33 @@ def list_loved_tracks(username: str, session: Session) -> list[Track]:
         order by love_at desc
     """
     rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
-
     logger.info(f"Found {len(rows)} tracks.")
-    return [
-        Track(filepath=Path(row["filepath"]), track_length_seconds=row["track_length_seconds"])
-        for row in rows
-    ]
+    return [PlaylistTrack.Data(**row) for row in rows]
 
 
 @click.command("loved-tracks")
 @click.argument("username", required=True, envvar="LISTENBRAINZ_USERNAME")
 def main(username: str):
     """Create a playlist of the user's loved tracks."""
-    session = get_session()
-    tracks = list_loved_tracks(username=username, session=session)
+    with get_session() as session:
+        tracks = list_loved_tracks(username=username, session=session)
 
-    if len(tracks) == 0:
-        logger.warning("No loved tracks found.")
-        return
+        if len(tracks) == 0:
+            logger.warning("No loved tracks found.")
+            return
 
-    logger.info(f"Creating playlist for {len(tracks)} loved tracks.")
-    playlist = Playlist(
-        tracks,
-        title="Loved Tracks",
-        description=f"Tracks that {username} has loved on ListenBrainz.",
-    )
+        logger.info(f"Creating playlist for {len(tracks)} loved tracks.")
+        playlist = Playlist.Data(
+            tracks=tracks,
+            title="Loved Tracks",
+            description=f"Tracks that {username} has loved on ListenBrainz.",
+        )
+        collection = PlaylistCollection.get_collection_by_name(
+            username=username, collection_name=collection_name, session=session
+        )
+        collection.replace_playlists(playlists=[playlist], session=session)
+        session.commit()
 
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
-    collection.replace_playlists(playlists=[playlist], session=session)
     logger.info("Saved playlist to database.")
 
 

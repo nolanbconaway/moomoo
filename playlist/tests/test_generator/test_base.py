@@ -2,69 +2,20 @@ import os
 import uuid
 from math import sqrt
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
-from psycopg.errors import UndefinedTable
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from moomoo_playlist import (
-    Track,
     fetch_recently_played_tracks,
     fetch_user_listen_counts,
     get_most_similar_tracks,
     stream_similar_tracks,
 )
-from moomoo_playlist.db import db_retry
 from moomoo_playlist.generator.base import SPECIAL_PURPOSE_ARTISTS
 
 from ..conftest import load_local_files_table
-
-
-def base_assert_list_playlist_track(*tracks: Track):
-    """Assert that a list of PlaylistTrack objects is valid."""
-    assert all(isinstance(i.distance, float) for i in tracks)
-    assert all(i.distance >= 0 for i in tracks)
-    assert all(isinstance(i.filepath, Path) for i in tracks)
-    assert all(isinstance(i.artist_mbid, uuid.UUID) for i in tracks)
-    assert all(isinstance(i.album_artist_mbid, uuid.UUID) for i in tracks)
-
-
-def test_db_retry():
-    """Test that db_retry works as expected."""
-
-    class Namespace:
-        """Namespace for patching."""
-
-        @staticmethod
-        def f():
-            return 1
-
-    # not retried bc invalid exc type
-    with patch.object(Namespace, "f") as mock_f, pytest.raises(RuntimeError):
-        mock_f.side_effect = [RuntimeError]
-        db_retry(Namespace.f)()
-        assert mock_f.call_count == 1
-
-    # ProgrammingError but not UndefinedTable
-    with patch.object(Namespace, "f") as mock_f:
-        mock_f.side_effect = [
-            ProgrammingError("test", {}, orig=RuntimeError),
-            1,
-        ]
-        db_retry(Namespace.f)()
-        assert mock_f.call_count == 2
-
-    # retried once and then succeeded
-    with patch.object(Namespace, "f") as mock_f:
-        mock_f.side_effect = [
-            ProgrammingError("test", {}, orig=UndefinedTable("test")),
-            1,
-        ]
-        db_retry(Namespace.f)()
-        assert mock_f.call_count == 2
 
 
 def test_fetch_user_listen_counts(session: Session):
@@ -145,11 +96,9 @@ def test_stream_similar_tracks(session: Session):
     target = Path("test/0")
 
     res = list(stream_similar_tracks([target], session))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(1, 10)]
 
     res = list(stream_similar_tracks([target], session, limit=5))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(1, 6)]
 
 
@@ -192,32 +141,27 @@ def test_stream_similar_tracks__weighted(session: Session, monkeypatch):
 
     # with uniform weights, should have the same result as without weights
     res = list(stream_similar_tracks(targets, session, weights=[0.5, 0.5]))
-    base_assert_list_playlist_track(*res)
     assert res == list(stream_similar_tracks(targets, session))
 
     # setting weights to 0 should remove the track from the results
     res = list(stream_similar_tracks(targets, session, weights=[0, 1]))
-    base_assert_list_playlist_track(*res)
     assert res == list(stream_similar_tracks([targets[1]], session))
 
     # tracks more similar to more heavily weighted tracks should be first
     res = list(stream_similar_tracks(targets, session, weights=[0.5, 1]))
-    base_assert_list_playlist_track(*res)
     assert res[0].filepath == Path("test/3")  # path 2 is weighted; 3 is closer to 2
 
     res = list(stream_similar_tracks(targets, session, weights=[1, 0.5]))
-    base_assert_list_playlist_track(*res)
     assert res[0].filepath == Path("test/0")  # path 1 is weighted; 0 is closer to 1
 
     # do one with exact math
     res = list(stream_similar_tracks(targets, session, weights=[2, 1]))
-    base_assert_list_playlist_track(*res)
     assert res[0].filepath == Path("test/0")
     # distance is l2 (euclidean). note that the weights are normalized
     expect = (sqrt((1 - 1) ** 2 + (0.5 - 1) ** 2) * 2 / 3) + (  # 0 -> 1
         sqrt((1 - 2) ** 2 + (0.5 - 2) ** 2) * 1 / 3  # 0 -> 2
     )
-    assert pytest.approx(res[0].distance) == expect
+    assert pytest.approx(res[0].match_distance) == expect
 
 
 def test_stream_similar_tracks__predicate_weights(session: Session, monkeypatch):
@@ -237,42 +181,36 @@ def test_stream_similar_tracks__predicate_weights(session: Session, monkeypatch)
     # with 1 weights, should have the same result as without weights
     weights = {Path("test/0"): 1, Path("test/3"): 1}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert res == list(stream_similar_tracks(targets, session))
 
     # setting weights to 0 should remove the track from the results
     weights = {Path("test/0"): 0}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert not any(i.filepath == Path("test/0") for i in res)
 
     # tracks more heavily weighted tracks should be first
     weights = {Path("test/0"): 1, Path("test/3"): 4}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path("test/3"), Path("test/0")]
 
     weights = {Path("test/0"): 4, Path("test/3"): 1}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path("test/0"), Path("test/3")]
 
     # do one with exact math
     weights = {Path("test/0"): 2.4}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert res[0].filepath == Path("test/0")
     # distance is l2 (euclidean). note that the weights are normalized
     expect = (
         (sqrt((1 - 1) ** 2 + (0.5 - 1) ** 2) / 2)  # 0 -> 1
         + sqrt((1 - 2) ** 2 + (0.5 - 2) ** 2) / 2  # 0 -> 2
     ) / 2.4  # weighting
-    assert pytest.approx(res[0].distance) == expect
+    assert pytest.approx(res[0].match_distance) == expect
 
     # test case when the listen counts table does not contain the target
     weights = {Path("test/x"): 5}
     res = list(stream_similar_tracks(targets, session, predicate_weights=weights))
-    base_assert_list_playlist_track(*res)
     assert not any(i.filepath == Path("test/x") for i in res)
 
 
@@ -291,7 +229,7 @@ def test_stream_similar_tracks__cf_scores(session: Session):
 
     # No score: should use baseline
     res_no_score = list(stream_similar_tracks([Path("test/0")], session))
-    dist_no_score = res_no_score[0].distance
+    dist_no_score = res_no_score[0].match_distance
 
     # Insert a high collaborative filtering score (should reduce distance)
     sql = f"""
@@ -303,7 +241,7 @@ def test_stream_similar_tracks__cf_scores(session: Session):
     session.execute(text(sql), dict(a=artist_a, b=artist_b, score=1.0))
 
     res_with_score = list(stream_similar_tracks([Path("test/0")], session))
-    dist_with_score = res_with_score[0].distance
+    dist_with_score = res_with_score[0].match_distance
 
     # The distance with a high score should be less than the baseline
     assert dist_with_score < dist_no_score
@@ -312,7 +250,7 @@ def test_stream_similar_tracks__cf_scores(session: Session):
     session.execute(text(f"delete from {schema}.listenbrainz_collaborative_filtering_scores"))
     session.execute(text(sql), dict(a=artist_a, b=artist_b, score=0.0))
     res_low_score = list(stream_similar_tracks([Path("test/0")], session))
-    dist_low_score = res_low_score[0].distance
+    dist_low_score = res_low_score[0].match_distance
 
     assert dist_low_score > dist_no_score > dist_with_score
 
@@ -330,12 +268,10 @@ def test_stream_similar_tracks__minimum_score_filter(session: Session):
 
     # targeting track 1 should exclude track 0, as it is too similar
     res = list(stream_similar_tracks(targets, session))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path("test/2"), Path("test/3")]
 
     # 0 should also be excluded if we target tracks 1 and 2, as it is too similiar to 1
     res = list(stream_similar_tracks([Path("test/1"), Path("test/2")], session))
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path("test/3")]
 
 
@@ -346,17 +282,14 @@ def test_get_most_similar_tracks(session: Session):
 
     target = Path("test/0")
     res = get_most_similar_tracks([target], session)
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(1, 10)]
 
     # limit
     res = get_most_similar_tracks([target], session, limit=5)
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(1, 6)]
 
     # with two targets, neither target should be in the results
     res = get_most_similar_tracks([Path("test/0"), Path("test/1")], session)
-    base_assert_list_playlist_track(*res)
     assert [i.filepath for i in res] == [Path(f"test/{i}") for i in range(2, 10)]
 
 
@@ -372,12 +305,10 @@ def test_get_most_similar_tracks__artist_limit(session: Session):
     # should only get 2 songs, as they are from the same artist
     target = Path("test/0")
     results = get_most_similar_tracks([target], session, limit_per_artist=2, limit=5)
-    base_assert_list_playlist_track(*results)
     assert [i.filepath for i in results] == [Path("test/1"), Path("test/2")]
 
     # should only get 5 songs total even though allow 6 per artist
     results = get_most_similar_tracks([target], session, limit_per_artist=6, limit=5)
-    base_assert_list_playlist_track(*results)
     assert [i.filepath for i in results] == [
         Path("test/1"),
         Path("test/2"),
@@ -399,7 +330,6 @@ def test_get_most_similar_tracks__artist_limit__spa_logic(session: Session):
     # should only get 5 sougs total, even though allow 2 per artist
     target = Path("test/0")
     results = get_most_similar_tracks([target], session, limit_per_artist=2, limit=5)
-    base_assert_list_playlist_track(*results)
     assert [i.filepath for i in results] == [
         Path("test/1"),
         Path("test/2"),
@@ -428,12 +358,10 @@ def test_get_most_similar_tracks__album_artist_limit(session: Session):
     # should only get 2 songs, as they are from the same artist
     target = Path("test/0")
     results = get_most_similar_tracks([target], session, limit_per_artist=2, limit=5)
-    base_assert_list_playlist_track(*results)
     assert [i.filepath for i in results] == [Path("test/1"), Path("test/2")]
 
     # should only get 5 songs total even though allow 6 per artist
     results = get_most_similar_tracks([target], session, limit_per_artist=6, limit=5)
-    base_assert_list_playlist_track(*results)
     assert [i.filepath for i in results] == [
         Path("test/1"),
         Path("test/2"),

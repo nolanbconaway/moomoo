@@ -5,15 +5,12 @@ import random
 from pathlib import Path
 from uuid import UUID
 
+from moomoo_pg import PlaylistTrack, db_retry, execute_sql_fetchall, make_temp_table
 from sqlalchemy.orm import Session
 
-from ..db import execute_sql_fetchall, make_temp_table
 from .base import (
     BasePlaylistGenerator,
     NoFilesRequestedError,
-    Playlist,
-    Track,
-    db_retry,
     fetch_recently_played_tracks,
     fetch_user_listen_counts,
     get_most_similar_tracks,
@@ -115,7 +112,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         return sorted(res)
 
     @db_retry
-    def list_source_tracks(self, session: Session) -> list[Track]:
+    def list_source_tracks(self, session: Session) -> list[PlaylistTrack.Data]:
         """Fetch the local files for the mbids.
 
         Returns a list of files, which may be empty. It should not be considered sorted,
@@ -169,9 +166,12 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
             from {schema}.local_files
             inner join {tmp_name} using (filepath)
         """
-        return [Track(**row) for row in execute_sql_fetchall(session=session, sql=sql)]
+        return [
+            PlaylistTrack.Data(is_seed=True, **row)
+            for row in execute_sql_fetchall(session=session, sql=sql)
+        ]
 
-    def get_playlist(
+    def get_tracks(
         self,
         session: Session,
         limit: int = 20,
@@ -179,8 +179,8 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         shuffle: bool = True,
         seed_count: int = 0,
         recency_fac: float = 0.0,
-    ) -> Playlist:
-        """Get a playlist of similar songs.
+    ) -> list[PlaylistTrack.Data]:
+        """Get a list of tracks of similar songs.
 
         Args:
             session: sqlalchemy session to use.
@@ -197,7 +197,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
                 recency factor.
 
         Returns:
-            A Playlist object.
+            A list of PlaylistTrack.Data objects.
         """
         source_tracks = list(self.list_source_tracks(session=session))
         source_paths = [t.filepath for t in source_tracks]
@@ -241,6 +241,6 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         if shuffle:
             random.shuffle(tracks)
 
-        res = Playlist(seed_tracks + tracks)
+        res = seed_tracks + tracks
 
         return res

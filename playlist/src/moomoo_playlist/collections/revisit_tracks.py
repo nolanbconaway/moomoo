@@ -3,22 +3,26 @@
 import os
 import random
 from collections import Counter
-from pathlib import Path
 
 import click
+from moomoo_pg import (
+    Playlist,
+    PlaylistCollection,
+    PlaylistTrack,
+    db_retry,
+    execute_sql_fetchall,
+    get_session,
+)
 from sqlalchemy.orm import Session
 
-from ..db import db_retry, execute_sql_fetchall, get_session
-from ..ddl import PlaylistCollection
 from ..logger import get_logger
-from ..playlist import Playlist, Track
 
 collection_name = "revisit-tracks"
 logger = get_logger().bind(module=__name__)
 
 
 @db_retry
-def list_revisit_tracks(username: str, session: Session) -> list[Track]:
+def list_revisit_tracks(username: str, session: Session) -> list[PlaylistTrack.Data]:
     """Get an ordered list of tracks to revisit.
 
     Guraranteed to be unique on recording, but may have repeat filepath. Ordered by
@@ -42,22 +46,12 @@ def list_revisit_tracks(username: str, session: Session) -> list[Track]:
     limit 1000
     """
     rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
-
     logger.info(f"Found {len(rows)} tracks.")
-    return [
-        Track(
-            filepath=Path(row["filepath"]),
-            recording_mbid=row["recording_mbid"],
-            artist_mbid=row["artist_mbid"],
-            album_artist_mbid=row["album_artist_mbid"] or row["artist_mbid"],
-            track_length_seconds=row["track_length_seconds"],
-        )
-        for row in rows
-    ]
+    return [PlaylistTrack.Data(**row) for row in rows]
 
 
-def create_playlist(tracks: list[Track], total_tracks: int) -> Playlist:
-    """Create a playlist from the given tracks.
+def cull_tracks(tracks: list[PlaylistTrack.Data], total_tracks: int) -> list[PlaylistTrack.Data]:
+    """Deduplicate tracks for a playlist.
 
     This function needs to do all the deduplicating and ordering. The dedupe is:
 
@@ -91,29 +85,33 @@ def create_playlist(tracks: list[Track], total_tracks: int) -> Playlist:
     # is to have similar tracks close together.
     random.shuffle(consumed_tracks)
 
-    return Playlist(tracks=consumed_tracks)
+    return consumed_tracks
 
 
 @click.command("revisit-tracks")
 @click.argument("username", required=True, envvar="LISTENBRAINZ_USERNAME")
 def main(username: str):
     """Create a playlist of the user's loved tracks."""
-    session = get_session()
-    tracks = list_revisit_tracks(username=username, session=session)
+    with get_session() as session:
+        tracks = list_revisit_tracks(username=username, session=session)
 
-    if len(tracks) == 0:
-        logger.warning("No revisit tracks found.")
-        return
+        if len(tracks) == 0:
+            logger.warning("No revisit tracks found.")
+            return
 
-    logger.info(f"Creating playlist for {len(tracks)} tracks.")
-    playlist = create_playlist(tracks=tracks, total_tracks=20)
-    playlist.title = "Revisit Tracks"
-    playlist.description = f"Tracks for {username} to revisit."
+        logger.info(f"Creating playlist for {len(tracks)} tracks.")
+        tracks = cull_tracks(tracks=tracks, total_tracks=20)
+        playlist = Playlist.Data(
+            tracks=tracks,
+            title="Revisit Tracks",
+            description=f"Tracks for {username} to revisit.",
+        )
+        collection = PlaylistCollection.get_collection_by_name(
+            username=username, collection_name=collection_name, session=session
+        )
+        collection.replace_playlists(playlists=[playlist], session=session)
+        session.commit()
 
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
-    collection.replace_playlists(playlists=[playlist], session=session)
     logger.info("Saved playlist to database.")
 
 

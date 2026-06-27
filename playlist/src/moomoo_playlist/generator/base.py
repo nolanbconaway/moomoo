@@ -8,6 +8,7 @@ from itertools import islice
 from math import log
 from pathlib import Path
 
+from moomoo_pg import PlaylistTrack, db_retry, execute_sql_fetchall, make_temp_table
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -17,8 +18,6 @@ from ..config import (
     MINIMUM_COSINE_SIMILARITY,
     SPECIAL_PURPOSE_ARTISTS,
 )
-from ..db import db_retry, execute_sql_fetchall, make_temp_table
-from ..playlist import Playlist, Track
 
 
 class NoFilesRequestedError(Exception):
@@ -35,7 +34,7 @@ class BasePlaylistGenerator(abc.ABC):
     """
 
     @abc.abstractmethod
-    def get_playlist(self) -> Playlist: ...
+    def get_tracks(self) -> list[PlaylistTrack.Data]: ...
 
     @staticmethod
     def listen_count_to_weight(x: int) -> float:
@@ -154,7 +153,7 @@ def stream_similar_tracks(
     limit: int | None = 2000,
     weights: list[float] | None = None,
     predicate_weights: dict[Path, float] | None = None,
-) -> Generator[Track, None, None]:
+) -> Generator[PlaylistTrack.Data, None, None]:
     """Stream similar tracks to filepaths.
 
     This is best used internally, as it does not return a list of filepaths, but rather
@@ -295,15 +294,16 @@ def stream_similar_tracks(
         distance,
         track_length_seconds,
     ) in res:
-        yield Track(
+        yield PlaylistTrack.Data(
             filepath=Path(filepath),
             recording_mbid=recording_mbid,
             release_mbid=release_mbid,
             release_group_mbid=release_group_mbid,
             artist_mbid=artist_mbid,
             album_artist_mbid=album_artist_mbid,
-            distance=distance,
+            match_distance=distance,
             track_length_seconds=track_length_seconds,
+            is_seed=False,
         )
 
 
@@ -314,7 +314,7 @@ def get_most_similar_tracks(
     limit_per_artist: int | None = None,
     weights: list[float] | None = None,
     predicate_weights: dict[Path, float] | None = None,
-) -> list[Track]:
+) -> list[PlaylistTrack.Data]:
     """Get a listing of similar songs.
 
     Performs logic to limit the number of songs per artist, while still returning the
@@ -335,12 +335,12 @@ def get_most_similar_tracks(
             be included in the stream.
 
     Returns:
-        A list of filepaths, sorted by distance.
+        A list of PlaylistTrack.Data objects, sorted by distance.
     """
     if not filepaths:
         raise ValueError("No filepaths provided.")
 
-    def stream() -> Generator[Track, None, None]:
+    def stream() -> Generator[PlaylistTrack.Data, None, None]:
         yield from stream_similar_tracks(
             filepaths=filepaths,
             session=session,

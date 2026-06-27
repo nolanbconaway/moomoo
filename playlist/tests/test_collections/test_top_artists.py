@@ -4,17 +4,16 @@ from uuid import uuid4
 
 import pytest
 from click.testing import CliRunner
+from moomoo_pg import execute_sql_fetchall
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from moomoo_playlist.collections.top_artists import list_top_artists
 from moomoo_playlist.collections.top_artists import main as top_artists_main
-from moomoo_playlist.db import execute_sql_fetchall
 from moomoo_playlist.generator import (
     FromMbidsPlaylistGenerator,
     NoFilesRequestedError,
 )
-from moomoo_playlist.playlist import Playlist
 
 
 def populate_artist_listen_counts(session: Session, data: list[dict]):
@@ -132,9 +131,9 @@ def test_main__playlist_error(session: Session):
         ],
     )
     runner = CliRunner()
-    plist = Playlist(tracks=[])
-    with patch.object(FromMbidsPlaylistGenerator, "get_playlist") as mock:
-        mock.side_effect = [plist, NoFilesRequestedError, plist, plist, plist]
+
+    with patch.object(FromMbidsPlaylistGenerator, "get_tracks") as mock:
+        mock.side_effect = [[], NoFilesRequestedError, [], [], []]
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
     assert "No files found" in res.output
     assert "NoFilesRequestedError" in res.output
@@ -154,7 +153,7 @@ def test_main__stale_handler(session: Session):
     runner = CliRunner()
 
     with patch.object(
-        FromMbidsPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromMbidsPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
 
@@ -164,7 +163,7 @@ def test_main__stale_handler(session: Session):
 
     # run again, should skip
     with patch.object(
-        FromMbidsPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromMbidsPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
 
@@ -174,7 +173,7 @@ def test_main__stale_handler(session: Session):
 
     # test force
     with patch.object(
-        FromMbidsPlaylistGenerator, "get_playlist", return_value=Playlist(tracks=[])
+        FromMbidsPlaylistGenerator, "get_tracks", return_value=[]
     ) as patch_get_playlist:
         res = runner.invoke(top_artists_main, ["test", "--count=5", "--force"])
 
@@ -193,11 +192,7 @@ def test_main__storage(session: Session):
         ],
     )
     runner = CliRunner()
-    with patch.object(
-        FromMbidsPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for _ in range(10)],
-    ):
+    with patch.object(FromMbidsPlaylistGenerator, "get_tracks", side_effect=[[]] * 10):
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
 
     assert res.exit_code == 0
@@ -221,11 +216,7 @@ def test_main__storage(session: Session):
     ]
 
     # should replace with new playlists when run again
-    with patch.object(
-        FromMbidsPlaylistGenerator,
-        "get_playlist",
-        side_effect=[Playlist(tracks=[]) for _ in range(10)],
-    ):
+    with patch.object(FromMbidsPlaylistGenerator, "get_tracks", side_effect=[[]] * 10):
         res = runner.invoke(top_artists_main, ["test", "--count=5"])
 
     assert res.exit_code == 0

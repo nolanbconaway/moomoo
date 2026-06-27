@@ -3,9 +3,10 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from moomoo_pg import PlaylistTrack
 from sqlalchemy.orm import Session
 
-from moomoo_playlist import FromFilesPlaylistGenerator, NoFilesRequestedError, Track
+from moomoo_playlist import FromFilesPlaylistGenerator, NoFilesRequestedError
 
 from ..conftest import load_local_files_table
 
@@ -48,31 +49,31 @@ def test_list_source_tracks__parent_path(paths, expect, session: Session):
     assert set(ps) == set(expect)
 
 
-def test_get_playlist__no_files_error(session: Session):
-    """Test that get_playlist errors when no files are requested."""
+def test_get_tracks__no_files_error(session: Session):
+    """Test that get_tracks errors when no files are requested."""
     load_local_files_table(data=[])
     with pytest.raises(NoFilesRequestedError):
-        FromFilesPlaylistGenerator(Path("not_real")).get_playlist(session)
+        FromFilesPlaylistGenerator(Path("not_real")).get_tracks(session)
 
 
 @pytest.mark.parametrize("username", [None, "test"])
 @patch("moomoo_playlist.generator.FromFilesPlaylistGenerator.list_source_tracks")
 @patch("moomoo_playlist.generator.base.stream_similar_tracks")
 @patch("moomoo_playlist.generator.from_files.fetch_user_listen_counts")
-def test_get_playlist(
+def test_get_tracks(
     mock_fetch_user_listen_counts,
     mock_stream_similar_tracks,
     mock_list_source_tracks,
     session: Session,
     username,
 ):
-    """Test that get_playlist works."""
+    """Test that get_tracks works."""
     # mock listed sources and stream
     mock_fetch_user_listen_counts.return_value = {Path("test/0"): 1}
-    mock_list_source_tracks.return_value = [Track(filepath=Path("test/0"))]
+    mock_list_source_tracks.return_value = [PlaylistTrack.Data(filepath=Path("test/0"))]
 
     mock_stream_similar_tracks.return_value = [
-        Track(
+        PlaylistTrack.Data(
             filepath=Path(f"test/{i}"),
             artist_mbid=uuid4(),
             album_artist_mbid=uuid4(),
@@ -82,12 +83,12 @@ def test_get_playlist(
     ]
 
     pg = FromFilesPlaylistGenerator(Path("test/0"), username=username)
-    playlist = pg.get_playlist(limit=2, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.tracks] == [Path("test/1"), Path("test/2")]
+    tracks = pg.get_tracks(limit=2, shuffle=False, session=session)
+    assert [i.filepath for i in tracks] == [Path("test/1"), Path("test/2")]
 
     # up the limit
-    playlist = pg.get_playlist(limit=4, shuffle=False, session=session)
-    assert [i.filepath for i in playlist.tracks] == [
+    tracks = pg.get_tracks(limit=4, shuffle=False, session=session)
+    assert [i.filepath for i in tracks] == [
         Path("test/1"),
         Path("test/2"),
         Path("test/3"),
@@ -95,8 +96,8 @@ def test_get_playlist(
     ]
 
     # add a seed
-    playlist = pg.get_playlist(limit=2, shuffle=False, seed_count=1, session=session)
-    assert [i.filepath for i in playlist.tracks] == [Path("test/0"), Path("test/1")]
+    tracks = pg.get_tracks(limit=2, shuffle=False, seed_count=1, session=session)
+    assert [i.filepath for i in tracks] == [Path("test/0"), Path("test/1")]
 
 
 def test_source_limit_handler(session: Session):

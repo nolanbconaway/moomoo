@@ -8,21 +8,23 @@ dynamic = ["version"]
 dependencies = [
     "psycopg[binary]==3.*",
     "sqlalchemy==2.*",
-    "pgvector==0.*",
+    "pgvector==0.4.*",
     "click==8.*",
-    "tenacity==8.*",
+    "tenacity==9.*",
     "tqdm==4.*",
     "scikit-learn==1.*",
-    "structlog>21.0.0,<25.0.0",
+    "structlog>21.0.0,<27.0.0",
     "numpy==2.*",
     "pandas==2.*",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.1#subdirectory=pg",
+
 ]
 
 [project.optional-dependencies]
 test = [
     "ruff==0.15.*",
-    "pytest==8.*",
-    "pytest-postgresql==7.*", # last version supporting postgres 13, which i run locally.
+    "pytest==9.*",
+    "pytest-postgresql==8.*", # last version supporting postgres 13, which i run locally.
 ]
 
 [project.scripts]

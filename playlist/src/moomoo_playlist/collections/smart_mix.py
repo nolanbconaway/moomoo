@@ -1,24 +1,28 @@
 """Make "smart" playlists by clustering tracks based on the user listening history."""
 
-import dataclasses
 import json
 import os
 from collections import defaultdict
 from itertools import groupby
-from pathlib import Path
-from uuid import UUID
 
 import click
 import numpy as np
 import pandas as pd
+from moomoo_pg import (
+    Playlist,
+    PlaylistCollection,
+    PlaylistTrack,
+    db_retry,
+    execute_sql_fetchall,
+    get_session,
+)
+from pydantic import field_validator
 from scipy.spatial.distance import pdist, squareform
 from sklearn.cluster import HDBSCAN
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from ..config import CF_BASELINE, CF_SCALAR
-from ..db import db_retry, execute_sql_fetchall, get_session
-from ..ddl import PlaylistCollection
 from ..generator import FromFilesPlaylistGenerator, NoFilesRequestedError
 from ..logger import get_logger
 
@@ -30,27 +34,33 @@ MIN_LISTENS = 2
 RECENCY_FAC = 0.5
 
 
-@dataclasses.dataclass
-class Track:
-    """A track."""
+class ClusterTrack(PlaylistTrack.Data):
+    """A track with some extra stuff for clustering."""
 
-    filepath: Path
-    track_name: str
     artist_name: str
-    artist_mbid: UUID
+    track_name: str
     embedding: list[float]
 
-    def __post_init__(self):
-        if isinstance(self.filepath, str):
-            self.filepath = Path(self.filepath)
-        if isinstance(self.artist_mbid, str):
-            self.artist_mbid = UUID(self.artist_mbid)
-        if isinstance(self.embedding, str):
-            self.embedding = json.loads(self.embedding)
+    @field_validator("embedding", mode="before")
+    @classmethod
+    def parse_embedding(cls, v) -> list[float]:
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"embedding is not valid JSON: {e}") from e
+        return v
+
+    @property
+    def track_data(self) -> PlaylistTrack.Data:
+        """Return the base PlaylistTrack.Data object."""
+        return PlaylistTrack.Data(
+            **self.model_dump(exclude={"artist_name", "track_name", "embedding"})
+        )
 
 
 @db_retry
-def fetch_tracks(username: str, session: Session) -> list[Track]:
+def fetch_tracks(username: str, session: Session) -> list[ClusterTrack]:
     """Fetch tracks for a user."""
     logger.info(f"Fetching tracks for {username}.")
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
@@ -91,10 +101,10 @@ def fetch_tracks(username: str, session: Session) -> list[Track]:
         session=session,
     )
     logger.info(f"Fetched {len(res)} tracks.")
-    return [Track(**row) for row in res]
+    return [ClusterTrack(**row) for row in res]
 
 
-def fetch_cf_similarity_matrix(tracks: list[Track], session: Session) -> pd.DataFrame:
+def fetch_cf_similarity_matrix(tracks: list[ClusterTrack], session: Session) -> pd.DataFrame:
     """Fetch the collaborative filtering similarity matrix for the given tracks.
 
     Returns a DataFrame where the index and columns are artist MBIDs, and the values are
@@ -136,7 +146,7 @@ def fetch_cf_similarity_matrix(tracks: list[Track], session: Session) -> pd.Data
 
 
 def compute_track_distance_matrix(
-    tracks: list[Track], cf_matrix: pd.DataFrame
+    tracks: list[ClusterTrack], cf_matrix: pd.DataFrame
 ) -> np.ndarray | None:
     """Compute the track distance matrix using collaborative filtering data.
 
@@ -187,8 +197,8 @@ def _run_clusterer(distance_matrix: np.ndarray, n_jobs: int) -> np.ndarray:
 
 
 def make_clusters(
-    tracks: list[Track], n_jobs: int, max_clusters: int, distance_matrix=np.ndarray
-) -> list[list[Track]]:
+    tracks: list[ClusterTrack], n_jobs: int, max_clusters: int, distance_matrix=np.ndarray
+) -> list[list[ClusterTrack]]:
     """Make clusters, and return the resulting clustered tracks.
 
     The distance matrix is what is actually used for clustering. It must be square and match
@@ -263,78 +273,86 @@ def make_clusters(
 )
 def main(username: str, count: int, force: bool, n_jobs: int):
     """Create playlists based on the top artists in the user's listening history."""
-    session = get_session()
-    collection = PlaylistCollection.get_collection_by_name(
-        username=username, collection_name=collection_name, session=session
-    )
-
-    if collection.is_fresh and not force:
-        logger.info("Collection is not stale; skipping.")
-        return
-
-    tracks = fetch_tracks(username=username, session=session)
-    if len(tracks) < 50:
-        logger.warning(f"Not enough tracks ({len(tracks)}) to generate smart mixes.")
-        return
-
-    # downsample to random 2000 or 3/4 of the tracks. whatever is bigger.
-    # this adds some variance to more slowly changing clusters.
-    if len(tracks) > 2000:
-        n = max(2000, len(tracks) * 7 // 8)
-        logger.info(f"Downsampling to {n} tracks for clustering.")
-        idx = np.random.choice(np.arange(len(tracks)), size=n, replace=False)
-        tracks = [tracks[i] for i in idx]
-
-    # fetch the artist similarity matrix and compute the distance matrix
-    cf_matrix = fetch_cf_similarity_matrix(tracks=tracks, session=session)
-    distance = compute_track_distance_matrix(tracks=tracks, cf_matrix=cf_matrix)
-    clusters = make_clusters(
-        tracks=tracks, n_jobs=n_jobs, max_clusters=count, distance_matrix=distance
-    )
-
-    logger.info(f"Generating playlists for {len(clusters)} clusters.")
-
-    playlists = []
-    for cluster in tqdm(clusters, disable=None, total=len(clusters)):
-        tracklist = ", ".join([f"{track.artist_name} - {track.track_name}" for track in cluster])
-        logger.info(f"Generating playlist for cluster tracks: {tracklist}")
-        generator = FromFilesPlaylistGenerator(
-            *[track.filepath for track in cluster], username=username
+    with get_session() as session:
+        collection = PlaylistCollection.get_collection_by_name(
+            username=username, collection_name=collection_name, session=session
         )
-        try:
-            playlist = generator.get_playlist(
-                session=session, seed_count=1, recency_fac=RECENCY_FAC
+
+        if collection.is_fresh and not force:
+            logger.info("Collection is not stale; skipping.")
+            return
+
+        tracks = fetch_tracks(username=username, session=session)
+        if len(tracks) < 50:
+            logger.warning(f"Not enough tracks ({len(tracks)}) to generate smart mixes.")
+            return
+
+        # downsample to random 2000 or 3/4 of the tracks. whatever is bigger.
+        # this adds some variance to more slowly changing clusters.
+        if len(tracks) > 2000:
+            n = max(2000, len(tracks) * 7 // 8)
+            logger.info(f"Downsampling to {n} tracks for clustering.")
+            idx = np.random.choice(np.arange(len(tracks)), size=n, replace=False)
+            tracks = [tracks[i] for i in idx]
+
+        # fetch the artist similarity matrix and compute the distance matrix
+        cf_matrix = fetch_cf_similarity_matrix(tracks=tracks, session=session)
+        distance = compute_track_distance_matrix(tracks=tracks, cf_matrix=cf_matrix)
+        clusters = make_clusters(
+            tracks=tracks, n_jobs=n_jobs, max_clusters=count, distance_matrix=distance
+        )
+
+        logger.info(f"Generating playlists for {len(clusters)} clusters.")
+
+        playlists = []
+        for cluster in tqdm(clusters, disable=None, total=len(clusters)):
+            tracklist = ", ".join(
+                [f"{track.artist_name} - {track.track_name}" for track in cluster]
             )
-        except NoFilesRequestedError:
-            logger.exception("No files found for cluster.")
-            continue
-
-        # describe the playlist based on the artists in the cluster. list them by the number of
-        # source tracks in the cluster. exclude special purpose artists like "Various Artists".
-        #
-        # use only the top 5 artists, if there are that many
-        artists_counts = [
-            (artist_name, len(list(group)))
-            for artist_name, group in groupby(
-                sorted(cluster, key=lambda t: t.artist_name),
-                key=lambda t: t.artist_name,
+            logger.info(f"Generating playlist for cluster tracks: {tracklist}")
+            generator = FromFilesPlaylistGenerator(
+                *[track.filepath for track in cluster], username=username
             )
-            if artist_name.lower() != "various artists"
-        ]
-        artists_counts = sorted(artists_counts, key=lambda x: x[1], reverse=True)
-        top_artists_names = [artist_name for artist_name, _ in artists_counts[:5]]
-        description = "Songs like: " + ", ".join(top_artists_names)
+            try:
+                playlist_tracks = generator.get_tracks(
+                    session=session, seed_count=1, recency_fac=RECENCY_FAC
+                )
+            except NoFilesRequestedError:
+                logger.exception("No files found for cluster.")
+                continue
 
-        # set title based on list index, in case there was an exception
-        playlist.title = f"Smart Mix {len(playlists) + 1}"
-        playlist.description = description
-        playlists.append(playlist)
+            # describe the playlist based on the artists in the cluster. list them by the number of
+            # source tracks in the cluster. exclude special purpose artists like "Various Artists".
+            #
+            # use only the top 5 artists, if there are that many
+            artists_counts = [
+                (artist_name, len(list(group)))
+                for artist_name, group in groupby(
+                    sorted(cluster, key=lambda t: t.artist_name),
+                    key=lambda t: t.artist_name,
+                )
+                if artist_name.lower() != "various artists"
+            ]
+            artists_counts = sorted(artists_counts, key=lambda x: x[1], reverse=True)
+            top_artists_names = [artist_name for artist_name, _ in artists_counts[:5]]
+            description = "Songs like: " + ", ".join(top_artists_names)
 
-    if len(playlists) == 0:
-        logger.warning("No playlists generated.")
-        return
+            # set title based on list index, in case there was an exception
+            playlist = Playlist.Data(
+                title=f"Smart Mix {len(playlists) + 1}",
+                description=description,
+                tracks=playlist_tracks,
+            )
 
-    collection.replace_playlists(playlists=playlists, session=session, force=force)
+            playlists.append(playlist)
+
+        if len(playlists) == 0:
+            logger.warning("No playlists generated.")
+            return
+
+        collection.replace_playlists(playlists=playlists, session=session, force=force)
+        session.commit()
+        logger.info(f"Saved {len(playlists)} playlists to collection {collection_name}.")
 
 
 if __name__ == "__main__":
