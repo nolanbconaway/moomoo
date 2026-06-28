@@ -1,4 +1,5 @@
-FROM python:3.10-slim-bullseye
+FROM python:3.14-slim-bookworm
+
 RUN apt update
 RUN apt install -y make git
 
@@ -6,7 +7,7 @@ WORKDIR /src
 
 # setup py modules
 COPY src src
-COPY setup.py .
+COPY pyproject.toml .
 RUN pip install . --no-cache-dir
 
 COPY Makefile .
