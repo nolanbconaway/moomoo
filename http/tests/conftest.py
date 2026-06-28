@@ -3,7 +3,7 @@
 import psycopg
 import pytest
 from flask.testing import FlaskClient
-from moomoo_playlist.ddl import BaseTable, PlaylistCollection, PlaylistCollectionItem
+from moomoo_pg import BaseTable, Playlist, PlaylistCollection, PlaylistTrack
 
 from moomoo_http.app import create_app
 from moomoo_http.db import db
@@ -16,7 +16,7 @@ def override_env_variables(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_db(monkeypatch, postgresql: psycopg.Connection):
+def mock_db(postgresql: psycopg.Connection, monkeypatch):
     """Mock the internal db connection function to use the test db.
 
     Returns an endless supply of connections to the test db.
@@ -48,21 +48,32 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
 @pytest.fixture
 def http_app(mock_db) -> FlaskClient:
     """Create a test client for the http app."""
+    assert mock_db  # ensure the db is set up is going before the app is created.
     app = create_app()
     return app.test_client()
 
 
 @pytest.fixture(autouse=True)
-def app_context(http_app):
+def app_context(http_app: FlaskClient, postgresql: psycopg.Connection):
     """Make sure the app context is created for each test."""
-    with http_app.application.app_context():
-        yield
+    with http_app.application.app_context() as ctx:
+        # ensure the db is connected to the test db
+        assert db.engine.url.username == postgresql.info.user
+        assert db.engine.url.host == postgresql.info.host
+        assert db.engine.url.port == postgresql.info.port
+        assert db.engine.url.database == postgresql.info.dbname
+        yield ctx
 
 
 @pytest.fixture(autouse=True)
 def playlist_collection_tables(app_context):
     """Create the playlist collection tables."""
+    assert app_context  # need the app context to create the tables
     BaseTable.metadata.create_all(
         bind=db.engine,
-        tables=[PlaylistCollection.__table__, PlaylistCollectionItem.__table__],
+        tables=[
+            PlaylistCollection.__table__,
+            Playlist.__table__,
+            PlaylistTrack.__table__,
+        ],
     )

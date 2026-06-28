@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Blueprint, Response, request
-from moomoo_playlist import FromFilesPlaylistGenerator, Playlist
-from moomoo_playlist.ddl import PlaylistCollection
+from moomoo_pg import Playlist, PlaylistCollection
+from moomoo_playlist import FromFilesPlaylistGenerator
 from sqlalchemy.orm import Session
 
 from ..db import db
@@ -32,7 +32,7 @@ class PlaylistResponse:
     """Dataclass for a playlist response."""
 
     success: bool
-    playlists: list[Playlist] | None = None
+    playlists: list[Playlist.Data] | None = None
     error: str | None = None
 
     def __post__init__(self):
@@ -40,9 +40,9 @@ class PlaylistResponse:
             raise ValueError("Cannot have both playlists and error.")
 
     @staticmethod
-    def serialize_playlist(playlist: Playlist) -> dict:
+    def serialize_playlist(playlist: Playlist.Data) -> dict:
         """Serialize a playlist."""
-        res = {"playlist": playlist.serialize_tracks()}
+        res = {"playlist": [i.model_dump(exclude_none=True, mode="json") for i in playlist.tracks]}
         if playlist.title is not None:
             res["title"] = playlist.title
         if playlist.description is not None:
@@ -93,7 +93,7 @@ class PlaylistResponse:
                 error=f"No {collection_name} playlists found for {username}.",
             )
 
-        return cls(success=True, playlists=collection.playlists)
+        return cls(success=True, playlists=[i.data for i in collection.items])
 
 
 @base.route("/from-files", methods=["GET"])
@@ -109,12 +109,13 @@ def from_files():
     generator = FromFilesPlaylistGenerator(*paths)
 
     try:
-        playlist = generator.get_playlist(
+        tracks = generator.get_tracks(
             limit=n_tracks, shuffle=True, seed_count=seed, session=db.session
         )
     except Exception as e:
         return PlaylistResponse(success=False, error=f"{type(e).__name__}: {e}").to_http()
 
+    playlist = Playlist.Data(tracks=tracks, title=None, description=None)
     return PlaylistResponse(success=True, playlists=[playlist]).to_http()
 
 

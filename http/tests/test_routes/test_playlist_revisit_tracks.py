@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from flask.testing import FlaskClient
-from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+from moomoo_pg import Playlist, PlaylistCollection
 
 from moomoo_http.db import db
 
@@ -18,15 +18,14 @@ def test_get(http_app: FlaskClient):
     collection = PlaylistCollection(
         collection_id=uuid4(), username="aaa", collection_name="revisit-tracks"
     )
-    collection_item = PlaylistCollectionItem(
-        collection_id=collection.collection_id,
-        collection_order_index=0,
+    playlist = Playlist.Data(
         title="test",
         description="test",
-        playlist=[{"filepath": "aaa"}, {"filepath": "bbb"}, {"filepath": "ccc"}],
+        tracks=[{"filepath": "aaa"}, {"filepath": "bbb"}, {"filepath": "ccc"}],
     )
+
     db.session.add(collection)
-    db.session.add(collection_item)
+    collection.replace_playlists([playlist], session=db.session)
     db.session.commit()
 
     resp = http_app.get("/playlist/revisit-tracks/aaa")
