@@ -23,9 +23,7 @@ def test_PlaylistResponse__serialize_playlist():
 
 
 def test_PlaylistResponse__to_serializable():
-    pr = PlaylistResponse(
-        success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])]
-    )
+    pr = PlaylistResponse(success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])])
     res = pr.to_serializable()
     assert res == {
         "success": True,
@@ -38,9 +36,7 @@ def test_PlaylistResponse__to_serializable():
 
 
 def test_PlaylistResponse__to_http():
-    pr = PlaylistResponse(
-        success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])]
-    )
+    pr = PlaylistResponse(success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])])
     res = pr.to_http()
     assert res.status_code == 200
     assert res.content_type == "application/json"
@@ -66,9 +62,7 @@ def test_PlaylistResponce__from_user_collection():
     assert res.error == "Collection test-collection collection not found for test-name."
 
     # collection, no playlists
-    collection = PlaylistCollection(
-        username="test-name", collection_name="test-collection"
-    )
+    collection = PlaylistCollection(username="test-name", collection_name="test-collection")
     db.session.add(collection)
     db.session.commit()
 

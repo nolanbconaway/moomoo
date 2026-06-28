@@ -1,3 +1,44 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moomoo-http"
+dynamic = ["version"]
+dependencies = [
+    "flask==3.1.*",
+    "waitress==3.0.*",
+    "Flask-SQLAlchemy==3.1.*",
+    "psycopg[binary]==3.3.*",
+    "moomoo-playlist @ git+https://github.com/nolanbconaway/moomoo.git@playlist-v0.9.0#subdirectory=playlist",
+    # this is also a dep of moomoo playlist, so need to keep the versions in sync.
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.1#subdirectory=pg",
+
+]
+
+[project.optional-dependencies]
+test = [
+    "ruff==0.15.*",
+    "pytest==9.0.*",
+    "pytest-postgresql==8.1.*",
+]
+
+[project.scripts]
+moomoo-http = "moomoo_http.cli:cli"
+
+[tool.setuptools.dynamic]
+version = {file = "src/moomoo_http/version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moomoo_http = ["version"]
+
+[tool.ruff]
+include = ["pyproject.toml", "src/**/*.py", "tests/**/*.py"]
+line-length = 100
+
 [tool.ruff.lint]
 select = [
     "E",   # pycodestyle

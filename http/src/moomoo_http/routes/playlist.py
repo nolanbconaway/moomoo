@@ -113,9 +113,7 @@ def from_files():
             limit=n_tracks, shuffle=True, seed_count=seed, session=db.session
         )
     except Exception as e:
-        return PlaylistResponse(
-            success=False, error=f"{type(e).__name__}: {e}"
-        ).to_http()
+        return PlaylistResponse(success=False, error=f"{type(e).__name__}: {e}").to_http()
 
     return PlaylistResponse(success=True, playlists=[playlist]).to_http()
 
