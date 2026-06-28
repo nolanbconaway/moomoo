@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
-from moomoo_pg import Playlist
 
 plist_obj = "moomoo_playlist.FromFilesPlaylistGenerator.get_tracks"
 
