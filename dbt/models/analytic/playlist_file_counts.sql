@@ -10,7 +10,7 @@
 with agg as (
   select
     collections.username
-    , tracks.filepath as filepath
+    , tracks.filepath
     , count(distinct playlist.playlist_id) as playlist_count
     , array_agg(distinct collections.collection_name) as collection_names
 
