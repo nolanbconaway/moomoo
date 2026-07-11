@@ -1,6 +1,6 @@
 FROM python:3.14-slim-bookworm
 RUN apt update
-RUN apt install -y make
+RUN apt install -y make git
 
 WORKDIR /src
 
