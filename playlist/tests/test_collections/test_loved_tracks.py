@@ -32,7 +32,7 @@ def populate_loved_tracks(session: Session, data: list[dict]):
     sql = f"""
         create table {schema}.local_files (
             filepath varchar not null,
-            track_length_seconds int not null
+            track_length_seconds real not null
         )
     """
     session.execute(text(sql))
@@ -52,7 +52,7 @@ def populate_loved_tracks(session: Session, data: list[dict]):
             text(sql),
             {
                 "filepath": row["filepath"],
-                "track_length_seconds": row.get("track_length_seconds", 200.5),
+                "track_length_seconds": row.get("track_length_seconds", 200.9),
             },
         )
 
@@ -106,13 +106,13 @@ def test_main__storage(session: Session):
     )
     assert [i["title"] for i in res] == ["Loved Tracks"]
 
-    # check ordering is descending on time.
+    # check ordering is descending on time. seconds are floored
     assert res[0]["playlist"] == [
-        {"filepath": "path/4", "track_length_seconds": 200.5},
-        {"filepath": "path/3", "track_length_seconds": 200.5},
-        {"filepath": "path/2", "track_length_seconds": 200.5},
-        {"filepath": "path/1", "track_length_seconds": 200.5},
-        {"filepath": "path/0", "track_length_seconds": 200.5},
+        {"filepath": "path/4", "track_length_seconds": 200},
+        {"filepath": "path/3", "track_length_seconds": 200},
+        {"filepath": "path/2", "track_length_seconds": 200},
+        {"filepath": "path/1", "track_length_seconds": 200},
+        {"filepath": "path/0", "track_length_seconds": 200},
     ]
 
     # should replace with new playlists when run again
