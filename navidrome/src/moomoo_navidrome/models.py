@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 from uuid import UUID
 
 import httpx
-from moomoo_pg import PlaylistCollectionItem
+from moomoo_pg import Playlist
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -24,7 +24,7 @@ class MoomooPlaylistSignature(BaseModel):
     signature_prefix: ClassVar[str] = " --- moomoo playlist:"
 
     @classmethod
-    def from_playlist(cls, playlist: PlaylistCollectionItem) -> "MoomooPlaylistSignature":
+    def from_playlist(cls, playlist: Playlist) -> "MoomooPlaylistSignature":
         """Creates a signature instance from a PlaylistCollection and a Playlist."""
         return cls(
             moomoo_collection_id=playlist.collection.collection_id,

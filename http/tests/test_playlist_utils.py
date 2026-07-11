@@ -1,14 +1,15 @@
 """Test the base app."""
 
-from moomoo_playlist import Playlist, Track
-from moomoo_playlist.ddl import PlaylistCollection, PlaylistCollectionItem
+from pathlib import Path
+
+from moomoo_pg import Playlist, PlaylistCollection, PlaylistTrack
 
 from moomoo_http.db import db
 from moomoo_http.routes.playlist import PlaylistResponse
 
 
 def test_PlaylistResponse__serialize_playlist():
-    p = Playlist(tracks=[Track(filepath="test.mp3")])
+    p = Playlist.Data(tracks=[dict(filepath=Path("test.mp3"))], title=None, description=None)
     res = PlaylistResponse.serialize_playlist(p)
     assert res == {"playlist": [{"filepath": "test.mp3"}]}
 
@@ -23,9 +24,8 @@ def test_PlaylistResponse__serialize_playlist():
 
 
 def test_PlaylistResponse__to_serializable():
-    pr = PlaylistResponse(
-        success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])]
-    )
+    playlist = Playlist.Data(tracks=[dict(filepath=Path("test.mp3"))], title=None, description=None)
+    pr = PlaylistResponse(success=True, playlists=[playlist])
     res = pr.to_serializable()
     assert res == {
         "success": True,
@@ -38,9 +38,8 @@ def test_PlaylistResponse__to_serializable():
 
 
 def test_PlaylistResponse__to_http():
-    pr = PlaylistResponse(
-        success=True, playlists=[Playlist(tracks=[Track(filepath="test.mp3")])]
-    )
+    playlist = Playlist.Data(tracks=[dict(filepath=Path("test.mp3"))], title=None, description=None)
+    pr = PlaylistResponse(success=True, playlists=[playlist])
     res = pr.to_http()
     assert res.status_code == 200
     assert res.content_type == "application/json"
@@ -66,9 +65,7 @@ def test_PlaylistResponce__from_user_collection():
     assert res.error == "Collection test-collection collection not found for test-name."
 
     # collection, no playlists
-    collection = PlaylistCollection(
-        username="test-name", collection_name="test-collection"
-    )
+    collection = PlaylistCollection(username="test-name", collection_name="test-collection")
     db.session.add(collection)
     db.session.commit()
 
@@ -79,20 +76,14 @@ def test_PlaylistResponce__from_user_collection():
     assert res.error == "No test-collection playlists found for test-name."
 
     # collection, playlists
-    items = [
-        PlaylistCollectionItem(
-            collection_id=collection.collection_id,
-            collection_order_index=0,
-            playlist=[{"filepath": "aaa"}],
-        ),
-        PlaylistCollectionItem(
-            collection_id=collection.collection_id,
-            collection_order_index=1,
-            playlist=[{"filepath": "bbb"}, {"filepath": "ccc"}],
+    playlists = [
+        Playlist.Data(tracks=[{"filepath": "aaa"}], title=None, description=None),
+        Playlist.Data(
+            tracks=[{"filepath": "bbb"}, {"filepath": "ccc"}], title=None, description=None
         ),
     ]
     db.session.add(collection)
-    db.session.add_all(items)
+    collection.replace_playlists(playlists, session=db.session)
     db.session.commit()
 
     res = PlaylistResponse.from_user_collection(
@@ -100,5 +91,8 @@ def test_PlaylistResponce__from_user_collection():
     )
     assert res.success is True
     assert len(res.playlists) == 2
-    assert res.playlists[0].tracks == [Track(filepath="aaa")]
-    assert res.playlists[1].tracks == [Track(filepath="bbb"), Track(filepath="ccc")]
+    assert res.playlists[0].tracks == [PlaylistTrack.Data(filepath="aaa")]
+    assert res.playlists[1].tracks == [
+        PlaylistTrack.Data(filepath="bbb"),
+        PlaylistTrack.Data(filepath="ccc"),
+    ]

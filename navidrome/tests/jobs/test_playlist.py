@@ -1,7 +1,7 @@
 import datetime
 from uuid import uuid4
 
-from moomoo_pg import PlaylistCollection, PlaylistCollectionItem
+from moomoo_pg import Playlist, PlaylistCollection
 
 from moomoo_navidrome.jobs.playlist import (
     TITLE_PREFIX,
@@ -27,13 +27,12 @@ def test_drop_all_moomoo_playlists():
 def test_sync_playlists_collection():
     client = NavidromeHTTPClient()
     collection = PlaylistCollection(collection_id=uuid4(), collection_name="test", username="fake")
-    playlist_item = PlaylistCollectionItem(
+    playlist_item = Playlist(
         collection_id=collection.collection_id,
         playlist_id=uuid4(),
         collection_order_index=0,
         title="Test Playlist",
         description="A test playlist",
-        playlist=[],
         create_at_utc=datetime.datetime.now(datetime.timezone.utc),
     )
     collection.items.append(playlist_item)
