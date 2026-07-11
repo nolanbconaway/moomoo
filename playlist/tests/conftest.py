@@ -163,7 +163,7 @@ def load_local_files_table(data: list[dict]):
             i["album_artist_name"] = i.get("album_artist_name", "album_artist_name")
             i["track_name"] = i.get("track_name", "track_name")
             i["embedding_duration_seconds"] = i.get("embedding_duration_seconds", 90)
-            i["track_length_seconds"] = i.get("track_length_seconds", 180)
+            i["track_length_seconds"] = i.get("track_length_seconds", 180.5)
             session.execute(text(sql), i)
         session.commit()
 

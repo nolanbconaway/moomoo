@@ -29,7 +29,9 @@ def list_loved_tracks(username: str, session: Session) -> list[PlaylistTrack.Dat
 
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
     sql = f"""
-        select filepath, local_files.track_length_seconds
+        select
+            filepath
+            , floor(local_files.track_length_seconds)::int as track_length_seconds
         from {schema}.loved_tracks
         inner join {schema}.local_files using (filepath)
         where username = :username

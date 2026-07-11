@@ -37,7 +37,7 @@ def list_revisit_tracks(username: str, session: Session) -> list[PlaylistTrack.D
         , revisit_tracks.recording_mbid
         , revisit_tracks.artist_mbid
         , revisit_tracks.album_artist_mbid
-        , local_files.track_length_seconds
+        , floor(local_files.track_length_seconds)::int as track_length_seconds
 
     from {schema}.revisit_tracks
     inner join {schema}.local_files using (filepath)
