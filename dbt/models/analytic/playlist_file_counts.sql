@@ -10,15 +10,15 @@
 with agg as (
   select
     collections.username
-    , track.value ->> 'filepath' as filepath
+    , tracks.filepath as filepath
     , count(distinct playlist.playlist_id) as playlist_count
     , array_agg(distinct collections.collection_name) as collection_names
 
-  from {{ ref('moomoo_playlist_collection_items') }} as playlist
-  inner join {{ ref('moomoo_playlist_collections') }} as collections using (collection_id)
-  , jsonb_array_elements(playlist.playlist) as track
+  from {{ ref('moomoo_playlist_collections') }} as collections
+  inner join {{ ref('moomoo_playlists') }} as playlist using (collection_id)
+  inner join {{ ref('moomoo_playlist_tracks') }} as tracks using (playlist_id)
 
-  where collections.collection_name not in ('loved-tracks', 'revisit-tracks')
+  where collections.collection_name not in ('loved-tracks', 'revisit-tracks', 'revisit-releases')
 
   group by 1, 2
   having count(distinct playlist.playlist_id) > 1
