@@ -62,7 +62,7 @@ def sync_playlists_collection(
     #  recreate playlists
     logger.info(f"Creating {len(collection.items)} new playlist(s).")
     for item in collection.items:
-        playlist_paths = [Path(track["filepath"]) for track in item.playlist]
+        playlist_paths = [track.filepath for track in item.tracks]
         song_ids = NavidromeDBClient().get_song_ids(playlist_paths)
 
         if not song_ids:

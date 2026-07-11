@@ -14,7 +14,7 @@ dependencies = [
     "loguru==0.7.*",
     "pydantic==2.13.*",
     "liblistenbrainz==0.7.0",
-    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.0.3#subdirectory=pg",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.1#subdirectory=pg",
 ]
 
 [project.optional-dependencies]
