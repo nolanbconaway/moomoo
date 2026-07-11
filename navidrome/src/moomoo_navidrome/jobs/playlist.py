@@ -1,7 +1,5 @@
 """Syncronize mooomoo playlists to navidrome."""
 
-from pathlib import Path
-
 import click
 from moomoo_pg import PlaylistCollection, get_session
 
