@@ -80,7 +80,7 @@ def populate_revisit_tracks(session: Session, data: list[dict]):
                 :track_length_seconds
             )
         """
-        session.execute(text(sql), {"filepath": row["filepath"], "track_length_seconds": 200})
+        session.execute(text(sql), {"filepath": row["filepath"], "track_length_seconds": 200.5})
 
     session.commit()
 
