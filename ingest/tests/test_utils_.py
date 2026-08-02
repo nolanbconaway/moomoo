@@ -4,6 +4,7 @@ import datetime
 
 import pytest
 import requests
+from musicbrainzngs import ResponseError
 
 from moomoo_ingest import utils_
 
@@ -64,6 +65,21 @@ def mock_get_release_group_data(_):
 def mock_raise_exception(_):
     """Mock function for testing annotate_mbid exception handling."""
     raise Exception("foo")
+
+
+def test_clean_exception_wrapper():
+    """Test that the clean_exception_wrapper decorator works as expected."""
+
+    @utils_.clean_exception_wrapper
+    def raise_response_error(mbid):
+        raise ResponseError(cause="random cause", message="random message")
+
+    with pytest.raises(utils_.MusicBrainzResponseError) as exc_info:
+        raise_response_error("test-mbid")
+
+    assert "test-mbid" in str(exc_info.value)
+    assert "random message" in str(exc_info.value)
+    assert "random cause" in str(exc_info.value)
 
 
 def test_annotate_mbid(monkeypatch):

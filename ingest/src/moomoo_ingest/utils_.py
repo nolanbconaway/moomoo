@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import functools
 import hashlib
 import os
 import random
@@ -82,6 +83,32 @@ class MusicBrainzTimeoutError(Exception):
     """Custom exception for MusicBrainz timeouts."""
 
 
+class MusicBrainzResponseError(Exception):
+    """Custom exception for MusicBrainz response errors."""
+
+
+def clean_exception_wrapper(fn):
+    """Decorator to clean up exceptions raised by MusicBrainz functions.
+
+    Musicbrainz response errors contain urllib httperrors as causes which are not pickleable, which
+    breaks the process pool. So we catch them and raise a custom exception instead.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(mbid):
+        try:
+            return fn(mbid)
+        except musicbrainzngs.ResponseError as e:
+            status = getattr(e.cause, "code", None)  # should be an httperror with a code attr.
+            message = e.message or getattr(e.cause, "msg", None)
+            raise MusicBrainzResponseError(
+                f"MusicBrainz error for {mbid}: status={status}, message={message}, cause={e.cause}"
+            ) from None  # do not allow http error context to propagate
+
+    return wrapper
+
+
+@clean_exception_wrapper
 def _get_recording_data(recording_mbid: str) -> dict:
     """Get release data from MusicBrainz."""
     return musicbrainzngs.get_recording_by_id(
@@ -102,6 +129,7 @@ def _get_recording_data(recording_mbid: str) -> dict:
     )
 
 
+@clean_exception_wrapper
 def _get_release_group_data(release_group_mbid: str) -> dict:
     """Get release group data from MusicBrainz."""
     return musicbrainzngs.get_release_group_by_id(
@@ -125,6 +153,7 @@ def _get_release_group_data(release_group_mbid: str) -> dict:
     )
 
 
+@clean_exception_wrapper
 def _get_release_data(release_mbid: str) -> dict:
     """Get release data from MusicBrainz."""
     return musicbrainzngs.get_release_by_id(
@@ -145,6 +174,7 @@ def _get_release_data(release_mbid: str) -> dict:
     )
 
 
+@clean_exception_wrapper
 def _get_artist_data(artist_mbid: str) -> dict:
     """Get artist data from MusicBrainz."""
     data = musicbrainzngs.get_artist_by_id(
