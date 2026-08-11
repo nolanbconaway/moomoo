@@ -35,6 +35,7 @@ class UserFeedback:
     score: int
     recording_mbid: UUID
     feedback_at: datetime.datetime
+    track_metadata: dict | None = None
 
     @property
     def feedback_md5(self) -> str:
@@ -49,6 +50,7 @@ class UserFeedback:
             "score": self.score,
             "recording_mbid": self.recording_mbid,
             "feedback_at": self.feedback_at,
+            "track_metadata": self.track_metadata or {},
         }
 
 
@@ -96,7 +98,7 @@ def get_feedback_page(username: str, page_num: int = 0) -> list[UserFeedback]:
         "count": PAGE_SIZE,
         "score": 1,  # loves only
         "offset": page_num * PAGE_SIZE,
-        "metadata": False,
+        "metadata": True,
     }
 
     # expect a response like:
@@ -116,6 +118,7 @@ def get_feedback_page(username: str, page_num: int = 0) -> list[UserFeedback]:
             score=i["score"],
             recording_mbid=UUID(i["recording_mbid"]),
             feedback_at=utils_.utcfromunixtime(i["created"]),
+            track_metadata=i.get("track_metadata", {}),
         )
         for i in client._get(url, params=params)["feedback"]
     ]
@@ -138,7 +141,6 @@ def main(username: str):
     for page in list(range(num_pages))[::-1]:
         loves += get_feedback_page(username, page)
 
-    # if resync, delete all records for this user
     click.echo(f"Deleting {feedback_count} record(s) for {username}.")
     with get_session() as session:
         session.query(ListenBrainzUserFeedback).filter_by(username=username).delete()

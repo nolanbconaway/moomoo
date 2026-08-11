@@ -34,7 +34,17 @@ def test_cli_main__some_data(monkeypatch):
 
     fake_responses = [
         dict(feedback=[dict(user_id="FAKE", score=1, recording_mbid=uuid1().hex, created=0)]),
-        dict(feedback=[dict(user_id="FAKE", score=1, recording_mbid=uuid1().hex, created=1)]),
+        dict(
+            feedback=[
+                dict(
+                    user_id="FAKE",
+                    score=1,
+                    recording_mbid=uuid1().hex,
+                    created=1,
+                    track_metadata={"a": "b", "c": [1, 2, 3]},
+                )
+            ]
+        ),
     ]
 
     # 2 pages
@@ -49,7 +59,9 @@ def test_cli_main__some_data(monkeypatch):
     assert len(res) == 2
     assert res[0]["username"] == "FAKE"
     assert res[0]["feedback_at"] == utils_.utcfromunixtime(0)
+    assert res[0]["track_metadata"] == {}
     assert res[1]["feedback_at"] == utils_.utcfromunixtime(1)
+    assert res[1]["track_metadata"] == {"a": "b", "c": [1, 2, 3]}
 
     # 1 page
     monkeypatch.setattr(collect_listenbrainz_feedback, "get_total_feedback_count", lambda _: 99)
