@@ -401,6 +401,9 @@ class ListenBrainzUserFeedback(BaseTable):
     score: Mapped[int] = mapped_column(nullable=False)
     recording_mbid: Mapped[UUID] = mapped_column(nullable=False)
     feedback_at: Mapped[datetime.datetime] = mapped_column(nullable=False, index=True)
+    track_metadata: Mapped[dict[str, Any]] = mapped_column(
+        nullable=False, server_default=text("'{}'::jsonb")
+    )
     insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
         nullable=False, server_default=func.current_timestamp(), index=True
     )
