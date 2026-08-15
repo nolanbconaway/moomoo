@@ -1,6 +1,7 @@
 """Test utils functinos."""
 
 import datetime
+import random
 
 import pytest
 import requests
@@ -137,6 +138,16 @@ def test__get_artist_data__release_browse(monkeypatch):
         "browse_releases",
         lambda limit, offset, **__: {"release-list": release_list[offset : offset + limit]},
     )
+    result = utils_._get_artist_data("artist-mbid")
+    assert len(result["artist"]["release-list"]) == 250
+
+    # try one with a random 1-limit returned
+    def mockfn(limit, offset, **__):
+        # return a random number of releases between 1 and limit
+        num_releases = random.randint(1, limit)
+        return {"release-list": release_list[offset : offset + num_releases]}
+
+    monkeypatch.setattr(utils_.musicbrainzngs, "browse_releases", mockfn)
     result = utils_._get_artist_data("artist-mbid")
     assert len(result["artist"]["release-list"]) == 250
 

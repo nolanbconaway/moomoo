@@ -7,7 +7,7 @@ import hashlib
 import os
 import random
 from collections.abc import Callable, Iterable, Iterator
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from itertools import groupby
 from pathlib import Path
 
@@ -29,7 +29,7 @@ SPECIAL_PURPOSE_ARTISTS = {
 
 # timeout applied to annotation functions, which may consist of dozens of requests internally
 MUSICBRAINZ_TIMEOUT = 5 * 60
-EXECUTOR = ProcessPoolExecutor(max_workers=1)
+EXECUTOR = ThreadPoolExecutor(max_workers=1)
 
 
 def moomoo_version() -> str:
@@ -91,7 +91,7 @@ def clean_exception_wrapper(fn):
     """Decorator to clean up exceptions raised by MusicBrainz functions.
 
     Musicbrainz response errors contain urllib httperrors as causes which are not pickleable, which
-    breaks the process pool. So we catch them and raise a custom exception instead.
+    breaks serialization. So we catch them and raise a custom exception instead.
     """
 
     @functools.wraps(fn)
@@ -191,41 +191,41 @@ def _get_artist_data(artist_mbid: str) -> dict:
             "ratings",
         ],
     )
-    # if more than 25 releases, fetch all releases via browse. see limitation here:
-    # https://python-musicbrainzngs.readthedocs.io/en/v0.7.1/usage/?highlight=browse#regular-musicbrainz-data
+    # browese releases to get the full release list, since the get_artist_by_id call only returns up
+    # to 25 releases.
     release_count = int(data["artist"].get("release-count", 0))
 
-    # if > 1000 releases, limit to main release types only (exclude anthologies, compilations, etc)
-    release_types = (
-        [] if release_count < 1000 else ["nat", "album", "single", "ep", "broadcast", "other"]
-    )
-
     # no need to walk large release lists for special purpose artists
-    if release_count > 25 and artist_mbid not in SPECIAL_PURPOSE_ARTISTS:
+    if artist_mbid not in SPECIAL_PURPOSE_ARTISTS:
         release_list = []  # data['artist']['release-list']
-        limit = 25
-        offsets = range(0, release_count, limit)
-        for offset in offsets:
+
+        # musicbrainz may return fewer than the limit, due to the 500 track handler. So we need
+        # to keep track of the number of releases in each request rather than assume we get 25
+        # each time.
+        #
+        # see https://musicbrainz.org/doc/MusicBrainz_API
+        current_count, limit = 0, 25
+        while True:
             releases = musicbrainzngs.browse_releases(
                 artist=artist_mbid,
                 includes=[],
                 limit=limit,
-                offset=offset,
-                release_type=release_types,
+                offset=current_count,
             )
+            batch = releases.get("release-list", [])
+            current_count += len(batch)
+            release_list += batch
 
-            # because we potentially filter by release type, we may get fewer releases than reported
-            # in the release-count, so break early if no more releases are returned
-            if not releases.get("release-list"):
+            if not batch or current_count >= release_count:
                 break
-
-            release_list += releases["release-list"]
 
         # deduplicate the release list in case a release was added during the fetches
         release_list = list(unique_by(release_list, key=lambda x: x["id"]))
 
         # reassign to expected location
         data["artist"]["release-list"] = release_list
+    else:
+        data["artist"]["release-list"] = []
 
     return data
 
