@@ -28,7 +28,7 @@ SPECIAL_PURPOSE_ARTISTS = {
 }
 
 # timeout applied to annotation functions, which may consist of dozens of requests internally
-MUSICBRAINZ_TIMEOUT = 5 * 60
+MUSICBRAINZ_TIMEOUT = 10 * 60
 EXECUTOR = ThreadPoolExecutor(max_workers=1)
 
 
@@ -204,7 +204,7 @@ def _get_artist_data(artist_mbid: str) -> dict:
         # each time.
         #
         # see https://musicbrainz.org/doc/MusicBrainz_API
-        current_count, limit = 0, 25
+        current_count, limit = 0, 100
         while True:
             releases = musicbrainzngs.browse_releases(
                 artist=artist_mbid,
