@@ -19,6 +19,7 @@ def log_with_timestamp(message: str, *args, **kwargs):
 def run(
     new_: bool,
     updated: bool,
+    http_fail: bool,
     reannotate_after_days: int,
     batch_size: int,
     ingest_dependents: bool = True,
@@ -41,6 +42,7 @@ def run(
     queue = fetch_queue(
         new_=new_,
         updated=updated,
+        http_fail=http_fail,
         reannotate_ts=reannotate_ts,
         limit=batch_size,
         loggerfn=log_with_timestamp,
@@ -68,6 +70,13 @@ def run(
     help="Option to detect mbids that have been updated since they were last annotated.",
 )
 @click.option(
+    "--retry-http-failures/--no-retry-http-failures",
+    "http_fail",
+    is_flag=True,
+    default=True,
+    help="Option to re-annotate mbids that have previously failed due to HTTP errors.",
+)
+@click.option(
     "--reanntotate-after-days",
     "reannotate_after_days",
     type=int,
@@ -90,6 +99,7 @@ def run(
 def main(
     new_: bool,
     updated: bool,
+    http_fail: bool,
     reannotate_after_days: int,
     batch_size: int,
     ingest_dependents: bool,
@@ -100,6 +110,7 @@ def main(
             n = run(
                 new_=new_,
                 updated=updated,
+                http_fail=http_fail,
                 reannotate_after_days=reannotate_after_days,
                 batch_size=batch_size,
                 ingest_dependents=ingest_dependents,

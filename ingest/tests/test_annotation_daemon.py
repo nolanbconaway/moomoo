@@ -34,13 +34,22 @@ def test_run(monkeypatch):
         "get_very_old_annotations",
         lambda _: [Mbid(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
     )
+    monkeypatch.setattr(
+        annotate_mbids,
+        "get_http_failure_annotations",
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="release_group") for _ in range(10)],
+    )
 
     # nothing to do
     assert (
-        annotation_daemon.run(new_=False, updated=False, reannotate_after_days=0, batch_size=100)
+        annotation_daemon.run(
+            new_=False, updated=False, http_fail=False, reannotate_after_days=0, batch_size=100
+        )
         == 0
     )
 
     # run everything
-    n = annotation_daemon.run(new_=True, updated=True, reannotate_after_days=1, batch_size=100)
-    assert n == 30
+    n = annotation_daemon.run(
+        new_=True, updated=True, http_fail=True, reannotate_after_days=1, batch_size=100
+    )
+    assert n == 40
