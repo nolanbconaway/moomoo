@@ -135,6 +135,32 @@ def get_very_old_annotations(before: datetime.datetime) -> list[Mbid]:
     )
 
 
+def get_http_failure_annotations() -> list[Mbid]:
+    """Get mbids that have failed annotations due to HTTP errors.
+
+    I'll say a temporary http error is one in which we did not get any response at all from
+    the MusicBrainz API, which is indicated by the absence of a status code in the error message.
+
+    Any modern error message in the table should have been wrapped with `clean_exception_wrapper`,
+    which enforces a standard format for the message. In that case, there would be status=None
+    if there was no response at all. But i have seen some cases where the message is a totally
+    different format, so let's also retry anything not in the correct format.
+    """
+    sql = f"""
+        select mbid, entity
+        from {MusicBrainzAnnotation.table_name()}
+        where coalesce((payload_json ->> '_success')::bool, true) is false
+            and entity = any(:entities)
+            and (
+                -- no status code
+                coalesce(payload_json ->> 'error', '') not like '%status=%'
+                -- null code
+                or coalesce(payload_json ->> 'error', '') like '%status=None%'
+            )
+    """
+    return Mbid.from_sql_rows(execute_sql_fetchall(sql, params=dict(entities=utils_.ENTITIES)))
+
+
 def drop_dangling_annotations(loggerfn: Callable | None = None) -> int:
     """Run a delete statement for any historical failed annotations that have no entry in mbids."""
     if not loggerfn:
@@ -197,6 +223,7 @@ def update_annotation_queue_log(src_mbid_map: dict[str, list[Mbid]]) -> bool:
 def fetch_queue(
     new_: bool,
     updated: bool,
+    http_fail: bool,
     reannotate_ts: datetime.datetime | None,
     limit: int | None,
     loggerfn: Callable | None = None,
@@ -231,6 +258,12 @@ def fetch_queue(
     else:
         updated_mbids = []
 
+    if http_fail:
+        http_failures = get_http_failure_annotations()
+        loggerfn(f"Found {len(http_failures)} mbid(s) with previous HTTP failures to re-annotate.")
+    else:
+        http_failures = []
+
     if reannotate_ts is not None:
         old_annotations = get_very_old_annotations(reannotate_ts)
         loggerfn(f"Found {len(old_annotations)} very old mbid(s) to re-annotate.")
@@ -243,6 +276,8 @@ def fetch_queue(
         src_mbid_map["new"] = unannotated
     if updated:
         src_mbid_map["updated"] = updated_mbids
+    if http_fail:
+        src_mbid_map["http_fail"] = http_failures
     if reannotate_ts is not None:
         src_mbid_map["old"] = old_annotations
 
@@ -253,7 +288,7 @@ def fetch_queue(
 
     # combine results up to the limit
     result: list[Mbid] = utils_.topn_from_multilists(
-        [unannotated, updated_mbids, old_annotations],
+        [unannotated, http_failures, updated_mbids, old_annotations],
         N=limit if limit is not None else float("inf"),
         identity_fn=lambda x: x.mbid,
     )
@@ -446,6 +481,12 @@ def annotate_and_upsert(
     help="Option to detect mbids that have been updated since they were last annotated.",
 )
 @click.option(
+    "--retry-http-failures",
+    "http_fail",
+    is_flag=True,
+    help="Option to re-annotate mbids that have previously failed due to HTTP errors.",
+)
+@click.option(
     "--before",
     "before",
     type=utils_.utcfromisodate,
@@ -473,6 +514,7 @@ def annotate_and_upsert(
 def main(
     new_: bool,
     updated: bool,
+    http_fail: bool,
     before: datetime.datetime | None,
     limit: int | None,
     drop: bool,
@@ -487,6 +529,7 @@ def main(
     queue = fetch_queue(
         new_=new_,
         updated=updated,
+        http_fail=http_fail,
         reannotate_ts=before,
         limit=limit,
         loggerfn=click.echo,

@@ -245,6 +245,56 @@ def test_get_updated_mbids__any_data():
     assert len(res) == 0
 
 
+def test_get_http_failure_annotations__no_data():
+    """Test the http failure annotations getter when the table is empty."""
+    res = annotate_mbids.get_http_failure_annotations()
+    assert res == []
+
+
+def test_get_http_failure_annotations__any_data():
+    """Test the http failure annotations getter when the table is not empty."""
+    # some i found in the wild, some i made up
+    payloads = [
+        dict(_success=False, error="status=None"),
+        dict(_success=False, error="status=500"),
+        dict(
+            _success=False,
+            error=(
+                "MusicBrainz error for abcd: status=404, message=Not Found, "
+                + "cause=HTTP Error 404: Not Found"
+            ),
+        ),
+        dict(
+            _success=False,
+            error="caused by: <urlopen error [Errno -3] Temporary failure in name resolution>",
+        ),
+    ]
+    for payload in payloads:
+        MusicBrainzAnnotation(
+            mbid=uuid.uuid4(),
+            entity="recording",
+            payload_json=payload,
+            ts_utc=datetime.datetime.now(),
+        ).upsert()
+
+    res = annotate_mbids.get_http_failure_annotations()
+
+    assert len(res) == 2  # only the two with no status code should be returned
+
+
+def test_get_http_failure_annotations__invalid_entity():
+    """Test the http failure annotations getter when the table has an invalid entity."""
+    ann = MusicBrainzAnnotation(
+        mbid=uuid.uuid4(),
+        entity="invalid",
+        payload_json=dict(_success=False, error="status=None"),
+        ts_utc=datetime.datetime.now(),
+    )
+    ann.upsert()
+
+    assert not annotate_mbids.get_http_failure_annotations()
+
+
 def test_update_annotation_queue_log(monkeypatch):
     # nothing to do, so no update
     src_mbid_map = dict()
@@ -292,13 +342,16 @@ def test_fetch_queue(monkeypatch):
     runfn = annotate_mbids.fetch_queue
 
     # nothing to do
-    assert runfn(new_=False, updated=False, reannotate_ts=None, limit=10) == deque()
+    assert (
+        runfn(new_=False, updated=False, http_fail=False, reannotate_ts=None, limit=10) == deque()
+    )
 
     # request made but no mbids
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
-    assert runfn(new_=True, updated=True, reannotate_ts=now, limit=10) == deque()
+    monkeypatch.setattr(annotate_mbids, "get_http_failure_annotations", lambda: [])
+    assert runfn(new_=True, updated=True, http_fail=True, reannotate_ts=now, limit=10) == deque()
 
     # add some mbids to each category
     monkeypatch.setattr(
@@ -308,26 +361,35 @@ def test_fetch_queue(monkeypatch):
     monkeypatch.setattr(
         annotate_mbids, "get_very_old_annotations", lambda _: [Mbid(mbid=3, entity="fake")]
     )
-    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=10)
-    assert {i.mbid for i in res} == {1, 2, 3}
+    monkeypatch.setattr(
+        annotate_mbids, "get_http_failure_annotations", lambda: [Mbid(mbid=4, entity="fake")]
+    )
+    res = runfn(new_=True, updated=True, http_fail=True, reannotate_ts=now, limit=10)
+    assert {i.mbid for i in res} == {1, 2, 3, 4}
 
     # only new mbids
-    res = runfn(new_=True, updated=False, reannotate_ts=None, limit=10)
+    res = runfn(new_=True, updated=False, http_fail=False, reannotate_ts=None, limit=10)
     assert {i.mbid for i in res} == {1}
 
     # only updated mbids
-    res = runfn(new_=False, updated=True, reannotate_ts=None, limit=10)
+    res = runfn(new_=False, updated=True, http_fail=False, reannotate_ts=None, limit=10)
     assert {i.mbid for i in res} == {2}
 
     # only reannotated mbids
-    res = runfn(new_=False, updated=False, reannotate_ts=now, limit=10)
+    res = runfn(new_=False, updated=False, http_fail=False, reannotate_ts=now, limit=10)
     assert {i.mbid for i in res} == {3}
 
-    # take first from new, then updated, then reannotated for batch size
-    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=1)
+    # only http fail mbids
+    res = runfn(new_=False, updated=False, http_fail=True, reannotate_ts=None, limit=10)
+    assert {i.mbid for i in res} == {4}
+
+    # take first from new, then fail, then updated, then reannotated for batch size
+    res = runfn(new_=True, updated=True, http_fail=True, reannotate_ts=now, limit=1)
     assert {i.mbid for i in res} == {1}
-    res = runfn(new_=True, updated=True, reannotate_ts=now, limit=2)
-    assert {i.mbid for i in res} == {1, 2}
+    res = runfn(new_=True, updated=True, http_fail=True, reannotate_ts=now, limit=2)
+    assert {i.mbid for i in res} == {1, 4}
+    res = runfn(new_=True, updated=True, http_fail=True, reannotate_ts=now, limit=3)
+    assert {i.mbid for i in res} == {1, 4, 2}
 
 
 def test_fetch_queue__queue_logging(monkeypatch):
@@ -335,35 +397,55 @@ def test_fetch_queue__queue_logging(monkeypatch):
     monkeypatch.setattr(annotate_mbids, "get_unannotated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_updated_mbids", lambda: [])
     monkeypatch.setattr(annotate_mbids, "get_very_old_annotations", lambda _: [])
+    monkeypatch.setattr(annotate_mbids, "get_http_failure_annotations", lambda: [])
 
     # nothing logged, so empty dict is passed as the mbid map
     with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
-        annotate_mbids.fetch_queue(new_=False, updated=False, reannotate_ts=None, limit=1)
+        annotate_mbids.fetch_queue(
+            new_=False, updated=False, http_fail=False, reannotate_ts=None, limit=1
+        )
         mock_log.assert_called_once_with(src_mbid_map=dict())
 
     # called with new
     with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
-        annotate_mbids.fetch_queue(new_=True, updated=False, reannotate_ts=None, limit=1)
+        annotate_mbids.fetch_queue(
+            new_=True, updated=False, http_fail=False, reannotate_ts=None, limit=1
+        )
         mock_log.assert_called_once_with(src_mbid_map=dict(new=[]))
 
     # called with updated
     with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
-        annotate_mbids.fetch_queue(new_=False, updated=True, reannotate_ts=None, limit=1)
+        annotate_mbids.fetch_queue(
+            new_=False, updated=True, http_fail=False, reannotate_ts=None, limit=1
+        )
         mock_log.assert_called_once_with(src_mbid_map=dict(updated=[]))
 
     # called with reannotated
     with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
         annotate_mbids.fetch_queue(
-            new_=False, updated=False, reannotate_ts=datetime.datetime.now(), limit=1
+            new_=False,
+            updated=False,
+            http_fail=False,
+            reannotate_ts=datetime.datetime.now(),
+            limit=1,
         )
         mock_log.assert_called_once_with(src_mbid_map=dict(old=[]))
+
+    # called with http fail
+    with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
+        annotate_mbids.fetch_queue(
+            new_=False, updated=False, http_fail=True, reannotate_ts=None, limit=1
+        )
+        mock_log.assert_called_once_with(src_mbid_map=dict(http_fail=[]))
 
     # called with all
     with mock.patch.object(annotate_mbids, "update_annotation_queue_log") as mock_log:
         annotate_mbids.fetch_queue(
-            new_=True, updated=True, reannotate_ts=datetime.datetime.now(), limit=1
+            new_=True, updated=True, http_fail=True, reannotate_ts=datetime.datetime.now(), limit=1
         )
-        mock_log.assert_called_once_with(src_mbid_map=dict(new=[], updated=[], old=[]))
+        mock_log.assert_called_once_with(
+            src_mbid_map=dict(new=[], updated=[], old=[], http_fail=[])
+        )
 
 
 def test_list_dependents():
@@ -538,29 +620,36 @@ def test_cli_main(monkeypatch):
         "get_very_old_annotations",
         lambda _: [Mbid(mbid=uuid.uuid4(), entity="release") for _ in range(10)],
     )
+    monkeypatch.setattr(
+        annotate_mbids,
+        "get_http_failure_annotations",
+        lambda: [Mbid(mbid=uuid.uuid4(), entity="release-group") for _ in range(10)],
+    )
 
     # nothing to do
     result = runner.invoke(annotate_mbids.main, [])
     assert "Nothing to do." in result.output
 
     # with everything
-    result = runner.invoke(annotate_mbids.main, ["--new", "--updated", "--before=2020-01-01"])
-    assert "Annotating 30 total mbid(s)." in result.output
-    assert len(MusicBrainzAnnotation.select_star()) == 30
+    result = runner.invoke(
+        annotate_mbids.main, ["--new", "--updated", "--retry-http-failures", "--before=2020-01-01"]
+    )
+    assert "Annotating 40 total mbid(s)." in result.output
+    assert len(MusicBrainzAnnotation.select_star()) == 40
 
     # add a limit
     result = runner.invoke(
         annotate_mbids.main,
-        ["--new", "--updated", "--before=2020-01-01", "--limit=5"],
+        ["--new", "--updated", "--retry-http-failures", "--before=2020-01-01", "--limit=5"],
     )
     assert "Annotating 5 total mbid(s)." in result.output
 
     # limit > mbids
     result = runner.invoke(
         annotate_mbids.main,
-        ["--new", "--updated", "--before=2020-01-01", "--limit=100"],
+        ["--new", "--updated", "--retry-http-failures", "--before=2020-01-01", "--limit=100"],
     )
-    assert "Annotating 30 total mbid(s)." in result.output
+    assert "Annotating 40 total mbid(s)." in result.output
 
     # timeout
     def mock_annotate_mbid(*_, **__) -> dict:
@@ -569,7 +658,7 @@ def test_cli_main(monkeypatch):
     monkeypatch.setattr(annotate_mbids.utils_, "annotate_mbid", mock_annotate_mbid)
     result = runner.invoke(
         annotate_mbids.main,
-        ["--new", "--updated", "--before=2020-01-01", "--limit=5"],
+        ["--new", "--updated", "--retry-http-failures", "--before=2020-01-01", "--limit=5"],
     )
     assert "Timeout annotating mbid" in result.output
 
