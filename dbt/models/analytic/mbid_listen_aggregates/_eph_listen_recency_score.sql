@@ -16,10 +16,6 @@ select
   -- exp(-0.1 * days) sets up ~50% at 7 days, ~5% at 30 days, ~0.2% at 60 days
   , exp(-0.1 * {{ recency }})::numeric as recency_pct
 
-  -- inverse recency is 1 - recency, but we want to avoid 0 for 0day recency. so use 
-  -- last with the 1day recency value.
-  , 1 - least(exp(-0.1 * {{ recency }})::numeric, exp(-0.1)) as inv_recency_pct
-
 from {{ ref('listens') }} as listens
 inner join {{ ref('releases') }} as releases using (release_mbid)
 
