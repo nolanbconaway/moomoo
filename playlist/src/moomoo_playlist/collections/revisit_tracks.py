@@ -43,10 +43,16 @@ def list_revisit_tracks(username: str, session: Session) -> list[PlaylistTrack.D
     inner join {schema}.local_files using (filepath)
     where username = :username
     order by revisit_score desc, recording_mbid
-    limit 1000
+    limit 5000
     """
     rows = execute_sql_fetchall(session=session, sql=sql, params=dict(username=username))
     logger.info(f"Found {len(rows)} tracks.")
+
+    # randomly sample to 1000 tracks if more. 1000 should be enough to create a playlist without
+    # a lot of competition between artists.
+    if len(rows) > 1000:
+        rows = random.sample(rows, 1000)
+
     return [PlaylistTrack.Data(**row) for row in rows]
 
 
