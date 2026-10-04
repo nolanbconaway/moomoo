@@ -35,6 +35,7 @@ with recordings as (
 
   where last90_listen_count <= 2 -- only a few listens in the last 90 days
     and last30_listen_count = 0 -- no listens in the last 30 days
+    and lifetime_listen_count > 3
 
     -- baseline: 3 listens, last one 30 days ago = ln(1 + 30/30) * ln(4)
     and revisit_score > 0.96
