@@ -34,11 +34,10 @@ with recordings as (
   from {{ ref('recording_listen_counts') }}
 
   where last90_listen_count <= 2 -- only a few listens in the last 90 days
-    and last14_listen_count = 0 -- no listens in the last 14 days
-    and (last150_listen_count - last90_listen_count) >= 2 -- at least 2 listens older than 90 days
+    and last30_listen_count = 0 -- no listens in the last 30 days
 
-    -- baseline revisit score of 30 days recency * 3 listens = (1 - 0.05) * ln(3)
-    and revisit_score > 1.05
+    -- baseline: 3 listens, last one 30 days ago = ln(1 + 30/30) * ln(4)
+    and revisit_score > 0.96
 )
 
 -- attach a file, artist mbids. use distinct on to select a single file for each recording

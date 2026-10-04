@@ -41,7 +41,10 @@ with listen_file_map as (
     , sum(case when {{ last30 }} then {{ listen_count }} else 0 end) as last30_listen_count
     , sum(case when {{ last90 }} then {{ listen_count }} else 0 end) as last90_listen_count
     , round(sum(exp(-0.1 * {{ recency }})), 5) as recency_score
-    , exp(sum(ln(1 - least(exp(-0.1 * {{ recency }}), exp(-0.1))))) * ln(count(1) + 1) as revisit_score
+    , (
+      ln(1 + min({{ recency }}) / {{ var('revisit_elbow_days') }})  -- staleness (last listen)
+      * ln(1 + sum({{ listen_count }})) -- depth (weighted listens)
+    ) as revisit_score
 
   from listen_file_map as map_
   inner join {{ ref('listens') }} as listens using (listen_md5)
