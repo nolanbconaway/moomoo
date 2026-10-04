@@ -23,9 +23,9 @@ with t as (
     , round(avg(listens.listen_recency_days)) as avg_listen_recency_days
     , round(sum(listens.recency_pct), 5) as recency_score
     , (
-        ln(1 + min(listens.listen_recency_days) / {{ var('revisit_elbow_days') }})  -- staleness (last listen)
-        * ln(1 + count(1)::numeric / count(distinct listens.recording_mbid)) -- depth (plays/recordings)
-      ) as revisit_score
+      ln(1 + min(listens.listen_recency_days) / {{ var('revisit_elbow_days') }})  -- staleness (last listen)
+      * ln(1 + count(1)::numeric / count(distinct listens.recording_mbid)) -- depth (plays/recordings)
+    ) as revisit_score
 
     -- listen counts
     , count(1) as lifetime_listen_count
