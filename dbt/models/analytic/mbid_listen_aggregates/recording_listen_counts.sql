@@ -25,7 +25,7 @@ with t as (
     , (
       ln(1 + min(listens.listen_recency_days) / {{ var('revisit_elbow_days') }})  -- staleness (last listen)
       * ln(1 + count(1)) -- depth (listens)
-    ) as revisit_score
+    )::real as revisit_score
 
     -- listen counts
     , count(1) as lifetime_listen_count
