@@ -30,6 +30,7 @@ def setup_db(monkeypatch, postgresql: psycopg.Connection) -> Generator[str, None
     # convert the dsn into a sqlalchemy uri
     uri = f"postgresql+psycopg://{postgresql.info.user}@{postgresql.info.host}:{postgresql.info.port}/{postgresql.info.dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
+    monkeypatch.setenv("MUSICBRAINZ_POSTGRES_URI", uri)  # not actually testing these data
 
     # make sure the test schema exists and the vector extension is loaded
     with postgresql.cursor() as cur:
