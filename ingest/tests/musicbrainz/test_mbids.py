@@ -208,3 +208,29 @@ def test_get_mbids_combines_deduplicates(monkeypatch):
         {shared, recording, release, release_group},
         key=lambda item: (item.entity, str(item.mbid)),
     )
+
+
+def test_mbid_collection_sorts_and_groups_by_entity():
+    first_artist = Mbid(mbid=uuid1(), entity="artist")
+    second_artist = Mbid(mbid=uuid1(), entity="artist")
+    recording = Mbid(mbid=uuid1(), entity="recording")
+
+    collection = mbids.MbidCollection([recording, second_artist, first_artist])
+
+    assert collection.mbids == [first_artist, second_artist, recording]
+    assert collection.by_entity["artist"] == [first_artist.mbid, second_artist.mbid]
+    assert collection.by_entity["recording"] == [recording.mbid]
+    assert collection.by_entity["release"] == []
+    assert collection.by_entity["release-group"] == []
+
+
+def test_mbid_collection_hash_is_independent_of_input_order():
+    artist = Mbid(mbid=uuid1(), entity="artist")
+    recording = Mbid(mbid=uuid1(), entity="recording")
+
+    first = mbids.MbidCollection([artist, recording])
+    reordered = mbids.MbidCollection([recording, artist])
+    different = mbids.MbidCollection([artist])
+
+    assert first.collection_hash == reordered.collection_hash
+    assert first.collection_hash != different.collection_hash
