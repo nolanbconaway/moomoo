@@ -34,21 +34,17 @@ def test_promote_swaps_live_and_staging_schemas_and_cleanup_drops_backup():
         session.commit()
         manager = StagingSchemaManager(session, live_schema=live_schema)
 
-        try:
-            with manager:
-                manager.promote()
-                assert schema_exists(session, live_schema)
-                assert schema_exists(session, manager.bak_schema)
-                assert not schema_exists(session, manager.stg_schema)
+        with manager:
+            manager.promote()
+            assert schema_exists(session, live_schema)
+            assert schema_exists(session, manager.bak_schema)
+            assert not schema_exists(session, manager.stg_schema)
 
-            assert not schema_exists(session, manager.bak_schema)
-            assert session.execute(
-                text("SELECT to_regclass(:table_name) IS NOT NULL"),
-                {"table_name": f"{live_schema}.artist"},
-            ).scalar_one()
-        finally:
-            session.execute(text(f"DROP SCHEMA IF EXISTS {live_schema} CASCADE"))
-            session.commit()
+        assert not schema_exists(session, manager.bak_schema)
+        assert session.execute(
+            text("SELECT to_regclass(:table_name) IS NOT NULL"),
+            {"table_name": f"{live_schema}.artist"},
+        ).scalar_one()
 
 
 def test_drop_orphaned_schemas_removes_matching_schema():
@@ -59,11 +55,7 @@ def test_drop_orphaned_schemas_removes_matching_schema():
         session.execute(text(f"CREATE SCHEMA {unrelated_schema}"))
         session.commit()
 
-        try:
-            StagingSchemaManager.drop_orphaned_schemas(session)
+        StagingSchemaManager.drop_orphaned_schemas(session)
 
-            assert not schema_exists(session, orphaned_schema)
-            assert schema_exists(session, unrelated_schema)
-        finally:
-            session.execute(text(f"DROP SCHEMA IF EXISTS {unrelated_schema} CASCADE"))
-            session.commit()
+        assert not schema_exists(session, orphaned_schema)
+        assert schema_exists(session, unrelated_schema)
