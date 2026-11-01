@@ -35,7 +35,7 @@ from . import utils_
 QUEUE_LOG_TIMEOUT_SECONDS = 5 * 60  # 5 minutes
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Mbid:
     """Container for mbid and entity type."""
 
