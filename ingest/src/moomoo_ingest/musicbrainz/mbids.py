@@ -11,7 +11,6 @@ from moomoo_pg import (
     LocalFile,
     MessyBrainzNameMap,
     execute_sql_fetchall,
-    get_session,
 )
 from sqlalchemy.orm import Session
 
@@ -195,22 +194,21 @@ def get_feedback_mbids(session: Session) -> list[Mbid]:
     """Run a query which exports a mbid and entity column, get back a List of Mbid objects."""
 
 
-def get_mbids(loggerfn: Callable[[str], None] | None = None) -> list[Mbid]:
+def get_mbids(session: Session, loggerfn: Callable[[str], None] | None = None) -> list[Mbid]:
     if loggerfn is None:
         loggerfn = lambda message: None
 
-    with get_session() as session:
-        mbids = []
-        for source_name, get_source_mbids in (
-            ("listens", get_listen_mbids),
-            ("local files", get_local_file_mbids),
-            ("MessyBrainz", get_messybrainz_mbids),
-            ("similar user activity", get_similar_user_activity_mbids),
-            ("ListenBrainz feedback", get_feedback_mbids),
-        ):
-            source_mbids = get_source_mbids(session)
-            loggerfn(f"{source_name}: {len(source_mbids)} MBIDs")
-            mbids.extend(source_mbids)
+    mbids = []
+    for source_name, get_source_mbids in (
+        ("listens", get_listen_mbids),
+        ("local files", get_local_file_mbids),
+        ("MessyBrainz", get_messybrainz_mbids),
+        ("similar user activity", get_similar_user_activity_mbids),
+        ("ListenBrainz feedback", get_feedback_mbids),
+    ):
+        source_mbids = get_source_mbids(session)
+        loggerfn(f"{source_name}: {len(source_mbids)} MBIDs")
+        mbids.extend(source_mbids)
 
     unique_mbids = sorted(set(mbids), key=lambda mbid: (mbid.entity, str(mbid.mbid)))
     loggerfn(f"Total deduplicated MBIDs: {len(unique_mbids)}")

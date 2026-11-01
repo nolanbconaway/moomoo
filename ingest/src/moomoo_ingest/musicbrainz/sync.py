@@ -19,7 +19,7 @@ def run_copy(batch_size: int, tables: tuple[str, ...] = ()) -> None:
     app_session = get_session()
 
     click.echo("fetching mbids")
-    all_mbids = get_mbids(loggerfn=click.echo)
+    all_mbids = get_mbids(app_session, loggerfn=click.echo)
 
     full_copy_models = [m for m in models if m.is_full_copy]
     scoped_models = [m for m in models if not m.is_full_copy]
