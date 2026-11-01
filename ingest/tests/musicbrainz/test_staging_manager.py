@@ -13,7 +13,7 @@ def schema_exists(session, schema: str) -> bool:
     ).scalar_one()
 
 
-def test_context_creates_staging_schema_and_tables_then_drops_it():
+def test_StagingSchemaManager__enter_exit():
     with get_session() as session:
         manager = StagingSchemaManager(session)
 
@@ -27,7 +27,7 @@ def test_context_creates_staging_schema_and_tables_then_drops_it():
         assert not schema_exists(session, manager.stg_schema)
 
 
-def test_promote_swaps_live_and_staging_schemas_and_cleanup_drops_backup():
+def test_StagingSchemaManager__promote():
     live_schema = f"musicbrainz_test_{uuid4().hex}"
     with get_session() as session:
         session.execute(text(f"CREATE SCHEMA {live_schema}"))
@@ -47,7 +47,7 @@ def test_promote_swaps_live_and_staging_schemas_and_cleanup_drops_backup():
         ).scalar_one()
 
 
-def test_drop_orphaned_schemas_removes_matching_schema():
+def test_StagingSchemaManager__drop_orphaned_schemas():
     orphaned_schema = f"mbz_copy_test_{uuid4().hex}"
     unrelated_schema = f"unrelated_test_{uuid4().hex}"
     with get_session() as session:
