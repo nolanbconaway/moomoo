@@ -88,8 +88,8 @@ class Listen:
 
         # try to get the artist mbid from the track_metadata
         info = data["track_metadata"]["additional_info"]
-        raw = as_list(info.get("artist_mbids")) or as_list(info.get("artist_mbid"))
-        artist_mbids = tuple(u for u in map(try_uuid, raw) if u is not None)
+        artist_mbids = as_list(info.get("artist_mbids")) or as_list(info.get("artist_mbid"))
+        artist_mbids = tuple(u for u in map(try_uuid, artist_mbids) if u is not None)
 
         return [cls(user_id=user_id, artist_mbid=i) for i in artist_mbids]
 
