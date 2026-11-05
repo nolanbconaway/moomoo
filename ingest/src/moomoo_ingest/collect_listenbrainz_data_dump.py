@@ -61,6 +61,12 @@ def try_uuid(s: str) -> UUID | None:
         return None
 
 
+def as_list(x) -> list:
+    if x is None:
+        return []
+    return list(x) if isinstance(x, (list, tuple)) else [x]
+
+
 @dataclasses.dataclass(order=True, slots=True, frozen=True)
 class Listen:
     user_id: int
@@ -81,18 +87,9 @@ class Listen:
         user_id = int(data["user_id"])
 
         # try to get the artist mbid from the track_metadata
-        artist_mbids = data["track_metadata"]["additional_info"].get("artist_mbids")
-        artist_mbid = data["track_metadata"]["additional_info"].get("artist_mbid")
-
-        if artist_mbids:
-            artist_mbids = [try_uuid(i) for i in artist_mbids]
-        elif artist_mbid:
-            artist_mbids = [try_uuid(artist_mbid)]
-        else:
-            artist_mbids = []
-
-        # filter out None values
-        artist_mbids = tuple([i for i in artist_mbids if i is not None])
+        info = data["track_metadata"]["additional_info"]
+        raw = as_list(info.get("artist_mbids")) or as_list(info.get("artist_mbid"))
+        artist_mbids = tuple(u for u in map(try_uuid, raw) if u is not None)
 
         return [cls(user_id=user_id, artist_mbid=i) for i in artist_mbids]
 
