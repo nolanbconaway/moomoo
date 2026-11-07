@@ -2,13 +2,17 @@
 
 import os
 import time
+from functools import partial
 from pathlib import Path
 
+import moomoo_pg.db
+import moomoo_pg.musicbrainz_db
 import musicbrainzngs
 import psycopg
 import pytest
 from moomoo_pg import TABLES, get_session
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -56,6 +60,14 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     # convert the dsn into a sqlalchemy uri
     uri = f"postgresql+psycopg://{postgresql.info.user}@{postgresql.info.host}:{postgresql.info.port}/{postgresql.info.dbname}"
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
+    monkeypatch.setenv("MUSICBRAINZ_POSTGRES_URI", uri)
+
+    # disable pooling so that connections close on session close.
+    # TODO: this should be implemented in moomoo_pg.db instead of patching here
+    monkeypatch.setattr(moomoo_pg.db, "create_engine", partial(create_engine, poolclass=NullPool))
+    monkeypatch.setattr(
+        moomoo_pg.musicbrainz_db, "create_engine", partial(create_engine, poolclass=NullPool)
+    )
 
     # make sure the test schema exists and the vector extension is loaded
     cur = postgresql.cursor()
