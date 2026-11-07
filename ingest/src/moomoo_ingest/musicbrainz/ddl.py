@@ -142,6 +142,7 @@ class ArtistCredit(MusicBrainzBase):
     created: Mapped[datetime.datetime | None]
 
     @classmethod
+    @cached(FIFOCache(maxsize=5), key=lambda cls, mbz_session, mbids: mbids.collection_hash)
     def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
         artist_credit_ids: set[int] = set()
 
@@ -507,6 +508,7 @@ class ReleaseGroupSecondaryType(MusicBrainzBase):
     __tablename__ = "release_group_secondary_type"
 
     is_full_copy: ClassVar[bool] = True
+    
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
     gid: Mapped[UUID]
     name: Mapped[str]

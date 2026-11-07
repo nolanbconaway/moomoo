@@ -42,8 +42,8 @@ def run_copy(batch_size: int, tables: tuple[str, ...] = ()) -> None:
         click.echo(f"copying {len(scoped_models)} id-scoped tables across {len(batches)} batches")
         with tqdm(
             total=len(all_mbids),
-            mininterval=0.1 if sys.stderr.isatty() else 30,
-            maxinterval=10 if sys.stderr.isatty() else 30,
+            mininterval=0.1 if sys.stderr.isatty() else 10,
+            maxinterval=10,
         ) as progress:
             for batch in batches:
                 for model in scoped_models:
