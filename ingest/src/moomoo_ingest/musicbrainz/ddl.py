@@ -508,7 +508,7 @@ class ReleaseGroupSecondaryType(MusicBrainzBase):
     __tablename__ = "release_group_secondary_type"
 
     is_full_copy: ClassVar[bool] = True
-    
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
     gid: Mapped[UUID]
     name: Mapped[str]

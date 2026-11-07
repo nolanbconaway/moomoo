@@ -165,8 +165,7 @@ def test_get_similar_user_activity_mbids():
         }
 
     assert result == {
-        (mbid_entity, identifier)
-        for _, (_, mbid_entity, identifier) in values.items()
+        (mbid_entity, identifier) for _, (_, mbid_entity, identifier) in values.items()
     }
 
 
