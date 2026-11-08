@@ -2,8 +2,6 @@
 
 import click
 
-from .annotate_mbids import main as annotate_mbids_main
-from .annotation_daemon import main as annotation_daemon_main
 from .artist_stats import main as artist_stats_main
 from .collect_listen_data import main as collect_listen_data_main
 from .collect_listenbrainz_data_dump import main as collect_listenbrainz_data_dump_main
@@ -29,8 +27,6 @@ def version_cli():
     click.echo(moomoo_version())
 
 
-cli.add_command(annotate_mbids_main, "annotate-mbids")
-cli.add_command(annotation_daemon_main, "annotation-daemon")
 cli.add_command(artist_stats_main, "artist-stats")
 cli.add_command(collect_listen_data_main, "listens")
 cli.add_command(collect_local_files_main, "local-files")

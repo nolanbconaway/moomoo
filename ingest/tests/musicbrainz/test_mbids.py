@@ -11,8 +11,21 @@ from moomoo_pg import (
     get_session,
 )
 
-from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.musicbrainz import mbids
+
+
+def test_Mbid_dataclass():
+    """Test the Mbid dataclass."""
+    # test from sql rows
+    data = [dict(mbid=uuid1(), entity="recording") for _ in range(5)]
+    ids = mbids.Mbid.from_sql_rows(data)
+    assert len(ids) == 5
+    assert all(str(i.mbid) == str(j["mbid"]) for i, j in zip(ids, data, strict=True))
+    assert mbids.Mbid.from_sql_rows([]) == []  # no data
+
+    # test to dict
+    mbid = mbids.Mbid(mbid=uuid1(), entity="artist")
+    assert mbid.to_dict() == dict(mbid=mbid.mbid, entity=mbid.entity)
 
 
 def test_get_listen_mbids():
