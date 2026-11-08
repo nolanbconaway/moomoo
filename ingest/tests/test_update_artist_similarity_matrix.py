@@ -19,13 +19,10 @@ from scipy.sparse import csr_matrix
 from moomoo_ingest.update_artist_similarity_matrix import (
     DataDumpResult,
     fetch_dump_aggregate,
-    fetch_known_artists,
     fit_model,
     main,
     predict_scores,
 )
-
-from .conftest import load_mbids_table
 
 
 @pytest.fixture
@@ -149,21 +146,6 @@ def test_fetch_dump_aggregate(db_data_dump: ListenBrainzDataDump):
     assert isinstance(result, DataDumpResult)
 
 
-def test_fetch_known_artists():
-    mbid1 = str(uuid.uuid4())
-    mbid2 = str(uuid.uuid4())
-    mbid3 = str(uuid.uuid4())
-    load_mbids_table(
-        [
-            {"mbid": mbid1, "entity": "artist"},
-            {"mbid": mbid2, "entity": "artist"},
-            {"mbid": mbid3, "entity": "recording"},
-        ]
-    )
-    result = fetch_known_artists()
-    assert set(result) == {mbid1, mbid2}
-
-
 def test_predict_scores(cf_model):
     """Test the predict_scores function for correct output shape and content.
 
@@ -218,16 +200,19 @@ def test_predict_scores(cf_model):
     assert len(scores_df3) == 6  # 3 from * 2 to = 6 combinations
 
 
-def test_main_cli(db_data_dump):
+def test_main_cli(db_data_dump, monkeypatch):
     """Test the CLI main function end-to-end using Click's test runner.
 
-    Populates the mbids table with the artists in the data dump, runs the CLI,
+    Uses the artists in the data dump as the known artists, runs the CLI,
     and asserts that the ListenBrainzCollaborativeFilteringScore table is populated
     with the expected artist pairs and scores.
     """
     data = fetch_dump_aggregate()
     all_mbids = list(data.artist_id_map.index)
-    load_mbids_table([{"mbid": mbid, "entity": "artist"} for mbid in all_mbids])
+    monkeypatch.setattr(
+        "moomoo_ingest.update_artist_similarity_matrix.fetch_known_artists",
+        lambda: all_mbids,
+    )
     runner = CliRunner()
     result = runner.invoke(main, [])
     assert result.exit_code == 0

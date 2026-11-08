@@ -1,7 +1,6 @@
 """Compute the artist similarity matrix using the data dump records."""
 
 import dataclasses
-import os
 import sys
 
 import click
@@ -76,12 +75,10 @@ def fetch_dump_aggregate() -> DataDumpResult:
 
 
 def fetch_known_artists() -> list[str]:
-    """Fetch the list of known artists from the mbids table."""
-    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    sql = f"""
-        select distinct mbids.mbid::varchar as mbid
-        from {dbt_schema}.mbids
-        where mbids.entity = 'artist'
+    """Fetch the list of known artists from the MusicBrainz artist table."""
+    sql = """
+        select distinct artist.gid::varchar as mbid
+        from musicbrainz.artist as artist
     """
     return [i["mbid"] for i in execute_sql_fetchall(sql)]
 
