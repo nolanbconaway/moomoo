@@ -11,6 +11,7 @@ from moomoo_ingest.musicbrainz.ddl import (
     ArtistTag,
     Medium,
     Recording,
+    RecordingGidRedirect,
     RecordingTag,
     Release,
     ReleaseFirstReleaseDate,
@@ -461,6 +462,18 @@ def test_Track__ids_to_copy(monkeypatch):
     )
 
     assert Track.ids_to_copy(None, collection) == expected_ids
+
+
+def test_RecordingGidRedirect__ids_to_copy():
+    recording_mbid = uuid1()
+    collection = MbidCollection(
+        [
+            Mbid(mbid=recording_mbid, entity="recording"),
+            Mbid(mbid=uuid1(), entity="artist"),
+        ]
+    )
+
+    assert RecordingGidRedirect.ids_to_copy(None, collection) == {recording_mbid}
 
 
 def test_ReleaseGroupSecondaryTypeJoin__ids_to_copy(monkeypatch):

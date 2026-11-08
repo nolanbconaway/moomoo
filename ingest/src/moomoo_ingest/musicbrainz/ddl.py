@@ -538,6 +538,48 @@ class Track(MusicBrainzBase):
         return Recording.ids_to_copy(mbz_session, mbids)
 
 
+class ArtistGidRedirect(MusicBrainzBase):
+    __tablename__ = "artist_gid_redirect"
+
+    is_full_copy: ClassVar[bool] = True
+
+    gid: Mapped[UUID] = mapped_column(primary_key=True)
+    new_id: Mapped[int]
+    created: Mapped[datetime.datetime | None]
+
+
+class ReleaseGidRedirect(MusicBrainzBase):
+    __tablename__ = "release_gid_redirect"
+    is_full_copy: ClassVar[bool] = True
+
+    gid: Mapped[UUID] = mapped_column(primary_key=True)
+    new_id: Mapped[int]
+    created: Mapped[datetime.datetime | None]
+
+
+class ReleaseGroupGidRedirect(MusicBrainzBase):
+    __tablename__ = "release_group_gid_redirect"
+    is_full_copy: ClassVar[bool] = True
+
+    gid: Mapped[UUID] = mapped_column(primary_key=True)
+    new_id: Mapped[int]
+    created: Mapped[datetime.datetime | None]
+
+
+class RecordingGidRedirect(MusicBrainzBase):
+    __tablename__ = "recording_gid_redirect"
+    copy_identifier_column = "gid"
+
+    gid: Mapped[UUID] = mapped_column(primary_key=True)
+    new_id: Mapped[int]
+    created: Mapped[datetime.datetime | None]
+
+    @classmethod
+    def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[UUID]:
+        # filtered by the old gid itself, so only the redirects for library mbids are copied
+        return set(mbids.by_entity["recording"])
+
+
 class ReleaseGroupPrimaryType(MusicBrainzBase):
     __tablename__ = "release_group_primary_type"
 
