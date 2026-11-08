@@ -15,8 +15,8 @@ with artist_releases as (
     , min(frd.year) as earliest_release_year
     , max(frd.year) as latest_release_year
   from {{ source('musicbrainz', 'artist_credit_name') }} as acn
-  inner join {{ source('musicbrainz', 'release') }} as r on r.artist_credit = acn.artist_credit
-  left join {{ source('musicbrainz', 'release_first_release_date') }} as frd on frd.release = r.id
+  inner join {{ source('musicbrainz', 'release') }} as r on acn.artist_credit = r.artist_credit
+  left join {{ source('musicbrainz', 'release_first_release_date') }} as frd on r.id = frd.release
   group by acn.artist
 )
 
@@ -31,7 +31,7 @@ select
     when ar.earliest_release_year is null then null
     else ar.earliest_release_year::text || '-' || ar.latest_release_year::text
   end as active_years
-  , a.last_updated as last_updated
+  , a.last_updated
 
 from {{ source('musicbrainz', 'artist') }} as a
-left join artist_releases as ar on ar.artist = a.id
+left join artist_releases as ar on a.id = ar.artist

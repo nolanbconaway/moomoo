@@ -14,7 +14,7 @@ select
   , r.name as recording_title
   , r.length as recording_length_ms
   , ac.name as artist_credit_phrase
-  , r.last_updated as last_updated
+  , r.last_updated
 
 from {{ source('musicbrainz', 'recording') }} as r
-inner join {{ source('musicbrainz', 'artist_credit') }} as ac on ac.id = r.artist_credit
+inner join {{ source('musicbrainz', 'artist_credit') }} as ac on r.artist_credit = ac.id
