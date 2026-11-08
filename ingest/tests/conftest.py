@@ -17,7 +17,6 @@ def remove_env_variables(monkeypatch):
     monkeypatch.setenv("MOOMOO_CONTACT_EMAIL", "not-real")  # musicbrainzngs mocked
     monkeypatch.setenv("MOOMOO_DBT_SCHEMA", "dbt")
     monkeypatch.delenv("MOOMOO_MEDIA_LIBRARY", raising=False)
-    monkeypatch.setenv("METABRAINZ_LIVE_DATA_TOKEN", "not-real")
     monkeypatch.setenv("LISTENBRAINZ_USER_TOKEN", "not-real")
 
 
