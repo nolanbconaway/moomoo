@@ -11,11 +11,14 @@ models:
       - name: artist_name
         tests:
           - not_null
+      - name: artist_type
       - name: disambiguation
-      - name: release_count
+      - name: release_group_count
       - name: earliest_release_year
       - name: latest_release_year
       - name: active_years
+      - name: tag_list
+      - name: tags_string
       - name: last_updated
 
   - name: releases

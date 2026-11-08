@@ -67,7 +67,7 @@ select
   agg_scores.artist_mbid_b as artist_mbid
   , artist_b.artist_name
   , artist_a.artist_name as most_similar_artist_name
-  {# , artist_b.tags_string #}
+  , artist_b.tags_string
   , artist_b.active_years
   , agg_scores.total_score
   , agg_scores.max_score
