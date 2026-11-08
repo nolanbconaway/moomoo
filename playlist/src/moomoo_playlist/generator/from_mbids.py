@@ -111,7 +111,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         ]
         return sorted(res)
 
-    # @db_retry
+    @db_retry
     def list_source_tracks(self, session: Session) -> list[PlaylistTrack.Data]:
         """Fetch the local files for the mbids.
 
