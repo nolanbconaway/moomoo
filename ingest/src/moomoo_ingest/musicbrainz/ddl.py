@@ -58,7 +58,9 @@ class MusicBrainzBase(DeclarativeBase):
         return [column.name for column in cls.__table__.primary_key.columns]
 
     @classmethod
-    def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int] | None:
+    def ids_to_copy(
+        cls, mbz_session: Session, mbids: MbidCollection
+    ) -> set[int] | set[UUID] | None:
         """Ids to scope this table's copy by. None means: copy the whole table."""
         return None
 
@@ -145,6 +147,15 @@ class ArtistCredit(MusicBrainzBase):
     @cached(FIFOCache(maxsize=5), key=lambda cls, mbz_session, mbids: mbids.collection_hash)
     def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
         artist_credit_ids: set[int] = set()
+
+        # any credited artist from any release group
+        release_group_ids = ReleaseGroup.ids_to_copy(mbz_session, mbids)
+        if release_group_ids:
+            rows = mbz_session.execute(
+                text("SELECT artist_credit FROM musicbrainz.release_group WHERE id = ANY(:ids)"),
+                {"ids": list(release_group_ids)},
+            )
+            artist_credit_ids |= {row.artist_credit for row in rows}
 
         # any credited artist from any release
         release_ids = Release.ids_to_copy(mbz_session, mbids)
@@ -293,6 +304,22 @@ class ReleaseGroup(MusicBrainzBase):
         return release_group_ids
 
 
+class ReleaseGroupMeta(MusicBrainzBase):
+    __tablename__ = "release_group_meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    release_count: Mapped[int]
+    first_release_date_year: Mapped[int | None]
+    first_release_date_month: Mapped[int | None]
+    first_release_date_day: Mapped[int | None]
+    rating: Mapped[int | None]
+    rating_count: Mapped[int | None]
+
+    @classmethod
+    def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
+        return ReleaseGroup.ids_to_copy(mbz_session, mbids)
+
+
 class ReleaseStatus(MusicBrainzBase):
     __tablename__ = "release_status"
     is_full_copy: ClassVar[bool] = True
@@ -436,6 +463,36 @@ class ReleaseGroupTag(MusicBrainzBase):
         return ReleaseGroup.ids_to_copy(mbz_session, mbids)
 
 
+class Tag(MusicBrainzBase):
+    __tablename__ = "tag"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    name: Mapped[str]
+    ref_count: Mapped[int]
+
+    @classmethod
+    def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
+        tag_ids: set[int] = set()
+
+        # (tag join table, its entity column, the entity's ids for this batch)
+        sources = [
+            ("artist_tag", "artist", Artist.ids_to_copy(mbz_session, mbids)),
+            ("release_tag", "release", Release.ids_to_copy(mbz_session, mbids)),
+            ("recording_tag", "recording", Recording.ids_to_copy(mbz_session, mbids)),
+            ("release_group_tag", "release_group", ReleaseGroup.ids_to_copy(mbz_session, mbids)),
+        ]
+        for table, column, entity_ids in sources:
+            if not entity_ids:
+                continue
+            rows = mbz_session.execute(
+                text(f"SELECT tag FROM musicbrainz.{table} WHERE {column} = ANY(:ids)"),
+                {"ids": list(entity_ids)},
+            )
+            tag_ids |= {row.tag for row in rows}
+
+        return tag_ids
+
+
 class Medium(MusicBrainzBase):
     __tablename__ = "medium"
 
@@ -481,16 +538,6 @@ class Track(MusicBrainzBase):
         return Recording.ids_to_copy(mbz_session, mbids)
 
 
-class ArtistGidRedirect(MusicBrainzBase):
-    __tablename__ = "artist_gid_redirect"
-
-    is_full_copy: ClassVar[bool] = True
-
-    gid: Mapped[UUID] = mapped_column(primary_key=True)
-    new_id: Mapped[int]
-    created: Mapped[datetime.datetime | None]
-
-
 class ReleaseGroupPrimaryType(MusicBrainzBase):
     __tablename__ = "release_group_primary_type"
 
@@ -528,3 +575,15 @@ class ReleaseGroupSecondaryTypeJoin(MusicBrainzBase):
     @classmethod
     def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
         return ReleaseGroup.ids_to_copy(mbz_session, mbids)
+
+
+class ArtistType(MusicBrainzBase):
+    __tablename__ = "artist_type"
+    is_full_copy: ClassVar[bool] = True
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=False)
+    name: Mapped[str]
+    parent: Mapped[int | None]
+    child_order: Mapped[int]
+    description: Mapped[str | None]
+    gid: Mapped[UUID]
