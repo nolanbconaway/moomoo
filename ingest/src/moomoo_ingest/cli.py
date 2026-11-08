@@ -8,7 +8,6 @@ from .collect_listenbrainz_data_dump import main as collect_listenbrainz_data_du
 from .collect_listenbrainz_feedback import main as collect_listenbrainz_feedback_main
 from .collect_local_files import main as collect_local_files_main
 from .collect_msid_map import main as collect_msid_map_main
-from .collect_musicbrainz_data_dump import main as collect_musicbrainz_data_dump_main
 from .collect_similar_user_activity import main as collect_similar_user_activity_main
 from .musicbrainz.cli import cli as musicbrainz_cli
 from .update_artist_similarity_matrix import main as update_artist_similarity_matrix_main
