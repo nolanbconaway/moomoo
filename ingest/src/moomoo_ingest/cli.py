@@ -34,7 +34,6 @@ cli.add_command(collect_msid_map_main, "msid-map")
 cli.add_command(collect_listenbrainz_feedback_main, "listenbrainz-feedback")
 cli.add_command(collect_listenbrainz_data_dump_main, "listenbrainz-data-dump")
 cli.add_command(update_artist_similarity_matrix_main, "update-artist-similarity-matrix")
-cli.add_command(collect_musicbrainz_data_dump_main, "musicbrainz-data-dump")
 cli.add_command(musicbrainz_cli, "musicbrainz")
 
 
