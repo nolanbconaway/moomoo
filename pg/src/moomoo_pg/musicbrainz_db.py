@@ -2,16 +2,15 @@
 
 import os
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
-from .db import json_dumps
+from .db import _make_engine_from_uri
 
 
 def get_engine() -> Engine:
     """Get a sqlalchemy engine for the MusicBrainz db."""
-    uri = os.environ["MUSICBRAINZ_POSTGRES_URI"]
-    return create_engine(uri, json_serializer=json_dumps)
+    return _make_engine_from_uri(os.environ["MUSICBRAINZ_POSTGRES_URI"])
 
 
 def get_session() -> Session:
