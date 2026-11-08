@@ -1,14 +1,12 @@
 """Common fixtures for all tests."""
 
-import os
 import time
 from pathlib import Path
 
 import musicbrainzngs
 import psycopg
 import pytest
-from moomoo_pg import TABLES, get_engine, get_session
-from sqlalchemy import text
+from moomoo_pg import TABLES, get_engine
 
 RESOURCES = Path(__file__).parent / "resources"
 

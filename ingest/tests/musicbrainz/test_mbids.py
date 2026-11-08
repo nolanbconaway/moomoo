@@ -11,20 +11,29 @@ from moomoo_pg import (
     get_session,
 )
 
-from moomoo_ingest.musicbrainz import mbids
+from moomoo_ingest.musicbrainz.mbids import (
+    Mbid,
+    MbidCollection,
+    get_feedback_mbids,
+    get_listen_mbids,
+    get_local_file_mbids,
+    get_mbids,
+    get_messybrainz_mbids,
+    get_similar_user_activity_mbids,
+)
 
 
 def test_Mbid_dataclass():
     """Test the Mbid dataclass."""
     # test from sql rows
     data = [dict(mbid=uuid1(), entity="recording") for _ in range(5)]
-    ids = mbids.Mbid.from_sql_rows(data)
+    ids = Mbid.from_sql_rows(data)
     assert len(ids) == 5
     assert all(str(i.mbid) == str(j["mbid"]) for i, j in zip(ids, data, strict=True))
-    assert mbids.Mbid.from_sql_rows([]) == []  # no data
+    assert Mbid.from_sql_rows([]) == []  # no data
 
     # test to dict
-    mbid = mbids.Mbid(mbid=uuid1(), entity="artist")
+    mbid = Mbid(mbid=uuid1(), entity="artist")
     assert mbid.to_dict() == dict(mbid=mbid.mbid, entity=mbid.entity)
 
 
@@ -74,7 +83,7 @@ def test_get_listen_mbids():
     ).insert()
 
     with get_session() as session:
-        result = {(item.entity, item.mbid) for item in mbids.get_listen_mbids(session)}
+        result = {(item.entity, item.mbid) for item in get_listen_mbids(session)}
 
     assert result == {
         ("artist", mapped_artist),
@@ -111,7 +120,7 @@ def test_get_local_file_mbids():
     ).insert()
 
     with get_session() as session:
-        result = {(item.entity, item.mbid) for item in mbids.get_local_file_mbids(session)}
+        result = {(item.entity, item.mbid) for item in get_local_file_mbids(session)}
 
     assert result == {
         ("release", release),
@@ -142,7 +151,7 @@ def test_get_messybrainz_mbids():
     ).insert()
 
     with get_session() as session:
-        result = {(item.entity, item.mbid) for item in mbids.get_messybrainz_mbids(session)}
+        result = {(item.entity, item.mbid) for item in get_messybrainz_mbids(session)}
 
     assert result == {
         ("artist", artist),
@@ -173,9 +182,7 @@ def test_get_similar_user_activity_mbids():
         ).insert()
 
     with get_session() as session:
-        result = {
-            (item.entity, item.mbid) for item in mbids.get_similar_user_activity_mbids(session)
-        }
+        result = {(item.entity, item.mbid) for item in get_similar_user_activity_mbids(session)}
 
     assert result == {
         (mbid_entity, identifier) for _, (_, mbid_entity, identifier) in values.items()
@@ -193,7 +200,7 @@ def test_get_feedback_mbids():
     ).insert()
 
     with get_session() as session:
-        result = mbids.get_feedback_mbids(session)
+        result = get_feedback_mbids(session)
 
     assert result == [Mbid(mbid=recording, entity="recording")]
 
@@ -211,10 +218,12 @@ def test_get_mbids_combines_deduplicates(monkeypatch):
         "get_feedback_mbids": [],
     }
     for name, result in source_results.items():
-        monkeypatch.setattr(mbids, name, lambda _, result=result: result)
+        monkeypatch.setattr(
+            f"moomoo_ingest.musicbrainz.mbids.{name}", lambda _, result=result: result
+        )
 
     with get_session() as session:
-        result = mbids.get_mbids(session)
+        result = get_mbids(session)
 
     assert result == sorted(
         {shared, recording, release, release_group},
@@ -227,7 +236,7 @@ def test_mbid_collection_sorts_and_groups_by_entity():
     second_artist = Mbid(mbid=uuid1(), entity="artist")
     recording = Mbid(mbid=uuid1(), entity="recording")
 
-    collection = mbids.MbidCollection([recording, second_artist, first_artist])
+    collection = MbidCollection([recording, second_artist, first_artist])
 
     assert collection.mbids == [first_artist, second_artist, recording]
     assert collection.by_entity["artist"] == [first_artist.mbid, second_artist.mbid]
@@ -240,9 +249,9 @@ def test_mbid_collection_hash_is_independent_of_input_order():
     artist = Mbid(mbid=uuid1(), entity="artist")
     recording = Mbid(mbid=uuid1(), entity="recording")
 
-    first = mbids.MbidCollection([artist, recording])
-    reordered = mbids.MbidCollection([recording, artist])
-    different = mbids.MbidCollection([artist])
+    first = MbidCollection([artist, recording])
+    reordered = MbidCollection([recording, artist])
+    different = MbidCollection([artist])
 
     assert first.collection_hash == reordered.collection_hash
     assert first.collection_hash != different.collection_hash

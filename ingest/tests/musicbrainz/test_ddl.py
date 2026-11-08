@@ -1,9 +1,9 @@
 from uuid import uuid1
 
+from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_pg import get_session
 from sqlalchemy import text
 
-from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.musicbrainz.ddl import (
     Artist,
     ArtistCredit,

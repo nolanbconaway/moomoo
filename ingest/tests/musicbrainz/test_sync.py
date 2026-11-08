@@ -1,8 +1,8 @@
 from uuid import uuid1
 
+from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_pg import get_session
 
-from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.musicbrainz import sync
 from moomoo_ingest.musicbrainz.ddl import MusicBrainzBase
 
