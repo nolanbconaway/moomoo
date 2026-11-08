@@ -3,7 +3,6 @@ from uuid import uuid1
 from moomoo_pg import get_session
 from sqlalchemy import text
 
-from moomoo_ingest.annotate_mbids import Mbid
 from moomoo_ingest.musicbrainz.ddl import (
     Artist,
     ArtistCredit,
@@ -25,7 +24,7 @@ from moomoo_ingest.musicbrainz.ddl import (
     Track,
     copy_rows,
 )
-from moomoo_ingest.musicbrainz.mbids import MbidCollection
+from moomoo_ingest.musicbrainz.mbids import Mbid, MbidCollection
 
 
 def create_destination_table(session, schema: str, table: str):

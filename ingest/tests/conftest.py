@@ -1,18 +1,12 @@
 """Common fixtures for all tests."""
 
-import os
 import time
-from functools import partial
 from pathlib import Path
 
-import moomoo_pg.db
-import moomoo_pg.musicbrainz_db
 import musicbrainzngs
 import psycopg
 import pytest
-from moomoo_pg import TABLES, get_session
-from sqlalchemy import create_engine, text
-from sqlalchemy.pool import NullPool
+from moomoo_pg import TABLES, get_engine
 
 RESOURCES = Path(__file__).parent / "resources"
 
@@ -62,13 +56,6 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     monkeypatch.setenv("MOOMOO_POSTGRES_URI", uri)
     monkeypatch.setenv("MUSICBRAINZ_POSTGRES_URI", uri)
 
-    # disable pooling so that connections close on session close.
-    # TODO: this should be implemented in moomoo_pg.db instead of patching here
-    monkeypatch.setattr(moomoo_pg.db, "create_engine", partial(create_engine, poolclass=NullPool))
-    monkeypatch.setattr(
-        moomoo_pg.musicbrainz_db, "create_engine", partial(create_engine, poolclass=NullPool)
-    )
-
     # make sure the test schema exists and the vector extension is loaded
     cur = postgresql.cursor()
     cur.execute("create schema if not exists dbt")
@@ -80,32 +67,9 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection):
     postgresql.commit()
 
     # create each table
-    for table in TABLES:
-        table.create()
-
-    return uri
-
-
-def load_mbids_table(data: list[dict]):
-    """Load the dbt schema mbids table with data.
-
-    This is managed by dbt in prod, but needed for tests.
-
-    Input rows are dicts with keys:
-
-        - mbid: str
-        - entity: str
-    """
-    schema = os.environ["MOOMOO_DBT_SCHEMA"]
-    with get_session() as session:
-        sql = f"""create table if not exists {schema}.mbids (
-            mbid uuid primary key, entity varchar
-        )
-        """
-        session.execute(text(sql))
-
-        sql = f"insert into {schema}.mbids (mbid, entity) values (:mbid, :entity)"
-        for i in data:
-            session.execute(text(sql), i)
-
-        session.commit()
+    try:
+        for table in TABLES:
+            table.create()
+        yield uri
+    finally:
+        get_engine().dispose()

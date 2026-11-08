@@ -14,8 +14,25 @@ from moomoo_pg import (
 )
 from sqlalchemy.orm import Session
 
-from ..annotate_mbids import Mbid
 from ..utils_ import ENTITIES
+
+
+@dataclasses.dataclass(frozen=True)
+class Mbid:
+    """Container for mbid and entity type."""
+
+    mbid: UUID
+    entity: str
+
+    @classmethod
+    def from_sql_rows(cls, rows: list[dict]) -> list["Mbid"]:
+        """Create list of Mbid from sql rows."""
+        to_uuid = lambda val: UUID(val) if isinstance(val, str) else val
+        return [cls(mbid=to_uuid(row["mbid"]), entity=row["entity"]) for row in rows]
+
+    def to_dict(self) -> dict:
+        """Convert to dict."""
+        return dict(mbid=self.mbid, entity=self.entity)
 
 
 @dataclasses.dataclass
