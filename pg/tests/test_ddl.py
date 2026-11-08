@@ -11,14 +11,12 @@ from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from moomoo_pg import (
     TABLES,
-    AnnotationQueueLog,
     BaseTable,
     ListenBrainzCollaborativeFilteringScore,
     ListenBrainzDataDump,
     ListenBrainzListen,
     LocalFileBirthTimestamp,
     LocalFileExcludeRegex,
-    MusicBrainzDataDump,
     Playlist,
     PlaylistCollection,
     PlaylistTrack,
@@ -271,38 +269,6 @@ def test_ListenBrainzCollaborativeFilteringScore__reset_pk(session: Session):
         text(f"SELECT nextval(pg_get_serial_sequence('{tname}', 'mbid_pair_id'))")
     )
     assert result.scalar() == 2
-
-
-def test_MusicBrainzDataDump__replace_records(session: Session):
-    dump = MusicBrainzDataDump(
-        slug="test",
-        packet_number=1,
-        entity="artist",
-        dump_timestamp=datetime.datetime(2021, 1, 1),
-    )
-    session.add(dump)
-    session.commit()
-    assert dump.records == []
-
-    record = dict(mbid=str(uuid4()), json_data={})
-    dump.replace_records([record], session=session)
-    session.commit()
-    assert len(dump.records) == 1
-    assert dump.records[0].mbid == UUID(record["mbid"])
-
-    dump.replace_records([], session=session)
-    session.commit()
-    assert len(dump.records) == 0
-
-
-def test_AnnotationQueueLog__last_update_timestamp(session: Session):
-    assert AnnotationQueueLog.last_update_timestamp(session=session, source="fake") is None
-
-    ts = datetime.datetime.now(datetime.timezone.utc)
-    log = AnnotationQueueLog(source="fake", entity="artist", as_of_ts_utc=ts, queue_size=10)
-    log.insert(session=session)
-    assert AnnotationQueueLog.last_update_timestamp(session=session, source="fake") == ts
-    assert AnnotationQueueLog.last_update_timestamp(session=session, source="other") is None
 
 
 def test_LocalFileBirthTimestamp__bulk_upsert_on_conflict_do_nothing():

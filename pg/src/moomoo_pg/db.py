@@ -3,6 +3,7 @@
 import datetime
 import json
 import os
+from functools import cache
 from uuid import UUID, uuid4
 
 from sqlalchemy import Engine, create_engine, text
@@ -33,10 +34,18 @@ def json_dumps(*args, **kw):
     return json.dumps(*args, cls=JSONSerializer, **kw)
 
 
+@cache
+def _make_engine_from_uri(uri: str) -> Engine:
+    """Internal helper to create a SQLAlchemy engine from a URI.
+
+    Mostly here to cache the engine creation for a given URI.
+    """
+    return create_engine(uri, json_serializer=json_dumps)
+
+
 def get_engine() -> Engine:
     """Get a sqlalchemy engine for the db."""
-    uri = os.environ["MOOMOO_POSTGRES_URI"]
-    return create_engine(uri, json_serializer=json_dumps)
+    return _make_engine_from_uri(os.environ["MOOMOO_POSTGRES_URI"])
 
 
 def get_session() -> Session:

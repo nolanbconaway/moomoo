@@ -258,19 +258,6 @@ class ListenBrainzSimilarUserActivity(BaseTable):
     )
 
 
-class MusicBrainzAnnotation(BaseTable):
-    """Model for musicbrainz_annotations table."""
-
-    __tablename__ = "musicbrainz_annotations"
-
-    mbid: Mapped[UUID] = mapped_column(primary_key=True, nullable=False)
-    entity: Mapped[str] = mapped_column(nullable=False, index=True)
-    payload_json: Mapped[dict[str, Any]] = mapped_column(nullable=True)
-    ts_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp(), index=True
-    )
-
-
 class ListenBrainzArtistStats(BaseTable):
     """Model for listenbrainz_artist_stats table."""
 
@@ -495,78 +482,6 @@ class ListenBrainzCollaborativeFilteringScore(BaseTable):
                 f(session)
         else:
             f(session)
-
-
-class MusicBrainzDataDump(BaseTable):
-    """Model for musicbrainz_data_dumps table."""
-
-    __tablename__ = "musicbrainz_data_dumps"
-
-    slug: Mapped[str] = mapped_column(primary_key=True, unique=True, nullable=False)
-    packet_number: Mapped[int] = mapped_column(nullable=False)
-    entity: Mapped[str] = mapped_column(nullable=False)
-    dump_timestamp: Mapped[datetime.datetime] = mapped_column(nullable=False)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp()
-    )
-    refreshed_at: Mapped[datetime.datetime] = mapped_column(nullable=True)
-
-    records: Mapped[list["MusicBrainzDataDumpRecord"]] = relationship(back_populates="dump")
-
-    def replace_records(self, records: list[dict], session: Session) -> None:
-        """Replace all records in the dump with the given records."""
-        # add dump id
-        for record in records:
-            record["slug"] = self.slug
-
-        session.query(MusicBrainzDataDumpRecord).filter(
-            MusicBrainzDataDumpRecord.slug == self.slug
-        ).delete()
-
-        if records:
-            MusicBrainzDataDumpRecord.bulk_insert(records, session=session)
-
-        self.refreshed_at = func.current_timestamp()
-
-
-class MusicBrainzDataDumpRecord(BaseTable):
-    """Model for musicbrainz_data_dump_records table."""
-
-    __tablename__ = "musicbrainz_data_dump_records"
-    __table_args__ = (UniqueConstraint("slug", "mbid"), {})
-
-    dump_record_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
-    slug: Mapped[str] = mapped_column(
-        ForeignKey(MusicBrainzDataDump.slug), nullable=False, index=True
-    )
-    mbid: Mapped[UUID] = mapped_column(nullable=False, index=True)
-    json_data: Mapped[dict[str, Any]] = mapped_column(nullable=False)
-
-    dump: Mapped["MusicBrainzDataDump"] = relationship(back_populates="records")
-
-
-class AnnotationQueueLog(BaseTable):
-    """Model for annotation_queue_log table."""
-
-    __tablename__ = "annotation_queue_log"
-
-    log_id: Mapped[int] = mapped_column(primary_key=True, nullable=False)
-    source: Mapped[str] = mapped_column(nullable=False, index=True)
-    entity: Mapped[str] = mapped_column(nullable=False, index=True)
-    as_of_ts_utc: Mapped[datetime.datetime] = mapped_column(nullable=False, index=True)
-    queue_size: Mapped[int] = mapped_column(nullable=False)
-    insert_ts_utc: Mapped[datetime.datetime] = mapped_column(
-        nullable=False, server_default=func.current_timestamp(), index=True
-    )
-
-    @classmethod
-    def last_update_timestamp(cls, session: Session, source: str) -> datetime.datetime | None:
-        """Get the last update timestamp in the log for the given source.
-
-        Returns None if there are no log entries.
-        """
-        stmt = select(func.max(cls.as_of_ts_utc)).filter(cls.source == source)
-        return session.execute(stmt).scalar()
 
 
 class PlaylistCollection(BaseTable):
