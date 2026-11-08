@@ -111,7 +111,7 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
         ]
         return sorted(res)
 
-    @db_retry
+    # @db_retry
     def list_source_tracks(self, session: Session) -> list[PlaylistTrack.Data]:
         """Fetch the local files for the mbids.
 
@@ -120,8 +120,32 @@ class FromMbidsPlaylistGenerator(BasePlaylistGenerator):
 
         If over the limit, a random sample will be returned.
         """
+        # resolve the mbids to their entity types
         schema = os.environ["MOOMOO_DBT_SCHEMA"]
-        sql = f"select mbid, entity from {schema}.mbids where mbid = any(:mbids)"
+        sql = f"""
+            select artist_mbid as mbid, 'artist' as entity
+            from {schema}.artists
+            where artist_mbid = any(:mbids)
+            
+            union all
+            
+            select recording_mbid as mbid, 'recording' as entity
+            from {schema}.recordings
+            where recording_mbid = any(:mbids)
+            
+            union all
+            
+            select release_mbid as mbid, 'release' as entity
+            from {schema}.releases
+            where release_mbid = any(:mbids)
+            
+            union all
+            
+            select release_group_mbid as mbid, 'release-group' as entity
+            from {schema}.release_groups
+            where release_group_mbid = any(:mbids)
+        """
+
         entity_types = {
             r["mbid"]: r["entity"]
             for r in execute_sql_fetchall(sql=sql, params={"mbids": self.mbids}, session=session)
