@@ -46,6 +46,27 @@ sources:
           - name: name
           - name: join_phrase
 
+      - name: release_gid_redirect
+        columns:
+          - name: gid
+            tests: [not_null, unique]
+          - name: new_id
+          - name: created
+
+      - name: release_group_gid_redirect
+        columns:
+          - name: gid
+            tests: [not_null, unique]
+          - name: new_id
+          - name: created
+
+      - name: recording_gid_redirect
+        columns:
+          - name: gid
+            tests: [not_null, unique]
+          - name: new_id
+          - name: created
+
       - name: artist_gid_redirect
         columns:
           - name: gid
@@ -137,7 +158,28 @@ sources:
           - name: comment
           - name: last_updated
 
+      - name: release_group_meta
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: release_count
+          - name: first_release_date_year
+          - name: first_release_date_month
+          - name: first_release_date_day
+          - name: rating
+          - name: rating_count
+
       - name: release_group_primary_type
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: parent
+          - name: child_order
+          - name: description
+
+      - name: artist_type
         columns:
           - name: id
             tests: [not_null, unique]
@@ -167,6 +209,13 @@ sources:
           - name: secondary_type
             tests: [not_null]
           - name: created
+
+      - name: tag
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: name
+          - name: ref_count
 
       - name: release_group_tag
         tests:
