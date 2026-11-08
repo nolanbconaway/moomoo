@@ -1,6 +1,222 @@
 version: 2
 
 sources:
+  - name: musicbrainz
+    schema: musicbrainz
+    tables:
+      - name: artist
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: sort_name
+          - name: begin_date_year
+          - name: begin_date_month
+          - name: begin_date_day
+          - name: end_date_year
+          - name: end_date_month
+          - name: end_date_day
+          - name: type
+          - name: area
+          - name: gender
+          - name: comment
+          - name: last_updated
+
+      - name: artist_credit
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: artist_count
+          - name: ref_count
+          - name: created
+
+      - name: artist_credit_name
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [artist_credit, position]
+        columns:
+          - name: artist_credit
+            tests: [not_null]
+          - name: position
+            tests: [not_null]
+          - name: artist
+          - name: name
+          - name: join_phrase
+
+      - name: artist_gid_redirect
+        columns:
+          - name: gid
+            tests: [not_null, unique]
+          - name: new_id
+          - name: created
+
+      - name: artist_tag
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [artist, tag]
+        columns:
+          - name: artist
+            tests: [not_null]
+          - name: tag
+            tests: [not_null]
+          - name: count
+          - name: last_updated
+
+      - name: medium
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: release
+          - name: position
+          - name: format
+          - name: name
+          - name: track_count
+          - name: last_updated
+
+      - name: recording
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: artist_credit
+          - name: length
+          - name: comment
+          - name: last_updated
+          - name: video
+
+      - name: recording_tag
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [recording, tag]
+        columns:
+          - name: recording
+            tests: [not_null]
+          - name: tag
+            tests: [not_null]
+          - name: count
+          - name: last_updated
+
+      - name: release
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: artist_credit
+          - name: release_group
+          - name: status
+          - name: packaging
+          - name: language
+          - name: script
+          - name: barcode
+          - name: comment
+          - name: quality
+          - name: last_updated
+
+      - name: release_first_release_date
+        columns:
+          - name: release
+            tests: [not_null, unique]
+          - name: year
+          - name: month
+          - name: day
+
+      - name: release_group
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: artist_credit
+          - name: type
+          - name: comment
+          - name: last_updated
+
+      - name: release_group_primary_type
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: parent
+          - name: child_order
+          - name: description
+
+      - name: release_group_secondary_type
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: parent
+          - name: child_order
+          - name: description
+
+      - name: release_group_secondary_type_join
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [release_group, secondary_type]
+        columns:
+          - name: release_group
+            tests: [not_null]
+          - name: secondary_type
+            tests: [not_null]
+          - name: created
+
+      - name: release_group_tag
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [release_group, tag]
+        columns:
+          - name: release_group
+            tests: [not_null]
+          - name: tag
+            tests: [not_null]
+          - name: count
+          - name: last_updated
+
+      - name: release_status
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: name
+          - name: parent
+          - name: child_order
+          - name: description
+
+      - name: release_tag
+        tests:
+          - dbt_utils.unique_combination_of_columns:
+              combination_of_columns: [release, tag]
+        columns:
+          - name: release
+            tests: [not_null]
+          - name: tag
+            tests: [not_null]
+          - name: count
+          - name: last_updated
+
+      - name: track
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: gid
+          - name: recording
+          - name: medium
+          - name: position
+          - name: number
+          - name: name
+          - name: artist_credit
+          - name: length
+          - name: is_data_track
+          - name: last_updated
+
   - name: pyingest
     schema: public
     tables:
