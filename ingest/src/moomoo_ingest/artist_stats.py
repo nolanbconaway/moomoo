@@ -2,8 +2,8 @@
 
 API Docs: https://listenbrainz.readthedocs.io/en/latest/users/api/statistics.html#get--1-stats-artist-(artist_mbid)-listeners
 
-Requires that the dbt models have been run to populate the mbids table, as we need to
-collect all mbids from listens, local files, etc.
+Requires that the musicbrainz sync has been run to populate the artist table, as we need to
+list the relevant artist MBIDs.
 
 This tool has logic to detect new mbids that have not been annotated yet, as well as
 mbids that have been annotated but may need refreshing. The latter is useful for mbids
@@ -14,7 +14,6 @@ option to limit the total run time.
 """
 
 import datetime
-import os
 import random
 import sys
 import uuid
@@ -68,26 +67,23 @@ def get_artist_stats(mbid: uuid.UUID) -> dict:
 
 def get_new_mbids() -> list[uuid.UUID]:
     """Get mbids that have nostats from the mbids table."""
-    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    # TODO: use the musicbrainz table object to reference the table name.
     sql = f"""
-        select mbids.mbid as mbid
-        from {dbt_schema}.mbids
-        left join {ListenBrainzArtistStats.table_name()} as src on mbids.mbid = src.mbid
+        select artist.gid as mbid
+        from musicbrainz.artist
+        left join {ListenBrainzArtistStats.table_name()} as src on artist.gid = src.mbid
         where src.mbid is null
-          and mbids.entity = 'artist'
     """
     return [i["mbid"] for i in execute_sql_fetchall(sql)]
 
 
 def get_old_mbids(before: datetime.datetime) -> list[uuid.UUID]:
-    """Get mbids with stats between from_dt and to_dt."""
-    dbt_schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    """Get artists whose stats predate `before`."""
     sql = f"""
-        select mbids.mbid
-        from {dbt_schema}.mbids
-        inner join {ListenBrainzArtistStats.table_name()} as src
-            on mbids.mbid::varchar = src.mbid::varchar
-        where src.ts_utc < :before and mbids.entity = 'artist'
+        select artist.gid as mbid
+        from musicbrainz.artist as artist
+        inner join {ListenBrainzArtistStats.table_name()} as src on artist.gid = src.mbid
+        where src.ts_utc < :before
         order by src.ts_utc
     """
     params = dict(before=before)
