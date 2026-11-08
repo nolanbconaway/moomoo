@@ -17,7 +17,6 @@ MOOMOO_CONTACT_EMAIL=...
 MOOMOO_DOCKER_POSTGRES_URI=host.docker.internal... # or whatever
 MOOMOO_MEDIA_LIBRARY=/path/to/music  # mounted at /mnt/music in docker.
 
-METABRAINZ_LIVE_DATA_TOKEN=... # to consume the live data feed (https://metabrainz.org/api/)
 LISTENBRAINZ_USER_TOKEN=... # seems like listenbrainz msid lookup breaks unless this is here?
 ```
 

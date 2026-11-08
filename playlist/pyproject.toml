@@ -16,7 +16,7 @@ dependencies = [
     "structlog>21.0.0,<27.0.0",
     "numpy==2.*",
     "pandas==2.*",
-    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.1#subdirectory=pg",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.2.0#subdirectory=pg",
 
 ]
 

@@ -182,10 +182,13 @@ def test_list_source_tracks(
 
     reset_mocks()
 
-    # make an mbids table
+    # make the source mbids tables
     schema = os.environ["MOOMOO_DBT_SCHEMA"]
+    execute_sql_fetchall(f"create table {schema}.artists (artist_mbid uuid)", session=session)
+    execute_sql_fetchall(f"create table {schema}.recordings (recording_mbid uuid)", session=session)
+    execute_sql_fetchall(f"create table {schema}.releases (release_mbid uuid)", session=session)
     execute_sql_fetchall(
-        f"create table {schema}.mbids (mbid uuid, entity varchar)", session=session
+        f"create table {schema}.release_groups (release_group_mbid uuid)", session=session
     )
 
     # test with mbids that dont map to entities
@@ -200,7 +203,7 @@ def test_list_source_tracks(
     mbids = [uuid4()]
     generator = Gen(*mbids)
     execute_sql_fetchall(
-        f"insert into {schema}.mbids (mbid, entity) values (:mbid, 'recording')",
+        f"insert into {schema}.recordings (recording_mbid) values (:mbid)",
         dict(mbid=mbids[0]),
         session=session,
     )

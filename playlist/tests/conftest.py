@@ -8,7 +8,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 import tenacity
-from moomoo_pg import BaseTable, get_session
+from moomoo_pg import BaseTable, get_engine, get_session
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -58,12 +58,15 @@ def mock_db(monkeypatch, postgresql: psycopg.Connection) -> str:
     postgresql.commit()
 
     # create all the tables.
-    with get_session() as session:
-        # check that the session is mocked
-        assert str(session.bind.url) == uri
-        BaseTable.metadata.create_all(session.bind)
+    try:
+        with get_session() as session:
+            # check that the session is mocked
+            assert str(session.bind.url) == uri
+            BaseTable.metadata.create_all(session.bind)
 
-    return uri
+        yield uri
+    finally:
+        get_engine().dispose()
 
 
 @pytest.fixture
