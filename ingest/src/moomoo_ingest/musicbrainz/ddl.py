@@ -332,14 +332,29 @@ class ReleaseStatus(MusicBrainzBase):
     description: Mapped[str | None]
 
 
-class ReleaseFirstReleaseDate(MusicBrainzBase):
-    __tablename__ = "release_first_release_date"
+class ReleaseCountry(MusicBrainzBase):
+    __tablename__ = "release_country"
     copy_identifier_column = "release"
 
     release: Mapped[int] = mapped_column(primary_key=True)
-    year: Mapped[int | None]
-    month: Mapped[int | None]
-    day: Mapped[int | None]
+    country: Mapped[int] = mapped_column(primary_key=True)
+    date_year: Mapped[int | None]
+    date_month: Mapped[int | None]
+    date_day: Mapped[int | None]
+
+    @classmethod
+    def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:
+        return Release.ids_to_copy(mbz_session, mbids)
+
+
+class ReleaseUnknownCountry(MusicBrainzBase):
+    __tablename__ = "release_unknown_country"
+    copy_identifier_column = "release"
+
+    release: Mapped[int] = mapped_column(primary_key=True)
+    date_year: Mapped[int | None]
+    date_month: Mapped[int | None]
+    date_day: Mapped[int | None]
 
     @classmethod
     def ids_to_copy(cls, mbz_session: Session, mbids: MbidCollection) -> set[int]:

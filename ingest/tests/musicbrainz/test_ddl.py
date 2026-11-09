@@ -13,13 +13,14 @@ from moomoo_ingest.musicbrainz.ddl import (
     RecordingGidRedirect,
     RecordingTag,
     Release,
-    ReleaseFirstReleaseDate,
+    ReleaseCountry,
     ReleaseGroup,
     ReleaseGroupMeta,
     ReleaseGroupSecondaryTypeJoin,
     ReleaseGroupTag,
     ReleaseStatus,
     ReleaseTag,
+    ReleaseUnknownCountry,
     Tag,
     Track,
     copy_rows,
@@ -304,17 +305,22 @@ def test_ReleaseGroup__ids_to_copy(monkeypatch):
     assert result == {direct_group_id, release_group_id}
 
 
-def test_ReleaseFirstReleaseDate__ids_to_copy(monkeypatch):
-    # first release date just passes to Release.ids_to_copy, so check that we get the same result.
+def test_ReleaseCountry__ids_to_copy(monkeypatch):
+    # ReleaseCountry delegates to Release.ids_to_copy.
     collection = MbidCollection([])
     expected_ids = {-13, 101, 867_5309}
-    monkeypatch.setattr(
-        Release,
-        "ids_to_copy",
-        classmethod(lambda cls, *_, **__: expected_ids),
-    )
+    monkeypatch.setattr(Release, "ids_to_copy", classmethod(lambda cls, *_, **__: expected_ids))
 
-    assert ReleaseFirstReleaseDate.ids_to_copy(None, collection) == expected_ids
+    assert ReleaseCountry.ids_to_copy(None, collection) == expected_ids
+
+
+def test_ReleaseUnknownCountry__ids_to_copy(monkeypatch):
+    # ReleaseUnknownCountry delegates to Release.ids_to_copy.
+    collection = MbidCollection([])
+    expected_ids = {-13, 101, 867_5309}
+    monkeypatch.setattr(Release, "ids_to_copy", classmethod(lambda cls, *_, **__: expected_ids))
+
+    assert ReleaseUnknownCountry.ids_to_copy(None, collection) == expected_ids
 
 
 def test_Artist__ids_to_copy():

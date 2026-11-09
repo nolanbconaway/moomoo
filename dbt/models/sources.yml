@@ -139,13 +139,24 @@ sources:
           - name: quality
           - name: last_updated
 
-      - name: release_first_release_date
+      - name: release_country
+        columns:
+          - name: release
+            tests: [not_null]
+          - name: country
+            tests: [not_null]  # joint unique with release but idc to test it
+          - name: date_year
+          - name: date_month
+          - name: date_day
+
+      - name: release_unknown_country
         columns:
           - name: release
             tests: [not_null, unique]
-          - name: year
-          - name: month
-          - name: day
+          - name: country
+          - name: date_year
+          - name: date_month
+          - name: date_day
 
       - name: release_group
         columns:
