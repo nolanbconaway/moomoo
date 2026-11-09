@@ -10,15 +10,29 @@
   )
 }}
 
+with events as (
+  select release, date_year
+  from {{ source('musicbrainz', 'release_country') }}
+  union all
+  select release, date_year
+  from {{ source('musicbrainz', 'release_unknown_country') }}
+)
+
+, release_years as (
+  select release, min(date_year) as release_year
+  from events
+  group by release
+)
+
 select
   r.gid as release_mbid
   , r.name as release_title
   , rg.gid as release_group_mbid
-  , frd.year as release_year
+  , ry.release_year
   , ac.name as artist_credit_phrase
   , r.last_updated
 
 from {{ source('musicbrainz', 'release') }} as r
 inner join {{ source('musicbrainz', 'release_group') }} as rg on r.release_group = rg.id
 inner join {{ source('musicbrainz', 'artist_credit') }} as ac on r.artist_credit = ac.id
-left join {{ source('musicbrainz', 'release_first_release_date') }} as frd on r.id = frd.release
+left join release_years as ry on r.id = ry.release
