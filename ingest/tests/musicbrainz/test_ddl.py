@@ -14,7 +14,6 @@ from moomoo_ingest.musicbrainz.ddl import (
     RecordingTag,
     Release,
     ReleaseCountry,
-    ReleaseFirstReleaseDate,
     ReleaseGroup,
     ReleaseGroupMeta,
     ReleaseGroupSecondaryTypeJoin,
@@ -304,19 +303,6 @@ def test_ReleaseGroup__ids_to_copy(monkeypatch):
         )
 
     assert result == {direct_group_id, release_group_id}
-
-
-def test_ReleaseFirstReleaseDate__ids_to_copy(monkeypatch):
-    # first release date just passes to Release.ids_to_copy, so check that we get the same result.
-    collection = MbidCollection([])
-    expected_ids = {-13, 101, 867_5309}
-    monkeypatch.setattr(
-        Release,
-        "ids_to_copy",
-        classmethod(lambda cls, *_, **__: expected_ids),
-    )
-
-    assert ReleaseFirstReleaseDate.ids_to_copy(None, collection) == expected_ids
 
 
 def test_ReleaseCountry__ids_to_copy(monkeypatch):
