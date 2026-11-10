@@ -10,9 +10,9 @@ dependencies = [
     "waitress==3.0.*",
     "Flask-SQLAlchemy==3.1.*",
     "psycopg[binary]==3.3.*",
-    "moomoo-playlist @ git+https://github.com/nolanbconaway/moomoo.git@playlist-v0.9.0#subdirectory=playlist",
+    "moomoo-playlist @ git+https://github.com/nolanbconaway/moomoo.git@playlist-v0.9.3#subdirectory=playlist",
     # this is also a dep of moomoo playlist, so need to keep the versions in sync.
-    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.1.1#subdirectory=pg",
+    "moomoo-pg @ git+https://github.com/nolanbconaway/moomoo.git@pg-v0.2.0#subdirectory=pg",
 
 ]
 
