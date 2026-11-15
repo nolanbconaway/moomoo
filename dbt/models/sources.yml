@@ -36,7 +36,8 @@ sources:
       - name: artist_credit_name
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [artist_credit, position]
+              arguments:
+                combination_of_columns: [artist_credit, position]
         columns:
           - name: artist_credit
             tests: [not_null]
