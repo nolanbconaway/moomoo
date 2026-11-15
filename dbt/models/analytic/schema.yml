@@ -199,3 +199,14 @@ models:
         tests:
           - not_null
       - name: collection_names
+
+  - name: unmapped_local_files
+    description: Local files whose MusicBrainz IDs are unmapped in the mbz database.
+    columns:
+      - name: filepath
+        tests:
+          - not_null
+          - unique
+      - name: unmatched_entities
+        tests:
+          - not_null
