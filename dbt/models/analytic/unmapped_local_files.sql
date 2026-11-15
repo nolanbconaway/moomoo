@@ -1,3 +1,10 @@
+{{
+    config(
+      materialized='table',
+      indexes=[{'columns': ['filepath'], 'unique': True}]
+    )
+}}
+
 {# a list of local files whos mbids are unmapped in the mbz database. #}
 with t as (
   select local_files.filepath, 'recording' as entity
