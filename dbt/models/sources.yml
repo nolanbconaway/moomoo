@@ -78,7 +78,8 @@ sources:
       - name: artist_tag
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [artist, tag]
+              arguments:
+                combination_of_columns: [artist, tag]
         columns:
           - name: artist
             tests: [not_null]
@@ -114,7 +115,8 @@ sources:
       - name: recording_tag
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [recording, tag]
+              arguments:
+                combination_of_columns: [recording, tag]
         columns:
           - name: recording
             tests: [not_null]
@@ -214,7 +216,8 @@ sources:
       - name: release_group_secondary_type_join
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [release_group, secondary_type]
+              arguments:
+                combination_of_columns: [release_group, secondary_type]
         columns:
           - name: release_group
             tests: [not_null]
@@ -232,7 +235,8 @@ sources:
       - name: release_group_tag
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [release_group, tag]
+              arguments:
+                combination_of_columns: [release_group, tag]
         columns:
           - name: release_group
             tests: [not_null]
@@ -254,7 +258,8 @@ sources:
       - name: release_tag
         tests:
           - dbt_utils.unique_combination_of_columns:
-              combination_of_columns: [release, tag]
+              arguments:
+                combination_of_columns: [release, tag]
         columns:
           - name: release
             tests: [not_null]
